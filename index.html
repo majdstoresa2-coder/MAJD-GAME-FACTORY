@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>MAJD GAMES</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      background: #07111d;
+      color: #ffffff;
+      font-family: Arial, Tahoma, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top right, #17314c 0, transparent 35%),
+        radial-gradient(circle at bottom left, #10273b 0, transparent 35%),
+        #07111d;
+    }
+
+    #app {
+      width: 100%;
+      min-height: 100vh;
+      padding: 18px;
+    }
+
+    .container {
+      width: min(1200px, 100%);
+      margin: 0 auto;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 20px;
+      border: 1px solid #29435d;
+      border-radius: 18px;
+      background: rgba(10, 24, 39, 0.94);
+      margin-bottom: 18px;
+    }
+
+    .brand h1 {
+      font-size: 28px;
+      margin-bottom: 6px;
+    }
+
+    .brand p {
+      color: #9fb4c8;
+      font-size: 14px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: #0b2c20;
+      border: 1px solid #245d45;
+      color: #8df0bd;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #40d88b;
+      box-shadow: 0 0 14px #40d88b;
+    }
+
+    .hero {
+      padding: 28px;
+      border: 1px solid #29435d;
+      border-radius: 20px;
+      background: rgba(8, 20, 33, 0.95);
+      margin-bottom: 18px;
+    }
+
+    .hero h2 {
+      font-size: 30px;
+      margin-bottom: 12px;
+    }
+
+    .hero p {
+      color: #aabed0;
+      line-height: 1.9;
+      max-width: 850px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      border: 1px solid #29435d;
+      background: rgba(10, 24, 39, 0.92);
+      border-radius: 16px;
+      padding: 18px;
+      min-height: 120px;
+    }
+
+    .card .label {
+      color: #93abc0;
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+
+    .card .value {
+      font-size: 23px;
+      font-weight: bold;
+    }
+
+    .ok {
+      color: #62e6a2;
+    }
+
+    .section {
+      border: 1px solid #29435d;
+      background: rgba(10, 24, 39, 0.92);
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 18px;
+    }
+
+    .section h3 {
+      margin-bottom: 16px;
+      font-size: 20px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    button {
+      border: 1px solid #31516e;
+      border-radius: 12px;
+      background: #10283e;
+      color: white;
+      padding: 14px;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    button:hover {
+      background: #173754;
+    }
+
+    .console {
+      margin-top: 16px;
+      background: #03080e;
+      border: 1px solid #21374b;
+      border-radius: 12px;
+      padding: 16px;
+      min-height: 170px;
+      direction: ltr;
+      text-align: left;
+      font-family: monospace;
+      line-height: 1.8;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+
+    .footer {
+      text-align: center;
+      color: #728ba0;
+      padding: 14px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 850px) {
+      .grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .actions {
+        grid-template-columns: 1fr;
+      }
+
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #app {
+        padding: 10px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        padding: 20px;
+      }
+
+      .hero h2 {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main id="app">
+    <div class="container">
+
+      <header class="header">
+        <div class="brand">
+          <h1>MAJD GAMES</h1>
+          <p>واجهة الاختبار الفعلية لمستودع الألعاب</p>
+        </div>
+
+        <div class="status">
+          <span class="dot"></span>
+          REPOSITORY WEB ENTRY READY
+        </div>
+      </header>
+
+      <section class="hero">
+        <h2>اختبار ربط MAJD GAMES</h2>
+
+        <p>
+          هذا الملف هو نقطة دخول Web حقيقية لاختبار أن مستودع majd_games
+          يحتوي على index.html صالح للنشر، وأن GitHub Pages أو مسار البناء
+          يستطيع العثور عليه وتشغيله بدون الاعتماد على مستودع السيادة.
+        </p>
+      </section>
+
+      <section class="grid">
+
+        <div class="card">
+          <div class="label">Repository Entry</div>
+          <div class="value ok">FOUND</div>
+        </div>
+
+        <div class="card">
+          <div class="label">HTML</div>
+          <div class="value ok">READY</div>
+        </div>
+
+        <div class="card">
+          <div class="label">JavaScript</div>
+          <div class="value ok">READY</div>
+        </div>
+
+        <div class="card">
+          <div class="label">Test</div>
+          <div class="value" id="test-status">WAITING</div>
+        </div>
+
+      </section>
+
+      <section class="section">
+        <h3>اختبار المستودع</h3>
+
+        <div class="actions">
+          <button id="run-test">تشغيل الاختبار</button>
+          <button id="browser-test">معلومات المتصفح</button>
+          <button id="clear-test">مسح النتائج</button>
+        </div>
+
+        <div id="console" class="console">MAJD GAMES REPOSITORY TEST
+---------------------------
+index.html loaded.
+Waiting for test...</div>
+      </section>
+
+      <footer class="footer">
+        MAJD GAMES — SOVEREIGN WEB ENTRY TEST
+      </footer>
+
+    </div>
+  </main>
+
+  <script>
+    "use strict";
+
+    const consoleBox =
+      document.getElementById("console");
+
+    const statusBox =
+      document.getElementById("test-status");
+
+    function log(message) {
+      const time =
+        new Date().toLocaleTimeString();
+
+      consoleBox.textContent +=
+        "\n[" + time + "] " + message;
+
+      consoleBox.scrollTop =
+        consoleBox.scrollHeight;
+    }
+
+    function setStatus(
+      text,
+      success
+    ) {
+      statusBox.textContent = text;
+
+      if (success) {
+        statusBox.classList.add("ok");
+      } else {
+        statusBox.classList.remove("ok");
+      }
+    }
+
+    async function runTest() {
+      log("Starting MAJD GAMES repository test...");
+
+      const checks = {
+        document:
+          typeof document !== "undefined",
+
+        body:
+          !!document.body,
+
+        javascript:
+          true,
+
+        fetch:
+          typeof fetch === "function",
+
+        localStorage:
+          typeof localStorage !== "undefined",
+
+        viewport:
+          window.innerWidth > 0 &&
+          window.innerHeight > 0,
+
+        indexPath:
+          location.pathname.length > 0
+      };
+
+      let success = true;
+
+      for (
+        const [name, passed]
+        of Object.entries(checks)
+      ) {
+        log(
+          (passed ? "PASS" : "FAIL") +
+          " - " +
+          name
+        );
+
+        if (!passed) {
+          success = false;
+        }
+      }
+
+      if (success) {
+        setStatus(
+          "PASSED",
+          true
+        );
+
+        log("---------------------------");
+        log("MAJD GAMES WEB ENTRY PASSED");
+        log("index.html is operational.");
+      } else {
+        setStatus(
+          "FAILED",
+          false
+        );
+
+        log("---------------------------");
+        log("MAJD GAMES WEB ENTRY FAILED");
+      }
+    }
+
+    function browserTest() {
+      log("Browser test:");
+      log(
+        "URL: " +
+        location.href
+      );
+
+      log(
+        "Protocol: " +
+        location.protocol
+      );
+
+      log(
+        "Host: " +
+        location.host
+      );
+
+      log(
+        "Path: " +
+        location.pathname
+      );
+
+      log(
+        "Viewport: " +
+        window.innerWidth +
+        "x" +
+        window.innerHeight
+      );
+    }
+
+    function clearTest() {
+      consoleBox.textContent =
+`MAJD GAMES REPOSITORY TEST
+---------------------------
+Console cleared.`;
+
+      setStatus(
+        "WAITING",
+        false
+      );
+    }
+
+    document
+      .getElementById("run-test")
+      .addEventListener(
+        "click",
+        runTest
+      );
+
+    document
+      .getElementById("browser-test")
+      .addEventListener(
+        "click",
+        browserTest
+      );
+
+    document
+      .getElementById("clear-test")
+      .addEventListener(
+        "click",
+        clearTest
+      );
+
+    window.addEventListener(
+      "load",
+      () => {
+        log(
+          "index.html loaded successfully."
+        );
+      }
+    );
+  </script>
+</body>
+  </html>
