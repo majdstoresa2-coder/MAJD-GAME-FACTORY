@@ -102,6 +102,84 @@
       max-width: 850px;
     }
 
+    .games {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .game-card {
+      overflow: hidden;
+      border: 1px solid #31536c;
+      border-radius: 18px;
+      background: rgba(8, 23, 37, 0.96);
+    }
+
+    .game-cover {
+      min-height: 220px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+      background:
+        radial-gradient(circle at center, rgba(135, 220, 255, .25), transparent 40%),
+        linear-gradient(180deg, #244c66, #102636);
+    }
+
+    .game-cover .symbol {
+      font-size: 80px;
+      filter: drop-shadow(0 8px 20px rgba(0,0,0,.35));
+    }
+
+    .game-body {
+      padding: 18px;
+    }
+
+    .game-body h3 {
+      font-size: 23px;
+      margin-bottom: 8px;
+    }
+
+    .game-body p {
+      color: #a9bdcc;
+      line-height: 1.8;
+      margin-bottom: 14px;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-bottom: 15px;
+    }
+
+    .tag {
+      padding: 6px 10px;
+      border: 1px solid #365b75;
+      border-radius: 999px;
+      background: #0d293e;
+      color: #acd4ea;
+      font-size: 12px;
+    }
+
+    .play-button {
+      width: 100%;
+      border: 1px solid #3e8aad;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #1a6d92, #104965);
+      color: white;
+      padding: 14px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .play-button:hover {
+      background: linear-gradient(180deg, #2282aa, #145b7c);
+    }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -188,6 +266,10 @@
     }
 
     @media (max-width: 850px) {
+      .games {
+        grid-template-columns: 1fr;
+      }
+
       .grid {
         grid-template-columns: repeat(2, 1fr);
       }
@@ -218,6 +300,10 @@
       .hero h2 {
         font-size: 24px;
       }
+
+      .game-cover {
+        min-height: 180px;
+      }
     }
   </style>
 </head>
@@ -229,23 +315,55 @@
       <header class="header">
         <div class="brand">
           <h1>MAJD GAMES</h1>
-          <p>واجهة الاختبار الفعلية لمستودع الألعاب</p>
+          <p>مصنع ألعاب مجد — الألعاب الأصلية والتجارب القابلة للتشغيل</p>
         </div>
 
         <div class="status">
           <span class="dot"></span>
-          REPOSITORY WEB ENTRY READY
+          GAME FACTORY ONLINE
         </div>
       </header>
 
       <section class="hero">
-        <h2>اختبار ربط MAJD GAMES</h2>
+        <h2>مركز ألعاب مجد</h2>
 
         <p>
-          هذا الملف هو نقطة دخول Web حقيقية لاختبار أن مستودع majd_games
-          يحتوي على index.html صالح للنشر، وأن GitHub Pages أو مسار البناء
-          يستطيع العثور عليه وتشغيله بدون الاعتماد على مستودع السيادة.
+          هذه هي واجهة مصنع الألعاب المستقل. من هنا يتم عرض الألعاب التي
+          ينتجها MAJD GAME FACTORY وتجربتها على الجوال والكمبيوتر.
+          جميع الألعاب التي تظهر هنا مصممة بهوية مجد الخاصة.
         </p>
+      </section>
+
+      <section class="games">
+
+        <article class="game-card">
+          <div class="game-cover">
+            <div class="symbol">❄️👑</div>
+          </div>
+
+          <div class="game-body">
+            <h3>سيادة الشتاء</h3>
+
+            <p>
+              لعبة استراتيجية وبقاء أصلية من مجد. ابنِ مدينتك في عالم
+              متجمد، اجمع الموارد، طوّر القادة والجيش، استكشف الأراضي
+              وواجه أخطار الشتاء.
+            </p>
+
+            <div class="tags">
+              <span class="tag">استراتيجية</span>
+              <span class="tag">بقاء</span>
+              <span class="tag">مدينة</span>
+              <span class="tag">قادة</span>
+              <span class="tag">تحالفات</span>
+            </div>
+
+            <button class="play-button" id="play-winter">
+              تشغيل سيادة الشتاء
+            </button>
+          </div>
+        </article>
+
       </section>
 
       <section class="grid">
@@ -256,7 +374,7 @@
         </div>
 
         <div class="card">
-          <div class="label">HTML</div>
+          <div class="label">Winter Sovereignty</div>
           <div class="value ok">READY</div>
         </div>
 
@@ -273,7 +391,7 @@
       </section>
 
       <section class="section">
-        <h3>اختبار المستودع</h3>
+        <h3>اختبار مصنع الألعاب</h3>
 
         <div class="actions">
           <button id="run-test">تشغيل الاختبار</button>
@@ -281,14 +399,15 @@
           <button id="clear-test">مسح النتائج</button>
         </div>
 
-        <div id="console" class="console">MAJD GAMES REPOSITORY TEST
+        <div id="console" class="console">MAJD GAME FACTORY TEST
 ---------------------------
 index.html loaded.
+Winter Sovereignty entry configured.
 Waiting for test...</div>
       </section>
 
       <footer class="footer">
-        MAJD GAMES — SOVEREIGN WEB ENTRY TEST
+        MAJD GAMES — GAME FACTORY
       </footer>
 
     </div>
@@ -296,6 +415,9 @@ Waiting for test...</div>
 
   <script>
     "use strict";
+
+    const GAME_PATH =
+      "./public/games/winter-sovereignty.html";
 
     const consoleBox =
       document.getElementById("console");
@@ -327,8 +449,19 @@ Waiting for test...</div>
       }
     }
 
+    function openWinterSovereignty() {
+      log(
+        "Opening Winter Sovereignty..."
+      );
+
+      window.location.href =
+        GAME_PATH;
+    }
+
     async function runTest() {
-      log("Starting MAJD GAMES repository test...");
+      log(
+        "Starting MAJD GAME FACTORY test..."
+      );
 
       const checks = {
         document:
@@ -371,28 +504,74 @@ Waiting for test...</div>
         }
       }
 
+      try {
+        const response =
+          await fetch(
+            GAME_PATH,
+            {
+              cache: "no-store"
+            }
+          );
+
+        const gameReady =
+          response.ok;
+
+        log(
+          (gameReady ? "PASS" : "FAIL") +
+          " - winter-sovereignty.html"
+        );
+
+        if (!gameReady) {
+          success = false;
+        }
+      } catch (error) {
+        success = false;
+
+        log(
+          "FAIL - winter-sovereignty.html"
+        );
+
+        log(
+          String(error)
+        );
+      }
+
       if (success) {
         setStatus(
           "PASSED",
           true
         );
 
-        log("---------------------------");
-        log("MAJD GAMES WEB ENTRY PASSED");
-        log("index.html is operational.");
+        log(
+          "---------------------------"
+        );
+
+        log(
+          "MAJD GAME FACTORY TEST PASSED"
+        );
+
+        log(
+          "Winter Sovereignty is reachable."
+        );
       } else {
         setStatus(
           "FAILED",
           false
         );
 
-        log("---------------------------");
-        log("MAJD GAMES WEB ENTRY FAILED");
+        log(
+          "---------------------------"
+        );
+
+        log(
+          "MAJD GAME FACTORY TEST FAILED"
+        );
       }
     }
 
     function browserTest() {
       log("Browser test:");
+
       log(
         "URL: " +
         location.href
@@ -419,11 +598,16 @@ Waiting for test...</div>
         "x" +
         window.innerHeight
       );
+
+      log(
+        "Game path: " +
+        GAME_PATH
+      );
     }
 
     function clearTest() {
       consoleBox.textContent =
-`MAJD GAMES REPOSITORY TEST
+`MAJD GAME FACTORY TEST
 ---------------------------
 Console cleared.`;
 
@@ -432,6 +616,15 @@ Console cleared.`;
         false
       );
     }
+
+    document
+      .getElementById(
+        "play-winter"
+      )
+      .addEventListener(
+        "click",
+        openWinterSovereignty
+      );
 
     document
       .getElementById("run-test")
@@ -460,8 +653,12 @@ Console cleared.`;
         log(
           "index.html loaded successfully."
         );
+
+        log(
+          "Winter Sovereignty launch path ready."
+        );
       }
     );
   </script>
 </body>
-  </html>
+</html>
