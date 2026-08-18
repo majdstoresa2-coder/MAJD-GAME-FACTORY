@@ -1,0 +1,1340 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+  <title>سيادة الشتاء | MAJD</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --bg: #07121d;
+      --panel: rgba(9, 27, 43, 0.94);
+      --border: #31566f;
+      --ice: #71d9ff;
+      --gold: #f5c55c;
+      --green: #65e6a3;
+      --red: #ff6868;
+      --text: #ffffff;
+      --muted: #a9c0d0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      overflow-x: hidden;
+      background: #07121d;
+      color: var(--text);
+      font-family: Arial, Tahoma, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 50% -10%, #285474 0%, transparent 36%),
+        linear-gradient(180deg, #0b2134 0%, #07121d 60%, #040a10 100%);
+    }
+
+    button {
+      font-family: inherit;
+    }
+
+    #game {
+      width: min(1200px, 100%);
+      min-height: 100vh;
+      margin: auto;
+      padding: 12px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 7px;
+      margin-bottom: 10px;
+    }
+
+    .resource {
+      min-height: 62px;
+      padding: 8px 5px;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      background: rgba(7, 24, 39, 0.95);
+      text-align: center;
+    }
+
+    .resource .icon {
+      font-size: 20px;
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .resource .number {
+      font-size: 15px;
+      font-weight: bold;
+    }
+
+    .resource .name {
+      color: var(--muted);
+      font-size: 10px;
+      margin-top: 2px;
+    }
+
+    .world {
+      position: relative;
+      width: 100%;
+      min-height: 570px;
+      overflow: hidden;
+      border: 1px solid #365b74;
+      border-radius: 22px;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(255,255,255,.13) 0 2px, transparent 3px),
+        radial-gradient(circle at 70% 35%, rgba(255,255,255,.10) 0 2px, transparent 3px),
+        linear-gradient(180deg, #9bc9df 0%, #789fb7 45%, #56778d 100%);
+      box-shadow: inset 0 0 70px rgba(4, 15, 25, .45);
+    }
+
+    .mountains {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 180px;
+      opacity: .55;
+      background:
+        linear-gradient(135deg, transparent 40%, #d9edf5 41% 53%, transparent 54%) 0 0/180px 140px,
+        linear-gradient(225deg, transparent 40%, #bdd9e7 41% 53%, transparent 54%) 80px 15px/190px 150px;
+    }
+
+    .snow {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .flake {
+      position: absolute;
+      top: -20px;
+      color: rgba(255,255,255,.85);
+      animation: fall linear infinite;
+    }
+
+    @keyframes fall {
+      to {
+        transform: translateY(650px) rotate(360deg);
+      }
+    }
+
+    .city {
+      position: absolute;
+      width: 250px;
+      height: 250px;
+      left: 50%;
+      top: 48%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle,
+          rgba(85, 225, 255, .25) 0 39%,
+          rgba(32, 132, 176, .18) 40% 53%,
+          transparent 54%);
+      border: 2px solid rgba(106, 223, 255, .42);
+      box-shadow:
+        0 0 30px rgba(85, 218, 255, .45),
+        inset 0 0 40px rgba(97, 227, 255, .15);
+    }
+
+    .citadel {
+      position: absolute;
+      width: 130px;
+      height: 130px;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 35% 35% 28% 28%;
+      background:
+        linear-gradient(90deg, transparent 0 12%, #2b4354 13% 25%, transparent 26% 74%, #2b4354 75% 87%, transparent 88%),
+        linear-gradient(180deg, #d7e8ef 0 20%, #526d7e 21% 65%, #273e4e 66%);
+      border: 4px solid #1f3442;
+      box-shadow:
+        0 12px 20px rgba(0,0,0,.35),
+        0 0 22px rgba(101, 225, 255, .55);
+    }
+
+    .citadel::before {
+      content: "♛";
+      position: absolute;
+      left: 50%;
+      top: -40px;
+      transform: translateX(-50%);
+      color: var(--gold);
+      font-size: 58px;
+      text-shadow: 0 0 18px rgba(245, 197, 92, .65);
+    }
+
+    .citadel::after {
+      content: "";
+      position: absolute;
+      width: 38px;
+      height: 52px;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%);
+      border-radius: 18px 18px 0 0;
+      background: #ff9e3d;
+      box-shadow: 0 0 25px #ff8b32;
+    }
+
+    .city-title {
+      position: absolute;
+      left: 50%;
+      bottom: -42px;
+      transform: translateX(-50%);
+      width: 240px;
+      text-align: center;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 0 2px 5px #000;
+    }
+
+    .level {
+      display: inline-block;
+      margin-top: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      color: #ffe39a;
+      background: rgba(0,0,0,.38);
+      font-size: 12px;
+    }
+
+    .building {
+      position: absolute;
+      width: 78px;
+      min-height: 70px;
+      padding: 7px;
+      border: 1px solid rgba(255,255,255,.5);
+      border-radius: 15px;
+      background: rgba(17, 50, 68, .86);
+      box-shadow: 0 8px 15px rgba(0,0,0,.25);
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .building:active {
+      transform: scale(.95);
+    }
+
+    .building .bicon {
+      display: block;
+      font-size: 30px;
+    }
+
+    .building .bname {
+      display: block;
+      font-size: 11px;
+      margin-top: 3px;
+    }
+
+    .building .blevel {
+      color: #ffe19a;
+      font-size: 10px;
+    }
+
+    #sawmill {
+      top: 19%;
+      right: 7%;
+    }
+
+    #mine {
+      top: 20%;
+      left: 7%;
+    }
+
+    #farm {
+      bottom: 13%;
+      right: 8%;
+    }
+
+    #barracks {
+      bottom: 13%;
+      left: 8%;
+    }
+
+    .temperature {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 9px 18px;
+      border-radius: 15px;
+      background: rgba(8, 31, 49, .85);
+      border: 1px solid #82d7f7;
+      font-weight: bold;
+      color: #c9f1ff;
+    }
+
+    .temperature.danger {
+      color: #ffb6b6;
+      border-color: #ff7777;
+    }
+
+    .side-actions {
+      position: absolute;
+      top: 80px;
+      right: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .side-button {
+      width: 48px;
+      height: 48px;
+      border: 1px solid #9ad9f2;
+      border-radius: 13px;
+      background: rgba(13, 49, 73, .88);
+      color: #fff;
+      font-size: 22px;
+      cursor: pointer;
+    }
+
+    .missions {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(92%, 650px);
+      padding: 10px 13px;
+      border-radius: 13px;
+      background: rgba(4, 19, 31, .88);
+      border: 1px solid #466a80;
+      text-align: center;
+      font-size: 12px;
+    }
+
+    .progress {
+      height: 7px;
+      background: #172c39;
+      border-radius: 20px;
+      overflow: hidden;
+      margin-top: 7px;
+    }
+
+    .progress-fill {
+      width: 10%;
+      height: 100%;
+      background: linear-gradient(90deg, #52c6ff, #8ee8ff);
+      transition: width .4s;
+    }
+
+    .nav {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .nav button {
+      min-height: 70px;
+      padding: 7px 3px;
+      color: #dcecf5;
+      border: 1px solid #31536b;
+      border-radius: 13px;
+      background: #0b2234;
+      cursor: pointer;
+    }
+
+    .nav button span {
+      display: block;
+      font-size: 25px;
+      margin-bottom: 4px;
+    }
+
+    .nav button small {
+      font-size: 10px;
+    }
+
+    .nav button:hover,
+    .nav button:active {
+      background: #123a55;
+    }
+
+    .panel {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      padding: 18px;
+      background: rgba(0, 8, 15, .83);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .panel.active {
+      display: flex;
+    }
+
+    .panel-box {
+      width: min(550px, 100%);
+      max-height: 88vh;
+      overflow-y: auto;
+      border: 1px solid #416d89;
+      border-radius: 20px;
+      padding: 20px;
+      background: #0b2031;
+      box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    }
+
+    .panel-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .close {
+      border: 0;
+      color: #fff;
+      background: #a93636;
+      border-radius: 9px;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+
+    .panel-card {
+      margin-bottom: 10px;
+      padding: 14px;
+      border: 1px solid #2d5068;
+      border-radius: 13px;
+      background: #0e2a40;
+    }
+
+    .panel-card h4 {
+      margin-bottom: 7px;
+    }
+
+    .panel-card p {
+      color: #b1c7d5;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .action {
+      width: 100%;
+      margin-top: 10px;
+      padding: 11px;
+      border: 1px solid #39769a;
+      border-radius: 10px;
+      background: #145174;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .gold-action {
+      border-color: #947234;
+      background: #71501c;
+    }
+
+    .danger-action {
+      border-color: #914747;
+      background: #6b2929;
+    }
+
+    .log {
+      position: fixed;
+      z-index: 200;
+      top: 15px;
+      left: 50%;
+      transform: translate(-50%, -150%);
+      width: min(90%, 500px);
+      padding: 12px;
+      border: 1px solid #6dc8eb;
+      border-radius: 12px;
+      background: #0c293b;
+      text-align: center;
+      transition: .3s;
+      box-shadow: 0 10px 30px rgba(0,0,0,.4);
+    }
+
+    .log.show {
+      transform: translate(-50%, 0);
+    }
+
+    @media (max-width: 600px) {
+      #game {
+        padding: 5px;
+      }
+
+      .topbar {
+        gap: 3px;
+      }
+
+      .resource {
+        min-height: 55px;
+        padding: 6px 2px;
+      }
+
+      .resource .number {
+        font-size: 12px;
+      }
+
+      .resource .name {
+        font-size: 8px;
+      }
+
+      .world {
+        min-height: 570px;
+        border-radius: 14px;
+      }
+
+      .city {
+        width: 210px;
+        height: 210px;
+      }
+
+      .citadel {
+        width: 110px;
+        height: 110px;
+      }
+
+      .building {
+        width: 68px;
+        min-height: 64px;
+      }
+
+      .nav button {
+        min-height: 61px;
+      }
+
+      .nav button span {
+        font-size: 21px;
+      }
+
+      .nav button small {
+        font-size: 8px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="notice" class="log">
+    تم تنفيذ الأمر
+  </div>
+
+  <main id="game">
+
+    <section class="topbar">
+
+      <div class="resource">
+        <span class="icon">💎</span>
+        <span class="number" id="gems">250</span>
+        <div class="name">بلورات السيادة</div>
+      </div>
+
+      <div class="resource">
+        <span class="icon">🪙</span>
+        <span class="number" id="gold">5,000</span>
+        <div class="name">ذهب</div>
+      </div>
+
+      <div class="resource">
+        <span class="icon">🪵</span>
+        <span class="number" id="wood">4,000</span>
+        <div class="name">خشب</div>
+      </div>
+
+      <div class="resource">
+        <span class="icon">🥩</span>
+        <span class="number" id="food">3,500</span>
+        <div class="name">مؤن</div>
+      </div>
+
+      <div class="resource">
+        <span class="icon">👥</span>
+        <span class="number" id="population">120</span>
+        <div class="name">السكان</div>
+      </div>
+
+    </section>
+
+    <section class="world">
+
+      <div class="mountains"></div>
+      <div class="snow" id="snow"></div>
+
+      <div class="temperature" id="temperature">
+        ❄️ -18°C
+      </div>
+
+      <div class="side-actions">
+        <button class="side-button" onclick="openPanel('missionsPanel')">📜</button>
+        <button class="side-button" onclick="collectAll()">🎁</button>
+        <button class="side-button" onclick="openPanel('eventsPanel')">⚡</button>
+      </div>
+
+      <div class="building" id="sawmill" onclick="collect('wood')">
+        <span class="bicon">🪵</span>
+        <span class="bname">منشرة الشمال</span>
+        <span class="blevel">المستوى 1</span>
+      </div>
+
+      <div class="building" id="mine" onclick="collect('gold')">
+        <span class="bicon">⛏️</span>
+        <span class="bname">منجم التاج</span>
+        <span class="blevel">المستوى 1</span>
+      </div>
+
+      <div class="city">
+        <div class="citadel"></div>
+
+        <div class="city-title">
+          قلعة عرش الشتاء
+          <br />
+          <span class="level">
+            المستوى <span id="cityLevel">1</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="building" id="farm" onclick="collect('food')">
+        <span class="bicon">🥩</span>
+        <span class="bname">مخزن المؤن</span>
+        <span class="blevel">المستوى 1</span>
+      </div>
+
+      <div class="building" id="barracks" onclick="openPanel('armyPanel')">
+        <span class="bicon">⚔️</span>
+        <span class="bname">حرس العرش</span>
+        <span class="blevel">المستوى 1</span>
+      </div>
+
+      <div class="missions">
+        <strong id="missionText">
+          المهمة: اجمع 1,000 من موارد المملكة
+        </strong>
+
+        <div class="progress">
+          <div class="progress-fill" id="missionProgress"></div>
+        </div>
+      </div>
+
+    </section>
+
+    <nav class="nav">
+
+      <button onclick="showNotice('أنت بالفعل داخل المدينة')">
+        <span>🏰</span>
+        <small>المدينة</small>
+      </button>
+
+      <button onclick="openPanel('worldPanel')">
+        <span>🗺️</span>
+        <small>العالم</small>
+      </button>
+
+      <button onclick="openPanel('alliancePanel')">
+        <span>🛡️</span>
+        <small>التحالف</small>
+      </button>
+
+      <button onclick="openPanel('heroesPanel')">
+        <span>👑</span>
+        <small>القادة</small>
+      </button>
+
+      <button onclick="openPanel('storePanel')">
+        <span>🛒</span>
+        <small>المتجر</small>
+      </button>
+
+      <button onclick="openPanel('explorePanel')">
+        <span>⚔️</span>
+        <small>الاستكشاف</small>
+      </button>
+
+    </nav>
+
+  </main>
+
+  <!-- WORLD -->
+
+  <div class="panel" id="worldPanel">
+    <div class="panel-box">
+
+      <div class="panel-title">
+        <h3>🗺️ عالم عرش الشتاء</h3>
+        <button class="close" onclick="closePanels()">إغلاق</button>
+      </div>
+
+      <div class="panel-card">
+        <h4>منطقة المملكة</h4>
+        <p>
+          مدينتك تقع في قلب الأراضي الشمالية.
+          سيتم لاحقًا توسيع العالم إلى مدن لاعبين ومناطق موارد
+          وحصون وأراضٍ محايدة.
+        </p>
+      </div>
+
+      <button class="action" onclick="exploreWorld()">
+        استكشاف الأراضي
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ALLIANCE -->
+
+  <div class="panel" id="alliancePanel">
+    <div class="panel-box">
+
+      <div class="panel-title">
+        <h3>🛡️ تحالفات العرش</h3>
+        <button class="close" onclick="closePanels()">إغلاق</button>
+      </div>
+
+      <div class="panel-card">
+        <h4>حالة التحالف</h4>
+        <p id="allianceStatus">
+          لست عضوًا في تحالف حاليًا.
+        </p>
+      </div>
+
+      <button class="action" onclick="createAlliance()">
+        إنشاء تحالف
+      </button>
+
+    </div>
+  </div>
+
+  <!-- HEROES -->
+
+  <div class="panel" id="heroesPanel">
+    <div class="panel-box">
+
+      <div class="panel-title">
+        <h3>👑 قادة مجد</h3>
+        <button class="close" onclick="closePanels()">إغلاق</button>
+      </div>
+
+      <div class="panel-card">
+        <h4>قائد حرس العرش</h4>
+        <p>
+          القوة: <strong id="heroPower">120</strong><br />
+          المستوى: <strong id="heroLevel">1</strong><br />
+          التخصص: حماية المدينة والقتال في البيئات القاسية.
+        </p>
+
+        <button class="action" onclick="upgradeHero()">
+          ترقية القائد — 500 ذهب
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- STORE -->
+
+  <div class="panel" id="storePanel">
+    <div class="panel-box">
+
+      <div class="panel-title">
+        <h3>🛒 متجر مجد</h3>
+        <button class="close" onclick="closePanels()">إغلاق</button>
+      </div>
+
+      <div class="panel-card">
+        <h4>حزمة موارد المملكة</h4>
+        <p>
+          +1,000 خشب<br />
+          +1,000 مؤن<br />
+          +1,000 ذهب
+        </p>
+
+        <button class="action gold-action" onclick="buyResourcePack()">
+          شراء بـ 50 بلورة
+        </button>
+      </div>
+
+      <div class="panel-card">
+        <h4>صندوق القائد</h4>
+        <p>
+          يمنح موارد إضافية وترقية لقوة قائد المملكة.
+        </p>
+
+        <button class="action gold-action" onclick="buyHeroPack()">
+          شراء بـ 100 بلورة
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- EXPLORE -->
+
+  <div class="panel" id="explorePanel">
+    <div class="panel-box">
+
+      <div class="panel-title">
+        <h3>⚔️ الاستكشاف</h3>
+        <button class="close" onclick="closePanels()">إغلاق</button>
+      </div>
+
+      <div class="panel-card">
+        <h4>وحوش السهل الأبيض</h4>
+        <p>
+          مستوى الخطر: 1<br />
+          المكافأة: ذهب + مؤن.
+        </p>
+
+        <button class="action danger-action" onclick="battle()">
+          بدء المعركة
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ARMY -->
+
+  <div class="panel" id="armyPanel">
+    <div class="panel-box">
+
+      <div class="panel-title">
+        <h3>⚔️ حرس العرش</h3>
+        <button class="close" onclick="closePanels()">إغلاق</button>
+      </div>
+
+      <div class="panel-card">
+        <h4>القوات</h4>
+        <p>
+          عدد الجنود:
+          <strong id="soldiers">20</strong>
+        </p>
+
+        <button class="action" onclick="trainSoldiers()">
+          تدريب 10 جنود — 300 مؤن + 200 ذهب
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MISSIONS -->
+
+  <div class="panel" id="missionsPanel">
+    <div class="panel-box">
+
+      <div class="panel-title">
+        <h3>📜 مهام المملكة</h3>
+        <button class="close" onclick="closePanels()">إغلاق</button>
+      </div>
+
+      <div class="panel-card">
+        <h4>جامع الموارد</h4>
+        <p>
+          اجمع الموارد من منشآت مدينتك حتى تصل إلى
+          1,000 نقطة تقدم.
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- EVENTS -->
+
+  <div class="panel" id="eventsPanel">
+    <div class="panel-box">
+
+      <div class="panel-title">
+        <h3>⚡ أحداث الشتاء</h3>
+        <button class="close" onclick="closePanels()">إغلاق</button>
+      </div>
+
+      <div class="panel-card">
+        <h4>العاصفة الشمالية</h4>
+        <p>
+          انخفضت درجة الحرارة.
+          حافظ على مخزون المملكة واستعد للموجة القادمة.
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    "use strict";
+
+    const state = {
+      gems: 250,
+      gold: 5000,
+      wood: 4000,
+      food: 3500,
+      population: 120,
+
+      soldiers: 20,
+
+      cityLevel: 1,
+
+      heroLevel: 1,
+      heroPower: 120,
+
+      temperature: -18,
+
+      mission: 100,
+
+      alliance: false
+    };
+
+    const numberFormat =
+      new Intl.NumberFormat("en-US");
+
+    function updateUI() {
+      document.getElementById("gems").textContent =
+        numberFormat.format(state.gems);
+
+      document.getElementById("gold").textContent =
+        numberFormat.format(state.gold);
+
+      document.getElementById("wood").textContent =
+        numberFormat.format(state.wood);
+
+      document.getElementById("food").textContent =
+        numberFormat.format(state.food);
+
+      document.getElementById("population").textContent =
+        numberFormat.format(state.population);
+
+      document.getElementById("soldiers").textContent =
+        numberFormat.format(state.soldiers);
+
+      document.getElementById("cityLevel").textContent =
+        state.cityLevel;
+
+      document.getElementById("heroLevel").textContent =
+        state.heroLevel;
+
+      document.getElementById("heroPower").textContent =
+        numberFormat.format(state.heroPower);
+
+      const progress =
+        Math.min(100, state.mission / 10);
+
+      document.getElementById("missionProgress").style.width =
+        progress + "%";
+
+      const temperature =
+        document.getElementById("temperature");
+
+      temperature.textContent =
+        "❄️ " + state.temperature + "°C";
+
+      if (state.temperature <= -30) {
+        temperature.classList.add("danger");
+      } else {
+        temperature.classList.remove("danger");
+      }
+    }
+
+    function showNotice(message) {
+      const notice =
+        document.getElementById("notice");
+
+      notice.textContent = message;
+      notice.classList.add("show");
+
+      clearTimeout(window.noticeTimer);
+
+      window.noticeTimer =
+        setTimeout(() => {
+          notice.classList.remove("show");
+        }, 2200);
+    }
+
+    function openPanel(id) {
+      closePanels();
+
+      const panel =
+        document.getElementById(id);
+
+      if (panel) {
+        panel.classList.add("active");
+      }
+    }
+
+    function closePanels() {
+      document
+        .querySelectorAll(".panel")
+        .forEach(panel => {
+          panel.classList.remove("active");
+        });
+    }
+
+    function collect(type) {
+      const amount =
+        120 + Math.floor(Math.random() * 100);
+
+      state[type] += amount;
+      state.mission += amount;
+
+      const names = {
+        wood: "الخشب",
+        gold: "الذهب",
+        food: "المؤن"
+      };
+
+      showNotice(
+        "تم جمع " +
+        numberFormat.format(amount) +
+        " من " +
+        names[type]
+      );
+
+      checkMission();
+      updateUI();
+      saveGame();
+    }
+
+    function collectAll() {
+      state.wood += 200;
+      state.gold += 150;
+      state.food += 200;
+
+      state.mission += 550;
+
+      showNotice(
+        "🎁 تم جمع إنتاج المدينة"
+      );
+
+      checkMission();
+      updateUI();
+      saveGame();
+    }
+
+    function checkMission() {
+      if (state.mission >= 1000) {
+        state.gold += 500;
+        state.gems += 10;
+        state.mission = 0;
+
+        showNotice(
+          "🏆 اكتملت المهمة: +500 ذهب و +10 بلورات"
+        );
+      }
+    }
+
+    function trainSoldiers() {
+      if (
+        state.food < 300 ||
+        state.gold < 200
+      ) {
+        showNotice(
+          "الموارد غير كافية لتدريب الجنود"
+        );
+        return;
+      }
+
+      state.food -= 300;
+      state.gold -= 200;
+      state.soldiers += 10;
+
+      showNotice(
+        "⚔️ تم تدريب 10 جنود"
+      );
+
+      updateUI();
+      saveGame();
+    }
+
+    function upgradeHero() {
+      if (state.gold < 500) {
+        showNotice(
+          "لا يوجد ذهب كافٍ"
+        );
+        return;
+      }
+
+      state.gold -= 500;
+      state.heroLevel++;
+      state.heroPower += 150;
+
+      showNotice(
+        "👑 تمت ترقية قائد حرس العرش"
+      );
+
+      updateUI();
+      saveGame();
+    }
+
+    function createAlliance() {
+      if (state.alliance) {
+        showNotice(
+          "أنت بالفعل قائد تحالف"
+        );
+        return;
+      }
+
+      state.alliance = true;
+
+      document.getElementById(
+        "allianceStatus"
+      ).textContent =
+        "أنت قائد تحالف عرش مجد.";
+
+      showNotice(
+        "🛡️ تم تأسيس تحالف عرش مجد"
+      );
+
+      saveGame();
+    }
+
+    function exploreWorld() {
+      const reward =
+        100 + Math.floor(Math.random() * 250);
+
+      state.gold += reward;
+
+      showNotice(
+        "🗺️ عثرت على " +
+        reward +
+        " ذهب أثناء الاستكشاف"
+      );
+
+      updateUI();
+      saveGame();
+    }
+
+    function battle() {
+      if (state.soldiers < 5) {
+        showNotice(
+          "تحتاج إلى 5 جنود على الأقل"
+        );
+        return;
+      }
+
+      const power =
+        state.soldiers * 10 +
+        state.heroPower;
+
+      const enemy =
+        180 + Math.floor(Math.random() * 200);
+
+      if (power >= enemy) {
+        const goldReward = 300;
+        const foodReward = 200;
+
+        state.gold += goldReward;
+        state.food += foodReward;
+
+        showNotice(
+          "⚔️ انتصار! +300 ذهب و +200 مؤن"
+        );
+      } else {
+        state.soldiers =
+          Math.max(
+            0,
+            state.soldiers - 3
+          );
+
+        showNotice(
+          "⚔️ انسحب الجيش وخسر 3 جنود"
+        );
+      }
+
+      updateUI();
+      saveGame();
+    }
+
+    function buyResourcePack() {
+      if (state.gems < 50) {
+        showNotice(
+          "بلورات السيادة غير كافية"
+        );
+        return;
+      }
+
+      state.gems -= 50;
+      state.gold += 1000;
+      state.wood += 1000;
+      state.food += 1000;
+
+      showNotice(
+        "🎁 تمت إضافة حزمة الموارد"
+      );
+
+      updateUI();
+      saveGame();
+    }
+
+    function buyHeroPack() {
+      if (state.gems < 100) {
+        showNotice(
+          "بلورات السيادة غير كافية"
+        );
+        return;
+      }
+
+      state.gems -= 100;
+      state.heroPower += 300;
+
+      showNotice(
+        "👑 ازدادت قوة قائد المملكة"
+      );
+
+      updateUI();
+      saveGame();
+    }
+
+    function createSnow() {
+      const snow =
+        document.getElementById("snow");
+
+      for (let i = 0; i < 45; i++) {
+        const flake =
+          document.createElement("span");
+
+        flake.className = "flake";
+        flake.textContent = "•";
+
+        flake.style.left =
+          Math.random() * 100 + "%";
+
+        flake.style.fontSize =
+          8 + Math.random() * 18 + "px";
+
+        flake.style.opacity =
+          .25 + Math.random() * .7;
+
+        flake.style.animationDuration =
+          5 + Math.random() * 10 + "s";
+
+        flake.style.animationDelay =
+          Math.random() * -10 + "s";
+
+        snow.appendChild(flake);
+      }
+    }
+
+    function weatherCycle() {
+      const change =
+        Math.floor(Math.random() * 5) - 2;
+
+      state.temperature += change;
+
+      if (state.temperature < -42) {
+        state.temperature = -42;
+      }
+
+      if (state.temperature > -8) {
+        state.temperature = -8;
+      }
+
+      if (
+        state.temperature <= -32 &&
+        state.food > 0
+      ) {
+        state.food =
+          Math.max(0, state.food - 20);
+      }
+
+      updateUI();
+    }
+
+    function saveGame() {
+      try {
+        localStorage.setItem(
+          "majd-winter-sovereignty",
+          JSON.stringify(state)
+        );
+      } catch (error) {
+        console.warn(
+          "Save unavailable",
+          error
+        );
+      }
+    }
+
+    function loadGame() {
+      try {
+        const saved =
+          localStorage.getItem(
+            "majd-winter-sovereignty"
+          );
+
+        if (!saved) {
+          return;
+        }
+
+        const data =
+          JSON.parse(saved);
+
+        Object.assign(
+          state,
+          data
+        );
+      } catch (error) {
+        console.warn(
+          "Load unavailable",
+          error
+        );
+      }
+    }
+
+    document.addEventListener(
+      "keydown",
+      event => {
+        if (event.key === "Escape") {
+          closePanels();
+        }
+      }
+    );
+
+    document
+      .querySelectorAll(".panel")
+      .forEach(panel => {
+        panel.addEventListener(
+          "click",
+          event => {
+            if (event.target === panel) {
+              closePanels();
+            }
+          }
+        );
+      });
+
+    loadGame();
+    createSnow();
+    updateUI();
+
+    setInterval(
+      weatherCycle,
+      12000
+    );
+
+    setInterval(
+      saveGame,
+      15000
+    );
+
+    window.addEventListener(
+      "beforeunload",
+      saveGame
+    );
+
+    showNotice(
+      "👑 مرحبًا بك في سيادة الشتاء — عالم مجد"
+    );
+  </script>
+
+</body>
+</html>
