@@ -2,6 +2,12 @@ name: MAJD Game Factory Web Test
 
 on:
   workflow_dispatch:
+    inputs:
+      command:
+        description: "MAJD GAME FACTORY COMMAND"
+        required: true
+        type: string
+
   push:
     branches:
       - main
@@ -19,6 +25,30 @@ jobs:
     steps:
       - name: Checkout MAJD Game Factory
         uses: actions/checkout@v4
+
+      # ======================================================
+      # MAJD GAME FACTORY COMMAND
+      # ======================================================
+
+      - name: Receive MAJD Game Factory Command
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          MAJD_FACTORY_COMMAND: ${{ inputs.command }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "${MAJD_FACTORY_COMMAND// }" ]; then
+            echo "ERROR: MAJD Game Factory command is empty."
+            exit 1
+          fi
+
+          echo "========================================"
+          echo "MAJD GAME FACTORY"
+          echo "OWNER COMMAND RECEIVED"
+          echo "========================================"
+          echo "$MAJD_FACTORY_COMMAND"
+          echo "========================================"
 
       - name: Show Repository
         run: |
@@ -136,5 +166,10 @@ jobs:
           echo "HTML structure: VALID"
           echo "Web build: CREATED"
           echo "Artifact: CREATED"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "OWNER COMMAND: RECEIVED"
+          fi
+
           echo ""
           echo "MAJD GAME FACTORY IS READY FOR WEB BUILD"
