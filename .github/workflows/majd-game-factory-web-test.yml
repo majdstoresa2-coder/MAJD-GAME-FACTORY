@@ -25,6 +25,7 @@ jobs:
 
       - name: Install Python Dependencies
         run: |
+          echo "تثبيت المكتبات الأساسية (لتجنب أخطاء منفذ الألعاب والجسر)..."
           pip install numpy openai requests flask pandas
 
       - name: Execute MAJD Full Factory Runtime (05)
