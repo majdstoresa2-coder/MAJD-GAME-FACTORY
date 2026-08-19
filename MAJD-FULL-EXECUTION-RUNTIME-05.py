@@ -6,6 +6,7 @@ MAJD GAME FACTORY
 MAJD-FULL-EXECUTION-RUNTIME-05.py
 =================================
 FULL EXECUTION RUNTIME
+(النسخة النهائية التي تشغّل 03 ثم 04 مباشرة)
 """
 from __future__ import annotations
 
@@ -13,8 +14,10 @@ import argparse
 import importlib.util
 import json
 import sys
+import time
 import traceback
 import uuid
+import re
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,7 +30,6 @@ from typing import Any, Dict, Optional
 
 ROOT_DIR = Path(__file__).resolve().parent
 
-MASTERMIND_FILE = ROOT_DIR / "MAJD-AI-MASTERMIND-01.py"
 REAL_GAME_EXECUTOR_FILE = ROOT_DIR / "MAJD-REAL-GAME-EXECUTOR-03.py"
 OFFICIAL_PLATFORM_BRIDGE_FILE = ROOT_DIR / "MAJD-OFFICIAL-PLATFORM-BRIDGE-04.py"
 
@@ -57,12 +59,7 @@ def save_json(path: Path, data: Dict[str, Any]) -> None:
         json.dump(data, file, ensure_ascii=False, indent=2, default=str)
     temp.replace(path)
 
-
-# ============================================================
-# MODULE LOADER (للملفات 01 و 03 و 04)
-# ============================================================
-
-def load_module(path: Path, module_name: str):
+def load_python_module(path: Path, module_name: str):
     if not path.exists():
         raise FileNotFoundError(f"Required file not found: {path.name}")
     spec = importlib.util.spec_from_file_location(module_name, str(path))
@@ -73,84 +70,102 @@ def load_module(path: Path, module_name: str):
     spec.loader.exec_module(module)
     return module
 
-def find_callable(module: Any, names: tuple[str, ...]) -> Optional[Any]:
-    for name in names:
-        value = getattr(module, name, None)
-        if callable(value):
-            return value
-    return None
-
-def call_supported(function, values: Dict[str, Any]) -> Any:
-    import inspect
-    sig = inspect.signature(function)
-    kwargs = {}
-    accepts_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
-    for key, value in values.items():
-        if accepts_kwargs or key in sig.parameters:
-            kwargs[key] = value
-    return function(**kwargs)
+def safe_name(value: str) -> str:
+    value = str(value or "MAJD-GAME").strip()
+    value = re.sub(r"[^\w\u0600-\u06FF\- ]+", "", value, flags=re.UNICODE)
+    value = re.sub(r"\s+", "-", value).strip("-_")
+    if not value: value = "MAJD-GAME"
+    return value[:80]
 
 
 # ============================================================
-# 1. MASTERMIND RUNTIME (01) - استقبال الأمر مباشرة
+# 1. REAL GAME EXECUTOR (تشغيل 03.py)
 # ============================================================
 
-class MastermindRuntime:
-    FUNCTION_NAMES = ("process_game_request", "execute_game_request", "execute_request")
-    def __init__(self):
-        self.module = load_module(MASTERMIND_FILE, "majd_ai_mastermind_01")
+def execute_real_game_executor(command: str, job_id: str) -> Dict[str, Any]:
+    try:
+        module = load_python_module(REAL_GAME_EXECUTOR_FILE, "majd_real_game_executor_03")
+    except Exception as e:
+        return {"success": False, "error": f"LOAD_FAILED: {str(e)}", "traceback": traceback.format_exc()}
+
+    function = getattr(module, "execute_game_request", None)
+    if not callable(function):
+        return {"success": False, "error": "EXECUTOR_INTERFACE_NOT_FOUND"}
     
-    def execute(self, command: str, job_id: str, owner: str) -> Dict[str, Any]:
-        func = find_callable(self.module, self.FUNCTION_NAMES)
-        if func is None:
-            return {"success": False, "status": "MASTERMIND_INTERFACE_NOT_FOUND"}
-        
-        # سنقوم بتمرير الأمر الخام للعقل المدبر مع باقي البيانات
-        result = call_supported(func, {"command": command, "job_id": job_id, "owner": owner, "output_root": str(OUTPUT_DIR)})
-        if result is None:
-            return {"success": True, "status": "MASTERMIND_EXECUTED"}
-        if isinstance(result, dict):
-            result.setdefault("success", True)
-            return result
-        return {"success": True, "status": "MASTERMIND_EXECUTED", "result": result}
-
-
-# ============================================================
-# 2. REAL GAME EXECUTOR RUNTIME (03)
-# ============================================================
-
-class RealGameExecutorRuntime:
-    def __init__(self):
-        self.module = load_module(REAL_GAME_EXECUTOR_FILE, "majd_real_game_executor_03")
+    command_text = command.strip()
+    game_name = safe_name(command_text[:80]) if command_text else f"MAJD-GAME-{int(time.time())}"
     
-    def execute(self, request: Dict[str, Any], job_id: str) -> Dict[str, Any]:
-        func = getattr(self.module, "execute_game_request", None)
-        if not callable(func):
-            return {"success": False, "status": "REAL_EXECUTOR_INTERFACE_MISSING"}
-        result = func(request=request, job_id=job_id, output_root=str(OUTPUT_DIR))
+    request_payload = {
+        "type": "CREATE_GAME",
+        "name": game_name,
+        "genre": "ADVENTURE",
+        "dimension": "2D",
+        "platform": ["WEB"],
+        "request": command_text,
+        "auto_test": True,
+        "auto_repair": True,
+        "produce_playable_build": True
+    }
+
+    try:
+        result = function(
+            request=request_payload,
+            job_id=job_id,
+            output_root=str(OUTPUT_DIR)
+        )
         if not isinstance(result, dict):
-            return {"success": False, "status": "INVALID_EXECUTOR_RESULT"}
+            return {"success": False, "error": "INVALID_RESULT_TYPE", "result_raw": str(result)}
         return result
+    except Exception as e:
+        return {"success": False, "error": f"EXECUTION_FAILED: {str(e)}", "traceback": traceback.format_exc()}
 
 
 # ============================================================
-# 3. ARTIFACT VERIFICATION
+# 2. OFFICIAL PLATFORM BRIDGE (تشغيل 04.py)
 # ============================================================
 
-def verify_artifact(result: Dict[str, Any]) -> Dict[str, Any]:
-    artifact = result.get("artifact") or result.get("build_path")
-    if not artifact:
-        return {"success": False, "status": "PLAYABLE_ARTIFACT_MISSING"}
-    artifact_path = Path(str(artifact))
-    if not artifact_path.is_absolute():
-        artifact_path = (ROOT_DIR / artifact_path).resolve()
-    if not artifact_path.exists():
-        return {"success": False, "status": "PLAYABLE_ARTIFACT_NOT_FOUND", "artifact": str(artifact_path)}
-    return {"success": True, "status": "PLAYABLE_ARTIFACT_VERIFIED", "artifact": str(artifact_path)}
+def execute_official_bridge(game_artifact_path: Path, job_id: str, game_name: str) -> Dict[str, Any]:
+    try:
+        module = load_python_module(OFFICIAL_PLATFORM_BRIDGE_FILE, "majd_official_platform_bridge_04")
+    except Exception as e:
+        return {"success": False, "error": f"BRIDGE_LOAD_FAILED: {str(e)}"}
+
+    try:
+        ManifestBuilder = getattr(module, "ManifestBuilder")
+        PackageBuilder = getattr(module, "PackageBuilder")
+        MajdPlatformClient = getattr(module, "MajdPlatformClient")
+
+        if not ManifestBuilder or not PackageBuilder:
+            return {"success": False, "error": "BRIDGE_INTERFACE_MISSING"}
+
+        manifest_builder = ManifestBuilder()
+        manifest = manifest_builder.build(
+            game_dir=game_artifact_path,
+            game_name=game_name,
+            game_version="1.0.0",
+            metadata={"job_id": job_id}
+        )
+
+        package_builder = PackageBuilder()
+        package_path = package_builder.build(game_dir=game_artifact_path, manifest=manifest)
+
+        client = MajdPlatformClient()
+        receipt = client.publish(package_path=package_path, manifest=manifest)
+
+        return {
+            "success": True,
+            "status": receipt.status,
+            "manifest_path": str(manifest),
+            "package_path": str(package_path),
+            "receipt": receipt.__dict__
+        }
+
+    except Exception as e:
+        return {"success": False, "error": f"BRIDGE_EXECUTION_FAILED: {str(e)}", "traceback": traceback.format_exc()}
 
 
 # ============================================================
-# FULL EXECUTION RUNTIME (المنسق النهائي)
+# FULL EXECUTION RUNTIME
 # ============================================================
 
 class MajdFullExecutionRuntime:
@@ -160,62 +175,76 @@ class MajdFullExecutionRuntime:
     def execute(self, command: str, owner: str = DEFAULT_OWNER) -> Dict[str, Any]:
         started_at = utc_now()
         state = {
-            "runtime_id": self.runtime_id, 
-            "system": SYSTEM_NAME, 
+            "runtime_id": self.runtime_id,
+            "system": SYSTEM_NAME,
             "runtime": RUNTIME_NAME,
             "version": VERSION,
-            "owner": owner, 
+            "owner": owner,
             "command": command,
-            "started_at": started_at, 
-            "status": "STARTING", 
+            "started_at": started_at,
+            "status": "STARTING",
             "stages": {}
         }
         state_file = RUNTIME_DIR / f"{self.runtime_id}.json"
         save_json(state_file, state)
 
         try:
-            # (تم تخطي 02.py بسبب فشله المستمر في بيئة Action)
-
-            # 1. تشغيل ملف 01 (العقل المدبر) مباشرة
-            state["status"] = "MASTERMIND"
+            # 1. تشغيل منفذ الألعاب الحقيقي (03)
+            state["status"] = "REAL_GAME_EXECUTOR"
             save_json(state_file, state)
-            mastermind = MastermindRuntime()
-            mastermind_result = mastermind.execute(command=command, job_id=self.runtime_id, owner=owner)
-            state["stages"]["mastermind"] = mastermind_result
-            if not mastermind_result.get("success"):
-                state["status"] = "FAILED"
-                state["error"] = mastermind_result.get("status", "MASTERMIND_FAILED")
-                save_json(state_file, state)
-                return state
 
-            prepared_request = mastermind_result.get("request") or mastermind_result.get("payload") or {"command": command}
-            
-            # 2. تشغيل ملف 03 (منفذ اللعبة الحقيقي)
-            state["status"] = "REAL_GAME_EXECUTION"
-            save_json(state_file, state)
-            executor = RealGameExecutorRuntime()
-            executor_result = executor.execute(request=prepared_request, job_id=self.runtime_id)
+            executor_result = execute_real_game_executor(command, self.runtime_id)
             state["stages"]["executor"] = executor_result
+
             if not executor_result.get("success"):
                 state["status"] = "FAILED"
-                state["error"] = executor_result.get("status", "REAL_GAME_EXECUTION_FAILED")
+                state["error"] = executor_result.get("error") or executor_result.get("status", "EXECUTOR_FAILED")
                 save_json(state_file, state)
                 return state
 
-            # 3. التحقق من Artifact
-            artifact_result = verify_artifact(executor_result)
-            state["stages"]["artifact"] = artifact_result
-            if not artifact_result.get("success"):
+            artifact = executor_result.get("artifact") or executor_result.get("build_path")
+            if not artifact:
                 state["status"] = "FAILED"
-                state["error"] = artifact_result.get("status", "ARTIFACT_VERIFICATION_FAILED")
+                state["error"] = "ARTIFACT_NOT_FOUND_AFTER_EXECUTOR"
                 save_json(state_file, state)
                 return state
 
-            artifact = artifact_result["artifact"]
+            artifact_path = Path(artifact)
+            if not artifact_path.exists():
+                state["status"] = "FAILED"
+                state["error"] = f"ARTIFACT_PATH_DOES_NOT_EXIST: {artifact}"
+                save_json(state_file, state)
+                return state
+
+            game_name = executor_result.get("game_name") or safe_name(command[:80]) or "MAJD-GAME"
+
+            # 2. تشغيل جسر منصة مجد (04)
+            state["status"] = "PLATFORM_BRIDGE"
+            save_json(state_file, state)
+
+            bridge_result = execute_official_bridge(
+                game_artifact_path=artifact_path,
+                job_id=self.runtime_id,
+                game_name=game_name
+            )
+            state["stages"]["bridge"] = bridge_result
+
+            if not bridge_result.get("success"):
+                state["status"] = "PARTIALLY_COMPLETED"
+                state["success"] = True
+                state["artifact"] = str(artifact_path)
+                state["package"] = bridge_result.get("package_path")
+                state["message"] = f"تم بناء اللعبة بنجاح، لكن منصة النشر الرسمية لم تستلمها: {bridge_result.get('error')}"
+                state["finished_at"] = utc_now()
+                save_json(state_file, state)
+                return state
+
             state["status"] = "COMPLETED"
             state["success"] = True
-            state["artifact"] = artifact
-            state["message"] = "تم تنفيذ سلسلة المصنع بالكامل وإنتاج Artifact!"
+            state["artifact"] = str(artifact_path)
+            state["package"] = bridge_result.get("package_path")
+            state["receipt"] = bridge_result.get("receipt")
+            state["message"] = "تم تنفيذ منفذ الألعاب (03) وجسر المنصة (04) بنجاح!"
             state["finished_at"] = utc_now()
             save_json(state_file, state)
             return state
