@@ -3,204 +3,44 @@ name: MAJD Game Factory Web Test
 on:
   workflow_dispatch:
     inputs:
-      command:
-        description: "MAJD GAME FACTORY COMMAND"
-        required: true
-        default: "start"
-        type: string
-
-permissions:
-  contents: read
+      owner_command:
+        description: 'أمر المالك (Owner Command) - العقل المدبر سيتولى تنفيذه'
+        required: false
+        default: 'أنشئ لعبة حقيقية كاملة واختبرها وأصلح الأخطاء تلقائياً وجهز النسخة القابلة للعب'
 
 jobs:
-  web-test:
-    name: Test MAJD Game Factory Web Build
+  web-build-test:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: read
+      actions: write
     steps:
-      - name: Checkout MAJD Game Factory
+      # 1. تحميل المستودع
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # ======================================================
-      # MAJD GAME FACTORY OWNER COMMAND
-      # ======================================================
+      # 2. إعداد بيئة بايثون
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-      - name: Receive MAJD Game Factory Command
-        env:
-          MAJD_FACTORY_COMMAND: ${{ inputs.command }}
-        shell: bash
+      # 3. تثبيت المكتبات التي يحتاجها الملف 01 و 03
+      - name: Install Python Dependencies
         run: |
-          set -euo pipefail
+          echo "جارٍ تثبيت المكتبات الأساسية (أضف مكتباتك هنا إذا لزم الأمر)."
+          # pip install openai requests  <-- إذا ظهر خطأ ModuleNotFoundError، قم بإزالة # واكتب المكتبة
 
-          if [ -z "${MAJD_FACTORY_COMMAND// }" ]; then
-            echo "ERROR: MAJD Game Factory command is empty."
-            exit 1
-          fi
+      # 4. تشغيل الملف التشغيلي الرئيسي (05) الذي يربط 01 و 02 و 03 و 04
+      - name: Execute MAJD Full Factory Runtime (05)
+        run: python MAJD-FULL-EXECUTION-RUNTIME-05.py "${{ github.event.inputs.owner_command }}"
 
-          echo "========================================"
-          echo "MAJD GAME FACTORY"
-          echo "OWNER COMMAND RECEIVED"
-          echo "========================================"
-          echo "COMMAND: $MAJD_FACTORY_COMMAND"
-          echo "========================================"
-
-      # ======================================================
-      # REPOSITORY
-      # ======================================================
-
-      - name: Show Repository
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "========================================"
-          echo "MAJD GAME FACTORY - WEB TEST"
-          echo "========================================"
-
-          pwd
-          ls -la
-
-      # ======================================================
-      # VERIFY INDEX
-      # ======================================================
-
-      - name: Verify index.html
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "========================================"
-          echo "VERIFY INDEX.HTML"
-          echo "========================================"
-
-          if [ ! -f "index.html" ]; then
-            echo "ERROR: index.html not found"
-            exit 1
-          fi
-
-          if [ ! -s "index.html" ]; then
-            echo "ERROR: index.html is empty"
-            exit 1
-          fi
-
-          echo "PASS: index.html exists"
-          echo "PASS: index.html is not empty"
-
-      # ======================================================
-      # VERIFY HTML
-      # ======================================================
-
-      - name: Verify HTML Structure
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          grep -qi "<!doctype html" index.html || {
-            echo "ERROR: DOCTYPE missing"
-            exit 1
-          }
-
-          grep -qi "<html" index.html || {
-            echo "ERROR: html element missing"
-            exit 1
-          }
-
-          grep -qi "<head" index.html || {
-            echo "ERROR: head element missing"
-            exit 1
-          }
-
-          grep -qi "<body" index.html || {
-            echo "ERROR: body element missing"
-            exit 1
-          }
-
-          grep -qi "</html>" index.html || {
-            echo "ERROR: closing html element missing"
-            exit 1
-          }
-
-          echo "PASS: HTML structure verified"
-
-      # ======================================================
-      # CREATE WEB BUILD
-      # ======================================================
-
-      - name: Create Deployable Web Build
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          rm -rf web-build
-          mkdir -p web-build
-
-          cp index.html web-build/index.html
-
-          echo "========================================"
-          echo "DEPLOYABLE WEB BUILD"
-          echo "========================================"
-
-          ls -la web-build
-
-          test -f web-build/index.html
-
-          echo "PASS: web-build/index.html produced"
-
-      # ======================================================
-      # VERIFY BUILD
-      # ======================================================
-
-      - name: Verify Deployable Package
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ ! -f "web-build/index.html" ]; then
-            echo "ERROR: No deployable web index.html was produced"
-            exit 1
-          fi
-
-          if [ ! -s "web-build/index.html" ]; then
-            echo "ERROR: Deployable index.html is empty"
-            exit 1
-          fi
-
-          echo "PASS: deployable package verified"
-
-      # ======================================================
-      # ARTIFACT
-      # ======================================================
-
-      - name: Upload Web Test Artifact
+      # 5. رفع الـ Artifact النهائي (اللعبة الحقيقية)
+      - name: Upload Playable Game Artifact
+        if: success() || failure()
         uses: actions/upload-artifact@v4
         with:
-          name: majd-game-factory-web-build
-          path: web-build
-          if-no-files-found: error
-          retention-days: 7
-
-      # ======================================================
-      # COMPLETE
-      # ======================================================
-
-      - name: MAJD Game Factory Test Complete
-        env:
-          MAJD_FACTORY_COMMAND: ${{ inputs.command }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "========================================"
-          echo "MAJD GAME FACTORY WEB TEST: SUCCESS"
-          echo "========================================"
-          echo "Repository: $GITHUB_REPOSITORY"
-          echo "Branch: $GITHUB_REF_NAME"
-          echo "Commit: $GITHUB_SHA"
-          echo ""
-          echo "OWNER COMMAND: $MAJD_FACTORY_COMMAND"
-          echo "index.html: FOUND"
-          echo "HTML structure: VALID"
-          echo "Web build: CREATED"
-          echo "Artifact: CREATED"
-          echo ""
-          echo "MAJD GAME FACTORY IS READY FOR WEB BUILD"
+          name: majd-game-final-output
+          path: |
+            majd_game_output/
+            majd_factory_state/runtime/
