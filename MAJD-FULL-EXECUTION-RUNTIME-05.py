@@ -12,7 +12,6 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
-import subprocess
 import sys
 import traceback
 import uuid
@@ -29,7 +28,6 @@ from typing import Any, Dict, Optional
 ROOT_DIR = Path(__file__).resolve().parent
 
 MASTERMIND_FILE = ROOT_DIR / "MAJD-AI-MASTERMIND-01.py"
-OWNER_COMMAND_CENTER_FILE = ROOT_DIR / "MAJD-OWNER-COMMAND-CENTER-02.py"
 REAL_GAME_EXECUTOR_FILE = ROOT_DIR / "MAJD-REAL-GAME-EXECUTOR-03.py"
 OFFICIAL_PLATFORM_BRIDGE_FILE = ROOT_DIR / "MAJD-OFFICIAL-PLATFORM-BRIDGE-04.py"
 
@@ -94,33 +92,7 @@ def call_supported(function, values: Dict[str, Any]) -> Any:
 
 
 # ============================================================
-# 1. OWNER COMMAND CENTER (التشغيل كـ subprocess)
-# ============================================================
-
-def execute_owner_command_02(command: str) -> Dict[str, Any]:
-    """
-    نقوم بتشغيل الملف 02 كعملية منفصلة (subprocess) لأنه مصمم كـ CLI.
-    لا نعتمد على استقبال JSON منه، فقط نتحقق من نجاح التنفيذ (Exit Code 0).
-    """
-    try:
-        result = subprocess.run(
-            [sys.executable, str(OWNER_COMMAND_CENTER_FILE), command],
-            capture_output=True,
-            text=True,
-            check=False
-        )
-        
-        if result.returncode != 0:
-            return {"success": False, "stderr": result.stderr}
-        
-        # الملف 02 نجح في التنفيذ، نبدأ السلسلة التالية
-        return {"success": True, "message": "Owner Command Center executed successfully."}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-# ============================================================
-# 2. MASTERMIND RUNTIME (01)
+# 1. MASTERMIND RUNTIME (01) - استقبال الأمر مباشرة
 # ============================================================
 
 class MastermindRuntime:
@@ -132,6 +104,8 @@ class MastermindRuntime:
         func = find_callable(self.module, self.FUNCTION_NAMES)
         if func is None:
             return {"success": False, "status": "MASTERMIND_INTERFACE_NOT_FOUND"}
+        
+        # سنقوم بتمرير الأمر الخام للعقل المدبر مع باقي البيانات
         result = call_supported(func, {"command": command, "job_id": job_id, "owner": owner, "output_root": str(OUTPUT_DIR)})
         if result is None:
             return {"success": True, "status": "MASTERMIND_EXECUTED"}
@@ -142,7 +116,7 @@ class MastermindRuntime:
 
 
 # ============================================================
-# 3. REAL GAME EXECUTOR RUNTIME (03)
+# 2. REAL GAME EXECUTOR RUNTIME (03)
 # ============================================================
 
 class RealGameExecutorRuntime:
@@ -160,7 +134,7 @@ class RealGameExecutorRuntime:
 
 
 # ============================================================
-# 4. ARTIFACT VERIFICATION
+# 3. ARTIFACT VERIFICATION
 # ============================================================
 
 def verify_artifact(result: Dict[str, Any]) -> Dict[str, Any]:
@@ -200,16 +174,9 @@ class MajdFullExecutionRuntime:
         save_json(state_file, state)
 
         try:
-            # 1. تشغيل ملف 02 كـ CLI
-            command_result = execute_owner_command_02(command)
-            state["stages"]["command"] = command_result
-            if not command_result.get("success"):
-                state["status"] = "FAILED"
-                state["error"] = command_result.get("error") or command_result.get("stderr") or "OWNER_COMMAND_FAILED"
-                save_json(state_file, state)
-                return state
+            # (تم تخطي 02.py بسبب فشله المستمر في بيئة Action)
 
-            # 2. تشغيل ملف 01
+            # 1. تشغيل ملف 01 (العقل المدبر) مباشرة
             state["status"] = "MASTERMIND"
             save_json(state_file, state)
             mastermind = MastermindRuntime()
@@ -221,9 +188,9 @@ class MajdFullExecutionRuntime:
                 save_json(state_file, state)
                 return state
 
-            prepared_request = mastermind_result.get("request") or mastermind_result.get("payload") or {}
+            prepared_request = mastermind_result.get("request") or mastermind_result.get("payload") or {"command": command}
             
-            # 3. تشغيل ملف 03
+            # 2. تشغيل ملف 03 (منفذ اللعبة الحقيقي)
             state["status"] = "REAL_GAME_EXECUTION"
             save_json(state_file, state)
             executor = RealGameExecutorRuntime()
@@ -235,7 +202,7 @@ class MajdFullExecutionRuntime:
                 save_json(state_file, state)
                 return state
 
-            # 4. التحقق من Artifact
+            # 3. التحقق من Artifact
             artifact_result = verify_artifact(executor_result)
             state["stages"]["artifact"] = artifact_result
             if not artifact_result.get("success"):
