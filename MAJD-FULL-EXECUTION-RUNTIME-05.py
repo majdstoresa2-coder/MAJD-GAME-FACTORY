@@ -5,14 +5,12 @@
 MAJD GAME FACTORY
 MAJD-FULL-EXECUTION-RUNTIME-05.py
 =================================
-
 FULL EXECUTION RUNTIME
 """
 from __future__ import annotations
 
 import argparse
 import importlib.util
-import inspect
 import json
 import subprocess
 import sys
@@ -44,19 +42,13 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ============================================================
-# CONSTANTS
+# CONSTANTS & HELPERS
 # ============================================================
 
 SYSTEM_NAME = "MAJD-GAME-FACTORY"
 RUNTIME_NAME = "MAJD-FULL-EXECUTION-RUNTIME"
 VERSION = "1.0.0"
 DEFAULT_OWNER = "MAJD"
-OFFICIAL_MAJD_PLATFORM = "https://majd.shop/"
-
-
-# ============================================================
-# TIME & JSON
-# ============================================================
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -69,7 +61,7 @@ def save_json(path: Path, data: Dict[str, Any]) -> None:
 
 
 # ============================================================
-# MODULE LOADER (للـ 01 و 03 و 04)
+# MODULE LOADER (للملفات 01 و 03 و 04)
 # ============================================================
 
 def load_module(path: Path, module_name: str):
@@ -102,34 +94,13 @@ def call_supported(function, values: Dict[str, Any]) -> Any:
 
 
 # ============================================================
-# FILE VERIFICATION
-# ============================================================
-
-def verify_required_files() -> Dict[str, Any]:
-    files = {
-        "mastermind": MASTERMIND_FILE,
-        "owner_command_center": OWNER_COMMAND_CENTER_FILE,
-        "real_game_executor": REAL_GAME_EXECUTOR_FILE,
-        "official_platform_bridge": OFFICIAL_PLATFORM_BRIDGE_FILE
-    }
-    missing = []
-    status = {}
-    for name, path in files.items():
-        exists = path.exists()
-        status[name] = {"file": path.name, "exists": exists}
-        if not exists:
-            missing.append(path.name)
-    return {"success": not missing, "files": status, "missing": missing}
-
-
-# ============================================================
-# OWNER COMMAND EXECUTOR (تم التعديل ليعمل كـ subprocess)
+# 1. OWNER COMMAND CENTER (التشغيل كـ subprocess)
 # ============================================================
 
 def execute_owner_command_02(command: str) -> Dict[str, Any]:
     """
-    بما أن الملف 02 مصمم ليعمل كأداة سطر أوامر (argparse)،
-    نقوم بتشغيله عبر subprocess لضمان توافقه مع تصميمه الأصلي دون تحميله كـ module.
+    نقوم بتشغيل الملف 02 كعملية منفصلة (subprocess) لأنه مصمم كـ CLI.
+    لا نعتمد على استقبال JSON منه، فقط نتحقق من نجاح التنفيذ (Exit Code 0).
     """
     try:
         result = subprocess.run(
@@ -138,38 +109,32 @@ def execute_owner_command_02(command: str) -> Dict[str, Any]:
             text=True,
             check=False
         )
+        
         if result.returncode != 0:
             return {"success": False, "stderr": result.stderr}
-
-        # افترض أن الملف 02 يطبع JSON في بدايته أو يحاول العودة به.
-        # إذا لم يطبع JSON، فشل النظام هنا.
-        # للاحتياط، سنحاول استخراج أي مخرجات JSON من الطباعة.
-        import re
-        json_match = re.search(r'\{.*\}', result.stdout, re.DOTALL)
-        if json_match:
-            return json.loads(json_match.group(0))
         
-        return {"success": True, "message": "02 Executed"}
-
+        # الملف 02 نجح في التنفيذ، نبدأ السلسلة التالية
+        return {"success": True, "message": "Owner Command Center executed successfully."}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
 # ============================================================
-# MASTERMIND RUNTIME
+# 2. MASTERMIND RUNTIME (01)
 # ============================================================
 
 class MastermindRuntime:
     FUNCTION_NAMES = ("process_game_request", "execute_game_request", "execute_request")
     def __init__(self):
         self.module = load_module(MASTERMIND_FILE, "majd_ai_mastermind_01")
-    def execute(self, command: str, request: Dict[str, Any], job_id: str, owner: str) -> Dict[str, Any]:
+    
+    def execute(self, command: str, job_id: str, owner: str) -> Dict[str, Any]:
         func = find_callable(self.module, self.FUNCTION_NAMES)
         if func is None:
             return {"success": False, "status": "MASTERMIND_INTERFACE_NOT_FOUND"}
-        result = call_supported(func, {"command": command, "request": request, "payload": request, "job_id": job_id, "owner": owner, "output_root": str(OUTPUT_DIR)})
+        result = call_supported(func, {"command": command, "job_id": job_id, "owner": owner, "output_root": str(OUTPUT_DIR)})
         if result is None:
-            return {"success": True, "status": "MASTERMIND_EXECUTED", "request": request}
+            return {"success": True, "status": "MASTERMIND_EXECUTED"}
         if isinstance(result, dict):
             result.setdefault("success", True)
             return result
@@ -177,12 +142,13 @@ class MastermindRuntime:
 
 
 # ============================================================
-# REAL GAME EXECUTOR RUNTIME
+# 3. REAL GAME EXECUTOR RUNTIME (03)
 # ============================================================
 
 class RealGameExecutorRuntime:
     def __init__(self):
-        self.module = load_module(REAL_GAME_EXECUTOR_FILE, "majd_real_game_executor_03_runtime")
+        self.module = load_module(REAL_GAME_EXECUTOR_FILE, "majd_real_game_executor_03")
+    
     def execute(self, request: Dict[str, Any], job_id: str) -> Dict[str, Any]:
         func = getattr(self.module, "execute_game_request", None)
         if not callable(func):
@@ -194,7 +160,7 @@ class RealGameExecutorRuntime:
 
 
 # ============================================================
-# ARTIFACT VERIFICATION
+# 4. ARTIFACT VERIFICATION
 # ============================================================
 
 def verify_artifact(result: Dict[str, Any]) -> Dict[str, Any]:
@@ -210,7 +176,7 @@ def verify_artifact(result: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ============================================================
-# FULL EXECUTION RUNTIME
+# FULL EXECUTION RUNTIME (المنسق النهائي)
 # ============================================================
 
 class MajdFullExecutionRuntime:
@@ -220,23 +186,21 @@ class MajdFullExecutionRuntime:
     def execute(self, command: str, owner: str = DEFAULT_OWNER) -> Dict[str, Any]:
         started_at = utc_now()
         state = {
-            "runtime_id": self.runtime_id, "system": SYSTEM_NAME, "runtime": RUNTIME_NAME, "version": VERSION,
-            "owner": owner, "command": command, "official_platform": OFFICIAL_MAJD_PLATFORM,
-            "started_at": started_at, "status": "STARTING", "stages": {}
+            "runtime_id": self.runtime_id, 
+            "system": SYSTEM_NAME, 
+            "runtime": RUNTIME_NAME,
+            "version": VERSION,
+            "owner": owner, 
+            "command": command,
+            "started_at": started_at, 
+            "status": "STARTING", 
+            "stages": {}
         }
         state_file = RUNTIME_DIR / f"{self.runtime_id}.json"
         save_json(state_file, state)
 
         try:
-            verification = verify_required_files()
-            state["stages"]["files"] = verification
-            if not verification["success"]:
-                state["status"] = "FAILED"
-                state["error"] = "REQUIRED_FILES_MISSING"
-                save_json(state_file, state)
-                return state
-
-            # تشغيل 02 كأمر خارجي (حل المشكلة الحقيقية)
+            # 1. تشغيل ملف 02 كـ CLI
             command_result = execute_owner_command_02(command)
             state["stages"]["command"] = command_result
             if not command_result.get("success"):
@@ -245,18 +209,11 @@ class MajdFullExecutionRuntime:
                 save_json(state_file, state)
                 return state
 
-            parsed_request = command_result.get("request") or command_result.get("payload") or {}
-            if "CREATE_GAME" not in str(parsed_request.get("type", "")):
-                state["status"] = "FAILED"
-                state["error"] = "COMMAND_IS_NOT_CREATE_GAME"
-                save_json(state_file, state)
-                return state
-
-            # تشغيل 01
+            # 2. تشغيل ملف 01
             state["status"] = "MASTERMIND"
             save_json(state_file, state)
             mastermind = MastermindRuntime()
-            mastermind_result = mastermind.execute(command=command, request=parsed_request, job_id=self.runtime_id, owner=owner)
+            mastermind_result = mastermind.execute(command=command, job_id=self.runtime_id, owner=owner)
             state["stages"]["mastermind"] = mastermind_result
             if not mastermind_result.get("success"):
                 state["status"] = "FAILED"
@@ -264,9 +221,9 @@ class MajdFullExecutionRuntime:
                 save_json(state_file, state)
                 return state
 
-            prepared_request = mastermind_result.get("request") or parsed_request
-
-            # تشغيل 03
+            prepared_request = mastermind_result.get("request") or mastermind_result.get("payload") or {}
+            
+            # 3. تشغيل ملف 03
             state["status"] = "REAL_GAME_EXECUTION"
             save_json(state_file, state)
             executor = RealGameExecutorRuntime()
@@ -278,6 +235,7 @@ class MajdFullExecutionRuntime:
                 save_json(state_file, state)
                 return state
 
+            # 4. التحقق من Artifact
             artifact_result = verify_artifact(executor_result)
             state["stages"]["artifact"] = artifact_result
             if not artifact_result.get("success"):
@@ -290,7 +248,7 @@ class MajdFullExecutionRuntime:
             state["status"] = "COMPLETED"
             state["success"] = True
             state["artifact"] = artifact
-            state["message"] = "تم تنفيذ سلسلة المصنع بالكامل."
+            state["message"] = "تم تنفيذ سلسلة المصنع بالكامل وإنتاج Artifact!"
             state["finished_at"] = utc_now()
             save_json(state_file, state)
             return state
@@ -310,7 +268,7 @@ class MajdFullExecutionRuntime:
 # ============================================================
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=("MAJD FULL EXECUTION RUNTIME"))
+    parser = argparse.ArgumentParser(description="MAJD FULL EXECUTION RUNTIME")
     parser.add_argument("command", nargs="+", help="Owner game creation command")
     args = parser.parse_args()
     command = " ".join(args.command).strip()
