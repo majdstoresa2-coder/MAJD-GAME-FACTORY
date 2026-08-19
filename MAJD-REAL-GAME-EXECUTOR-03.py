@@ -1488,7 +1488,7 @@ function drawHud() {{
         "19px Arial";
 
     ctx.fillText(
-        `X: ${{Math.round(player.x)}}  Y: ${{Math.round(player.y)}}`,
+        "X: " + Math.round(player.x) + "  Y: " + Math.round(player.y),
         38,
         91
     );
