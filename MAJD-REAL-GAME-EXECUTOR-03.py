@@ -7,7 +7,26 @@ MAJD-REAL-GAME-EXECUTOR-03.py
 ================================
 
 REAL GAME EXECUTOR
+
+المسؤوليات:
+- استقبال طلب اللعبة الحقيقي من 02.
+- إنشاء Workspace مستقل لكل Job.
+- إنشاء مشروع لعبة Web فعلي قابل للتشغيل.
+- إنشاء ملفات اللعبة الأساسية.
+- إجراء اختبارات بنيوية وتشغيلية.
+- تنفيذ Auto Repair للملفات الأساسية عند الحاجة.
+- إنشاء Build/Artifact حقيقي.
+- عدم إعلان النجاح إلا بعد التحقق من الـArtifact.
+
+واجهة الربط المطلوبة من 02:
+
+execute_game_request(
+    request: dict,
+    job_id: str,
+    output_root: str
+) -> dict
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -1468,6 +1487,10 @@ function drawHud() {{
     ctx.font =
         "19px Arial";
 
+    // ------------------------------------------------------------
+    // تم إصلاح السطر 1663 هنا: استخدام علامات التنصيص العادية وعلامة +
+    // بدلاً من استخدام f-string وعلامات $ التي تسبب خطأ SyntaxError
+    // ------------------------------------------------------------
     ctx.fillText(
         "X: " + Math.round(player.x) + "  Y: " + Math.round(player.y),
         38,
