@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       owner_command:
-        description: 'أمر المالك (Owner Command) - العقل المدبر سيتولى تنفيذه'
+        description: 'أمر المالك (Owner Command)'
         required: false
-        default: 'أنشئ لعبة حقيقية كاملة واختبرها وأصلح الأخطاء تلقائياً وجهز النسخة القابلة للعب'
+        default: 'أنشئ لعبة حقيقية كاملة 3D'
 
 jobs:
   web-build-test:
@@ -14,9 +14,6 @@ jobs:
     permissions:
       contents: read
       actions: write
-    # ==========================================================
-    # ربط المتغيرات البيئية الحقيقية من GitHub Secrets
-    # ==========================================================
     env:
       MAJD_PLATFORM_API_ENDPOINT: ${{ secrets.MAJD_PLATFORM_API_ENDPOINT }}
       MAJD_PLATFORM_API_TOKEN: ${{ secrets.MAJD_PLATFORM_API_TOKEN }}
@@ -30,9 +27,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install Python Dependencies
-        run: |
-          echo "تثبيت المكتبات الأساسية..."
-          pip install numpy openai requests
+        run: pip install numpy openai requests
 
       - name: Execute MAJD Full Factory Runtime (05)
         run: python MAJD-FULL-EXECUTION-RUNTIME-05.py "${{ github.event.inputs.owner_command }}"
