@@ -15,27 +15,22 @@ jobs:
       contents: read
       actions: write
     steps:
-      # 1. تحميل المستودع
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. إعداد بيئة بايثون
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      # 3. تثبيت المكتبات الأساسية (تشمل numpy لتصحيح الخطأ، ومكتبات أخرى تحسباً)
       - name: Install Python Dependencies
         run: |
-          echo "جارٍ تثبيت المكتبات الأساسية (numpy, openai, requests)..."
-          pip install numpy openai requests
+          echo "جارٍ تثبيت المكتبات الأساسية..."
+          pip install numpy openai requests flask pandas
 
-      # 4. تشغيل الملف التشغيلي الرئيسي (05) الذي يربط السلسلة كلها
       - name: Execute MAJD Full Factory Runtime (05)
         run: python MAJD-FULL-EXECUTION-RUNTIME-05.py "${{ github.event.inputs.owner_command }}"
 
-      # 5. رفع الـ Artifact النهائي (اللعبة الحقيقية)
       - name: Upload Playable Game Artifact
         if: success() || failure()
         uses: actions/upload-artifact@v4
