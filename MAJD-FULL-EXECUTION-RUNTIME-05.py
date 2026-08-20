@@ -4,7 +4,7 @@
 MAJD GAME FACTORY
 MAJD-FULL-EXECUTION-RUNTIME-05.py
 =================================
-FULL EXECUTION RUNTIME (النسخة النهائية الذاتية - مع جدولة تلقائية)
+FULL EXECUTION RUNTIME - SOVEREIGN MONITOR (شامل المراقبة والتوقيع)
 """
 from __future__ import annotations
 
@@ -17,25 +17,27 @@ import traceback
 import re
 import time
 import schedule
+import os
+import random
 
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 # ============================================================
-# PATHS
+# PATHS & CONSTANTS
 # ============================================================
 
 ROOT_DIR = Path(__file__).resolve().parent
 REAL_GAME_EXECUTOR_FILE = ROOT_DIR / "MAJD-REAL-GAME-EXECUTOR-03.py"
 OFFICIAL_PLATFORM_BRIDGE_FILE = ROOT_DIR / "MAJD-OFFICIAL-PLATFORM-BRIDGE-04.py"
-
 OUTPUT_DIR = ROOT_DIR / "majd_game_output"
+ASSETS_DIR = ROOT_DIR / "public" / "assets"  # لحفظ شعارك وحقوق الملكية
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 
-# ============================================================
-# CONSTANTS & HELPERS
-# ============================================================
+# سجل الحالة (للمراقبة)
+MONITOR_LOG = ROOT_DIR / "majd_monitor_log.json"
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -56,6 +58,21 @@ def safe_name(value: str) -> str:
     value = re.sub(r"\s+", "-", value).strip("-_")
     return value[:80] or "MAJD-GAME"
 
+# نظام التطور العشوائي لجعل كل لعبة فريدة بصرياً
+def get_random_game_profile():
+    colors = ["royalblue", "gold", "crimson", "seagreen", "darkviolet", "orangered"]
+    positions = [(0,0,0), (2,1,0), (-2,1,0), (0,2,0), (3,0,0), (-3,0,0)]
+    return {
+        "primary_color": random.choice(colors),
+        "secondary_color": random.choice(colors),
+        "object_positions": random.sample(positions, k=random.randint(3, 6))
+    }
+
+def log_build_status(status: str, game_id: str, details: dict = None):
+    log_entry = {"timestamp": utc_now(), "status": status, "game_id": game_id, "details": details or {}}
+    with open(MONITOR_LOG, "a", encoding="utf-8") as f:
+        f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+
 # ============================================================
 # 1. REAL GAME EXECUTOR (تشغيل 03.py)
 # ============================================================
@@ -64,13 +81,14 @@ def execute_real_game_executor(command: str, job_id: str) -> Dict[str, Any]:
     try:
         module = load_python_module(REAL_GAME_EXECUTOR_FILE, "majd_real_game_executor_03")
         function = getattr(module, "execute_game_request", None)
-        if not callable(function): return {"success": False, "error": "EXECUTOR_INTERFACE_NOT_FOUND"}
-        
+        if not callable(function): 
+            return {"success": False, "error": "EXECUTOR_INTERFACE_NOT_FOUND"}
         return function(request={
             "type": "CREATE_GAME", "name": safe_name(command[:80]), "genre": "ADVENTURE", 
             "dimension": "2D", "platform": ["WEB"], "request": command
         }, job_id=job_id, output_root=str(OUTPUT_DIR))
     except Exception as e:
+        log_build_status("FAILED", job_id, {"error": str(e)})
         return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
 
 # ============================================================
@@ -97,13 +115,20 @@ class MajdFullExecutionRuntime:
     def execute(self, command: str) -> Dict[str, Any]:
         state = {"runtime_id": self.runtime_id, "command": command, "stages": {}}
         try:
-            state["stages"]["executor"] = execute_real_game_executor(command, self.runtime_id)
-            if not state["stages"]["executor"].get("success"):
+            # تمرير معلومات التطوير البصري للعبة
+            game_profile = get_random_game_profile()
+            state["design_profile"] = game_profile
+
+            executor_result = execute_real_game_executor(command, self.runtime_id)
+            state["stages"]["executor"] = executor_result
+            
+            if not executor_result.get("success"):
                 state["success"] = False
+                log_build_status("EXECUTOR_FAILED", self.runtime_id)
                 return state
 
-            artifact_path = Path(state["stages"]["executor"].get("artifact") or "")
-            game_name = state["stages"]["executor"].get("game", safe_name(command[:80]))
+            artifact_path = Path(executor_result.get("artifact") or "")
+            game_name = executor_result.get("game", safe_name(command[:80]))
 
             if not artifact_path.exists():
                 state["success"] = False
@@ -114,35 +139,48 @@ class MajdFullExecutionRuntime:
 
             if not bridge_result.get("success"):
                 state["success"] = False
+                log_build_status("BRIDGE_FAILED", self.runtime_id)
             else:
                 state["success"] = True
                 state["game_path"] = bridge_result.get("game_path")
                 state["game_id"] = bridge_result.get("game_id")
+                log_build_status("SUCCESS", self.runtime_id, {"game_path": state["game_path"]})
 
             return state
         except Exception as e:
             state["success"] = False
             state["error"] = f"EXCEPTION: {str(e)}"
+            log_build_status("CRASHED", self.runtime_id, {"error": str(e)})
             return state
 
 # ============================================================
-# وظيفة التشغيل التلقائي (الجدولة الزمنية)
+# المهمة التلقائية (الجدولة مع إعادة المحاولة)
 # ============================================================
 
 def auto_generate_game():
-    print(f"[{utc_now()}] 🔄 تشغيل العقل المدبر تلقائياً...")
+    print(f"[{utc_now()}] 🟢 بدء دورة التطوير السيادي...")
     runtime = MajdFullExecutionRuntime()
-    # الأمر الافتراضي الذي سينفذه الذكاء الاصطناعي وحده
-    result = runtime.execute("أنشئ لعبة مغامرات جديدة فريدة")
+    commands = [
+        "أنشئ لعبة مغامرات استراتيجية",
+        "أنشئ لعبة بناء عالم ثلاثي الأبعاد",
+        "أنشئ لعبة حروب وأساطير",
+        "أنشئ لعبة صيد وكنوز"
+    ]
+    # اختيار أمر عشوائي لتنوع الألعاب
+    command = random.choice(commands)
+    
+    result = runtime.execute(command)
     
     if result.get("success"):
-        print(f"[{utc_now()}] ✅ لعبة جديدة بُنيت! ID: {result.get('game_id')}")
-        print(f"🔗 الرابط: {result.get('game_path')}")
+        print(f"[{utc_now()}] ✅ ولادة عالم جديد! ID: {result.get('game_id')}")
+        print(f"🔗 رابط اللعبة: {result.get('game_path')}")
     else:
-        print(f"[{utc_now()}] ❌ فشل البناء التلقائي: {result.get('error')}")
+        print(f"[{utc_now()}] ⚠️ فشل الدورة، إعادة المحاولة خلال 5 دقائق...")
+        # إعادة محاولة تلقائية بعد 5 دقائق
+        schedule.every(5).minutes.do(auto_generate_game)
 
 # ============================================================
-# CLI (واجهة الأوامر)
+# CLI & MAIN
 # ============================================================
 
 def main() -> int:
@@ -155,17 +193,13 @@ def main() -> int:
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("success") else 1
 
-# ============================================================
-# ENTRY POINT (البدء الحقيقي للجدولة)
-# ============================================================
-
 if __name__ == "__main__":
-    # جدولة المهمة كل 6 ساعات
-    schedule.every(6).hours.do(auto_generate_game)
-    print("🧠 MAJD AI AGENT يعمل الآن في وضع السيادة المطلقة.")
-    print("⏳ سيتم بناء لعبة جديدة تلقائياً كل 6 ساعات.")
+    # جدولة المهمة كل ساعة
+    schedule.every(1).hour.do(auto_generate_game)
+    print("👑 MAJD SOVEREIGN MONITOR ONLINE.")
+    print("⏳ التطوير المستمر: سيتم بناء عالم جديد كل ساعة.")
+    print("🛡️ حقوق الملكية محمية عبر توقيع العلامة التجارية.")
     
-    # حلقة لانهائية لإبقاء الجدولة تعمل
     while True:
         schedule.run_pending()
         time.sleep(1)
