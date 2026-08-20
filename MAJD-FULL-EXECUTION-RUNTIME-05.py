@@ -4,7 +4,7 @@
 MAJD GAME FACTORY
 MAJD-FULL-EXECUTION-RUNTIME-05.py
 =================================
-FULL EXECUTION RUNTIME - (متوافق مع الجسر الذاتي)
+FULL EXECUTION RUNTIME (النسخة النهائية الذاتية - مع جدولة تلقائية)
 """
 from __future__ import annotations
 
@@ -15,6 +15,8 @@ import sys
 import uuid
 import traceback
 import re
+import time
+import schedule
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -72,7 +74,7 @@ def execute_real_game_executor(command: str, job_id: str) -> Dict[str, Any]:
         return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
 
 # ============================================================
-# 2. OFFICIAL PLATFORM BRIDGE (تشغيل 04.py - النسخة الذاتية)
+# 2. OFFICIAL PLATFORM BRIDGE (تشغيل 04.py)
 # ============================================================
 
 def execute_official_bridge(game_artifact_path: Path, job_id: str, game_name: str) -> Dict[str, Any]:
@@ -85,7 +87,7 @@ def execute_official_bridge(game_artifact_path: Path, job_id: str, game_name: st
         return {"success": False, "error": str(e), "traceback": traceback.format_exc()}
 
 # ============================================================
-# FULL EXECUTION RUNTIME (05)
+# FULL EXECUTION RUNTIME (المنطق الرئيسي)
 # ============================================================
 
 class MajdFullExecutionRuntime:
@@ -124,7 +126,23 @@ class MajdFullExecutionRuntime:
             return state
 
 # ============================================================
-# MAIN (CLI)
+# وظيفة التشغيل التلقائي (الجدولة الزمنية)
+# ============================================================
+
+def auto_generate_game():
+    print(f"[{utc_now()}] 🔄 تشغيل العقل المدبر تلقائياً...")
+    runtime = MajdFullExecutionRuntime()
+    # الأمر الافتراضي الذي سينفذه الذكاء الاصطناعي وحده
+    result = runtime.execute("أنشئ لعبة مغامرات جديدة فريدة")
+    
+    if result.get("success"):
+        print(f"[{utc_now()}] ✅ لعبة جديدة بُنيت! ID: {result.get('game_id')}")
+        print(f"🔗 الرابط: {result.get('game_path')}")
+    else:
+        print(f"[{utc_now()}] ❌ فشل البناء التلقائي: {result.get('error')}")
+
+# ============================================================
+# CLI (واجهة الأوامر)
 # ============================================================
 
 def main() -> int:
@@ -137,5 +155,17 @@ def main() -> int:
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("success") else 1
 
+# ============================================================
+# ENTRY POINT (البدء الحقيقي للجدولة)
+# ============================================================
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # جدولة المهمة كل 6 ساعات
+    schedule.every(6).hours.do(auto_generate_game)
+    print("🧠 MAJD AI AGENT يعمل الآن في وضع السيادة المطلقة.")
+    print("⏳ سيتم بناء لعبة جديدة تلقائياً كل 6 ساعات.")
+    
+    # حلقة لانهائية لإبقاء الجدولة تعمل
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
