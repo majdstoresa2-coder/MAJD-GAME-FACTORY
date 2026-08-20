@@ -203,3 +203,33 @@ if __name__ == "__main__":
     while True:
         schedule.run_pending()
         time.sleep(1)
+# ============================================================
+# 3. إضافة نقطة نهاية للسجلات (Log Endpoint)
+# ============================================================
+
+# (أضف هذه الأسطر إلى نهاية الملف، قبل دالة main)
+from fastapi import FastAPI
+import uvicorn
+
+app = FastAPI()
+
+@app.get("/logs")
+async def get_logs():
+    if not MONITOR_LOG.exists():
+        return {"logs": []}
+    logs = []
+    with open(MONITOR_LOG, "r", encoding="utf-8") as f:
+        for line in f:
+            try:
+                logs.append(json.loads(line.strip()))
+            except:
+                pass
+    return {"logs": logs}
+
+# ============================================================
+# تشغيل خادم FastAPI (بجانب الجدولة)
+# ============================================================
+
+# (أضف هذا في نهاية دالة __main__، قبل حلقة while)
+import threading
+threading.Thread(target=lambda: uvicorn.run(app, host="0.0.0.0", port=8000), daemon=True).start()
