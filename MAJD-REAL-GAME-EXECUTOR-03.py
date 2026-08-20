@@ -142,6 +142,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />)""")
 body { background: #0f172a; overflow: hidden; font-family: Arial, sans-serif; }
 #root { width: 100vw; height: 100vh; }""")
 
+        # ========================================================
+        # تعديل الشعار هنا: تم استبدال مسار الصورة بـ Base64
+        # ========================================================
         app_jsx = """import React, { useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
@@ -169,7 +172,7 @@ function App() {
         position: 'absolute', top: '20px', left: '50%', transform: 'translateX(-50%)',
         zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center'
       }}>
-        <img src="/assets/majd_logo.png" alt="MAJD GAMES" style={{ width: '120px', marginBottom: '10px' }} />
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAFhAJ/wlseKgAAAABJRU5ErkJggg==" alt="MAJD GAMES" style={{ width: '120px', marginBottom: '10px' }} />
         <h1 style={{ color: 'white', textShadow: '0 0 20px rgba(0,0,0,0.8)', letterSpacing: '2px' }}>MAJD WORLD</h1>
       </div>
 
