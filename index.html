@@ -1,42 +1,45 @@
-        <!doctype html>
+<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#05080e" />
 
-  <meta
-    name="theme-color"
-    content="#050b12"
-  />
-
-  <title>MAJD — Supreme Owner</title>
+  <title>MAJD — SUPREME OWNER</title>
 
   <style>
     :root {
-      --bg: #050b12;
-      --bg2: #08121d;
-      --panel: rgba(8, 18, 29, 0.96);
-      --panel2: rgba(11, 24, 38, 0.96);
+      --bg: #04070c;
+      --bg-2: #07101a;
+      --bg-3: #091522;
 
-      --line: #1f3448;
-      --line2: #36536d;
+      --panel: #08131e;
+      --panel-2: #0a1724;
+      --panel-3: #0d1b29;
 
-      --text: #f5f7fb;
-      --muted: #8499ad;
+      --border: #1b3144;
+      --border-soft: rgba(255,255,255,.055);
 
-      --gold: #e9b949;
-      --gold2: #ffcf65;
+      --text: #f4f7fa;
+      --muted: #8195a8;
+      --muted-2: #596e80;
 
-      --green: #35d07f;
-      --red: #ff4d68;
-      --orange: #ff9d3d;
-      --blue: #3fa9ff;
-      --purple: #a45dff;
+      --gold: #e1ae43;
+      --gold-2: #ffd36b;
+      --gold-dark: #72551f;
 
-      --sidebar: 245px;
+      --green: #2ed982;
+      --blue: #3ca8ff;
+      --purple: #9d60ff;
+      --red: #ff4e68;
+      --orange: #ff9d42;
+      --cyan: #49d6ff;
+
+      --sidebar-width: 245px;
+      --radius: 10px;
+
+      --shadow:
+        0 18px 60px rgba(0,0,0,.32);
     }
 
     * {
@@ -51,9 +54,11 @@
       min-height: 100%;
       background: var(--bg);
       color: var(--text);
+
       font-family:
         Arial,
         Tahoma,
+        "Segoe UI",
         sans-serif;
     }
 
@@ -62,20 +67,21 @@
 
       background:
         radial-gradient(
-          circle at 70% 0%,
-          rgba(24, 71, 120, 0.22),
-          transparent 33%
+          circle at 72% 0%,
+          rgba(30, 76, 126, .20),
+          transparent 29%
         ),
         radial-gradient(
-          circle at 15% 100%,
-          rgba(158, 82, 255, 0.08),
-          transparent 30%
+          circle at 10% 80%,
+          rgba(91, 45, 165, .08),
+          transparent 25%
         ),
-        var(--bg);
+        #04070c;
     }
 
     button,
-    input {
+    input,
+    textarea {
       font: inherit;
     }
 
@@ -83,112 +89,204 @@
       cursor: pointer;
     }
 
-    .layout {
-      min-height: 100vh;
-      display: grid;
-      grid-template-columns:
-        minmax(0, 1fr)
-        var(--sidebar);
+    a {
+      color: inherit;
+      text-decoration: none;
     }
 
-    /* ======================================================
+    /* =====================================================
+       LAYOUT
+       ===================================================== */
+
+    .app-shell {
+      min-height: 100vh;
+
+      display: grid;
+
+      grid-template-columns:
+        minmax(0, 1fr)
+        var(--sidebar-width);
+    }
+
+    .main {
+      min-width: 0;
+      padding: 0 14px 24px;
+    }
+
+    /* =====================================================
        SIDEBAR
-       ====================================================== */
+       ===================================================== */
 
     .sidebar {
       position: sticky;
       top: 0;
 
       height: 100vh;
+
       overflow-y: auto;
 
-      border-left: 1px solid #243344;
+      padding: 15px 12px;
+
+      border-left: 1px solid #1a2b3b;
 
       background:
         linear-gradient(
           180deg,
-          rgba(4, 10, 17, 0.99),
-          rgba(6, 14, 23, 0.99)
+          rgba(3,7,12,.995),
+          rgba(5,12,20,.995)
         );
-
-      padding: 18px 13px;
     }
 
-    .logo {
+    .brand {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 10px;
 
-      color: var(--gold);
+      padding: 8px 8px 18px;
 
-      font-family: Georgia, serif;
-      font-size: 31px;
-      letter-spacing: 3px;
-
-      padding: 12px 6px 22px;
+      color: var(--gold-2);
     }
 
-    .logo-crown {
-      font-size: 30px;
+    .brand-mark {
+      width: 39px;
+      height: 34px;
+
+      display: grid;
+      place-items: center;
+
+      position: relative;
+    }
+
+    .brand-crown {
+      font-size: 29px;
+      line-height: 1;
+      filter:
+        drop-shadow(0 0 8px rgba(225,174,67,.32));
+    }
+
+    .brand-text {
+      direction: ltr;
+
+      font-family: Georgia, serif;
+      font-size: 29px;
+      font-weight: 700;
+
+      letter-spacing: 3px;
+    }
+
+    .brand-sub {
+      text-align: center;
+
+      color: #7f6e48;
+
+      font-size: 9px;
+      letter-spacing: 1.5px;
+
+      margin-top: -13px;
+      margin-bottom: 13px;
+
+      direction: ltr;
     }
 
     .owner-card {
       display: flex;
       align-items: center;
-      gap: 11px;
+      gap: 10px;
 
-      padding: 13px;
+      padding: 11px;
 
-      border: 1px solid #26384a;
-      border-radius: 13px;
+      margin-bottom: 15px;
+
+      border: 1px solid #2d3d4c;
+      border-radius: 11px;
 
       background:
         linear-gradient(
           135deg,
-          rgba(24, 31, 40, .96),
-          rgba(10, 18, 28, .96)
+          rgba(19,27,37,.96),
+          rgba(7,14,22,.98)
         );
-
-      margin-bottom: 18px;
     }
 
     .owner-avatar {
-      width: 54px;
-      height: 54px;
+      width: 50px;
+      height: 50px;
+
+      flex: 0 0 50px;
 
       display: grid;
       place-items: center;
 
-      flex: 0 0 54px;
-
       border-radius: 50%;
 
-      border: 2px solid var(--gold);
+      border: 2px solid #d8a841;
 
       background:
         radial-gradient(
-          circle,
-          #5c4219,
-          #15120d
+          circle at 50% 38%,
+          #6b4c1d,
+          #171009 70%
         );
 
-      font-size: 28px;
+      color: var(--gold);
+
+      font-size: 25px;
+
+      box-shadow:
+        0 0 18px rgba(225,174,67,.12);
+    }
+
+    .owner-info {
+      min-width: 0;
+      flex: 1;
     }
 
     .owner-name {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+
+      font-size: 13px;
       font-weight: 700;
-      margin-bottom: 5px;
+
+      white-space: nowrap;
+    }
+
+    .verified {
+      display: inline-grid;
+      place-items: center;
+
+      width: 14px;
+      height: 14px;
+
+      border-radius: 50%;
+
+      background: #2588e8;
+      color: white;
+
+      font-size: 9px;
     }
 
     .owner-role {
-      font-size: 12px;
-      color: #c8a65d;
+      color: #c4a152;
+      font-size: 10px;
+
+      margin-top: 4px;
+    }
+
+    .nav-title {
+      color: #53687a;
+
+      font-size: 9px;
+      font-weight: 700;
+
+      padding: 5px 10px 8px;
     }
 
     .nav {
       display: grid;
-      gap: 5px;
+      gap: 3px;
     }
 
     .nav-item {
@@ -196,604 +294,1328 @@
 
       display: flex;
       align-items: center;
-      gap: 11px;
 
-      padding: 12px 13px;
+      gap: 9px;
 
       border: 1px solid transparent;
-      border-radius: 9px;
+      border-radius: 7px;
+
+      padding: 10px 11px;
+
+      color: #aab8c4;
 
       background: transparent;
-      color: #c5d0db;
 
       text-align: right;
+
+      transition:
+        background .18s ease,
+        border-color .18s ease,
+        color .18s ease;
     }
 
     .nav-item:hover {
-      background: #101c28;
-      border-color: #263b4d;
+      background: #0d1924;
+      border-color: #203647;
+      color: white;
     }
 
     .nav-item.active {
-      color: #ffd876;
+      color: #f3c75f;
 
-      border-color: #725a27;
+      border-color: #705728;
 
       background:
         linear-gradient(
           90deg,
-          rgba(121, 87, 26, .34),
-          rgba(60, 43, 15, .45)
+          rgba(91,63,15,.50),
+          rgba(24,20,14,.50)
         );
+
+      box-shadow:
+        inset -3px 0 0 #e0ad43;
     }
 
     .nav-icon {
-      width: 23px;
+      width: 24px;
+
+      color: inherit;
+
       text-align: center;
-      font-size: 18px;
+
+      font-size: 16px;
     }
 
-    .server-mini {
-      margin-top: 18px;
+    .nav-label {
+      flex: 1;
 
-      border: 1px solid #25394b;
-      border-radius: 12px;
-
-      background: #091522;
-
-      padding: 14px;
+      font-size: 12px;
+      font-weight: 600;
     }
 
-    .server-mini h4 {
-      margin-bottom: 12px;
-      font-size: 14px;
+    .nav-badge {
+      padding: 2px 6px;
+
+      border-radius: 10px;
+
+      background: #49229b;
+      color: #d8c8ff;
+
+      font-size: 8px;
+    }
+
+    .server-card {
+      margin-top: 16px;
+
+      border: 1px solid #22394b;
+      border-radius: 9px;
+
+      padding: 12px;
+
+      background: #07131e;
+    }
+
+    .server-card-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+
+      margin-bottom: 8px;
+
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .server-card-link {
+      color: #577bd7;
+      font-size: 8px;
     }
 
     .server-mini-row {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+
+      grid-template-columns:
+        9px
+        minmax(0,1fr)
+        auto;
+
+      gap: 7px;
+
       align-items: center;
 
-      padding: 7px 0;
+      padding: 6px 0;
 
-      font-size: 12px;
-      color: #b6c4d1;
+      color: #9aabba;
+
+      font-size: 9px;
     }
 
-    .indicator {
-      width: 8px;
-      height: 8px;
+    .status-dot {
+      width: 7px;
+      height: 7px;
+
       border-radius: 50%;
 
-      background: #556575;
+      background: #526474;
     }
 
-    .indicator.online {
+    .status-dot.online {
       background: var(--green);
-      box-shadow: 0 0 10px var(--green);
+
+      box-shadow:
+        0 0 8px rgba(46,217,130,.75);
     }
 
-    .indicator.offline {
+    .status-dot.offline {
       background: var(--red);
-      box-shadow: 0 0 10px rgba(255, 77, 104, .55);
+
+      box-shadow:
+        0 0 8px rgba(255,78,104,.6);
     }
 
-    /* ======================================================
-       MAIN
-       ====================================================== */
-
-    .main {
-      min-width: 0;
-      padding: 0 18px 28px;
+    .status-dot.warning {
+      background: var(--orange);
     }
+
+    /* =====================================================
+       TOP BAR
+       ===================================================== */
 
     .topbar {
-      min-height: 57px;
+      height: 52px;
 
       display: flex;
       align-items: center;
       justify-content: space-between;
 
-      gap: 16px;
+      gap: 14px;
 
-      border-bottom: 1px solid #192b3b;
-
-      margin-bottom: 12px;
+      border-bottom: 1px solid #172938;
     }
 
-    .top-actions {
+    .topbar-right {
+      flex: 1;
+
       display: flex;
       align-items: center;
+
       gap: 10px;
     }
 
-    .top-button {
-      border: 1px solid #26394b;
+    .global-search {
+      width: min(370px, 45vw);
 
-      background: #09131e;
-      color: #d7e0e8;
+      border: 1px solid #213749;
+      border-radius: 17px;
 
-      border-radius: 9px;
-      padding: 9px 12px;
-    }
+      background: #07121c;
 
-    .live-clock {
-      direction: ltr;
-      text-align: left;
+      color: #e6edf4;
 
-      font-size: 14px;
-    }
-
-    .live-label {
-      color: var(--green);
-      font-size: 10px;
-      margin-right: 5px;
-    }
-
-    .search {
-      width: min(360px, 46vw);
-
-      border: 1px solid #25384a;
-      border-radius: 18px;
-
-      background: #08121c;
-
-      color: white;
-
-      padding: 9px 15px;
       outline: none;
+
+      padding: 8px 14px;
+
+      font-size: 11px;
     }
 
-    /* ======================================================
-       HERO
-       ====================================================== */
+    .global-search::placeholder {
+      color: #526b7e;
+    }
 
-    .hero {
-      position: relative;
-      overflow: hidden;
+    .language {
+      border: 0;
+      background: transparent;
 
-      min-height: 225px;
+      color: #8197a9;
 
+      font-size: 10px;
+    }
+
+    .topbar-left {
       display: flex;
       align-items: center;
 
-      border: 1px solid #725729;
-      border-radius: 10px;
+      gap: 7px;
+    }
 
-      padding: 28px;
+    .icon-btn {
+      min-width: 32px;
+      height: 31px;
+
+      display: grid;
+      place-items: center;
+
+      border: 1px solid #203446;
+      border-radius: 7px;
+
+      background: #07121c;
+      color: #9eb0be;
+
+      font-size: 13px;
+    }
+
+    .icon-btn:hover {
+      color: white;
+      border-color: #3a5064;
+    }
+
+    .top-counter {
+      position: relative;
+    }
+
+    .top-counter::after {
+      content: attr(data-count);
+
+      position: absolute;
+
+      top: -6px;
+      left: -5px;
+
+      min-width: 15px;
+      height: 15px;
+
+      display: grid;
+      place-items: center;
+
+      border-radius: 8px;
+
+      background: #b32644;
+
+      color: white;
+
+      font-size: 7px;
+
+      padding: 0 3px;
+    }
+
+    .clock {
+      min-width: 70px;
+
+      text-align: left;
+      direction: ltr;
+
+      color: #c2ced7;
+
+      font-size: 11px;
+    }
+
+    .live-label {
+      display: block;
+
+      color: var(--green);
+
+      font-size: 7px;
+
+      margin-top: 2px;
+    }
+
+    /* =====================================================
+       HERO
+       ===================================================== */
+
+    .hero {
+      position: relative;
+
+      min-height: 220px;
+
+      display: grid;
+
+      grid-template-columns:
+        minmax(0, 1fr)
+        38%;
+
+      overflow: hidden;
+
+      margin: 10px 0 11px;
+
+      border: 1px solid #675125;
+      border-radius: 7px;
 
       background:
         radial-gradient(
-          circle at 70% 45%,
-          rgba(24, 91, 170, .38),
-          transparent 30%
+          circle at 20% 35%,
+          rgba(31,99,173,.37),
+          transparent 25%
         ),
         radial-gradient(
-          circle at 91% 15%,
-          rgba(111, 75, 255, .18),
-          transparent 26%
+          circle at 42% 65%,
+          rgba(56,66,183,.16),
+          transparent 30%
         ),
         linear-gradient(
           100deg,
-          #07111b,
-          #07182c 65%,
-          #07111b
+          #06111d,
+          #071426 56%,
+          #070d15
         );
-
-      margin-bottom: 15px;
     }
 
-    .hero::after {
+    .hero::before {
       content: "";
 
       position: absolute;
       inset: 0;
 
-      pointer-events: none;
-
       background:
-        linear-gradient(
+        repeating-linear-gradient(
           90deg,
-          rgba(255,255,255,.025) 1px,
-          transparent 1px
+          transparent 0,
+          transparent 44px,
+          rgba(255,255,255,.015) 45px
         );
 
-      background-size: 38px 100%;
-      opacity: .2;
+      pointer-events: none;
     }
 
     .hero-content {
       position: relative;
       z-index: 2;
 
-      max-width: 630px;
-    }
+      padding: 30px 31px;
 
-    .hero h1 {
-      font-size: 28px;
-      margin-bottom: 12px;
-    }
-
-    .hero-gold {
-      color: var(--gold);
-      font-size: 21px;
-      margin-bottom: 12px;
-    }
-
-    .hero p {
-      color: #9cafbf;
-      line-height: 1.9;
-      margin-bottom: 24px;
-    }
-
-    .hero-status-row {
       display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 24px;
-
-      color: #c5d1db;
-      font-size: 13px;
+      flex-direction: column;
+      justify-content: center;
     }
 
-    .real-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+    .hero-title {
+      font-size: 24px;
+      font-weight: 700;
 
-    .owner-command-btn {
-      position: absolute;
-      z-index: 3;
-
-      left: 18px;
-      top: 18px;
-
-      border: 1px solid #6846db;
-
-      border-radius: 8px;
-
-      color: #f0eaff;
-
-      background:
-        linear-gradient(
-          180deg,
-          #3c2699,
-          #241565
-        );
-
-      padding: 11px 17px;
-    }
-
-    .hero-crown {
-      position: absolute;
-      z-index: 1;
-
-      left: 18%;
-      top: 50%;
-
-      transform: translate(-50%, -50%);
-
-      text-align: center;
-
-      color: #efc45d;
-
-      opacity: .95;
-    }
-
-    .hero-crown .crown {
-      font-size: 76px;
-    }
-
-    .hero-crown strong {
-      display: block;
-
-      font-family: Georgia, serif;
-
-      font-size: 34px;
-
-      letter-spacing: 5px;
-    }
-
-    .hero-crown small {
-      display: block;
-      margin-top: 6px;
-      letter-spacing: 2px;
-    }
-
-    /* ======================================================
-       STATISTICS
-       ====================================================== */
-
-    .stats {
-      display: grid;
-
-      grid-template-columns:
-        repeat(6, minmax(135px, 1fr));
-
-      gap: 10px;
-
-      margin-bottom: 14px;
-    }
-
-    .stat {
-      border: 1px solid #203548;
-      border-radius: 9px;
-
-      background:
-        linear-gradient(
-          180deg,
-          #0b1825,
-          #08131f
-        );
-
-      padding: 15px;
-    }
-
-    .stat-label {
-      color: #9cadbd;
-      font-size: 12px;
       margin-bottom: 8px;
     }
 
-    .stat-value {
-      font-size: 21px;
+    .hero-subtitle {
+      color: #d3ab4d;
+
+      font-size: 17px;
       font-weight: 700;
+
+      margin-bottom: 10px;
     }
 
-    .stat-note {
-      margin-top: 7px;
-      font-size: 10px;
-      color: var(--muted);
+    .hero-description {
+      max-width: 620px;
+
+      color: #8fa3b4;
+
+      font-size: 11px;
+      line-height: 1.9;
+
+      margin-bottom: 20px;
     }
 
-    /* ======================================================
-       CONTENT GRID
-       ====================================================== */
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
 
-    .dashboard-grid {
-      display: grid;
+      gap: 18px;
 
-      grid-template-columns:
-        1fr 1.7fr 1fr;
+      align-items: center;
 
-      gap: 12px;
+      color: #91a5b5;
 
-      margin-bottom: 12px;
+      font-size: 9px;
     }
 
-    .panel {
-      border: 1px solid #203448;
-      border-radius: 10px;
+    .hero-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .owner-command-button {
+      position: absolute;
+
+      z-index: 5;
+
+      left: 15px;
+      top: 13px;
+
+      border: 1px solid #684fd2;
+      border-radius: 6px;
 
       background:
         linear-gradient(
           180deg,
-          rgba(10, 23, 35, .98),
-          rgba(7, 17, 27, .98)
+          #39218e,
+          #22145c
         );
 
-      padding: 15px;
-    }
+      color: #eee9ff;
 
-    .panel-title {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      padding: 8px 13px;
 
-      gap: 10px;
-
-      margin-bottom: 14px;
-
-      font-size: 14px;
+      font-size: 10px;
       font-weight: 700;
+
+      box-shadow:
+        0 8px 25px rgba(61,35,146,.25);
     }
 
-    .panel-link {
-      color: #6b81ff;
-      font-size: 11px;
-      font-weight: 400;
-    }
+    .hero-visual {
+      position: relative;
+      z-index: 1;
 
-    /* ======================================================
-       ACTIVITY
-       ====================================================== */
-
-    .activity-list {
       display: grid;
-      gap: 4px;
+      place-items: center;
+
+      overflow: hidden;
     }
 
-    .activity {
+    .hero-visual::before {
+      content: "";
+
+      position: absolute;
+
+      width: 280px;
+      height: 280px;
+
+      border-radius: 50%;
+
+      background:
+        radial-gradient(
+          circle,
+          rgba(48,106,177,.55),
+          rgba(19,54,94,.30) 43%,
+          transparent 70%
+        );
+
+      box-shadow:
+        0 0 100px rgba(60,129,217,.24);
+    }
+
+    .majd-emblem {
+      position: relative;
+      z-index: 2;
+
+      text-align: center;
+
+      transform: translateY(5px);
+    }
+
+    .majd-emblem-crown {
+      color: var(--gold);
+
+      font-size: 68px;
+      line-height: .9;
+
+      filter:
+        drop-shadow(
+          0 0 15px rgba(225,174,67,.20)
+        );
+    }
+
+    .majd-emblem-name {
+      color: #efbf50;
+
+      font-family: Georgia, serif;
+      font-size: 28px;
+
+      letter-spacing: 5px;
+
+      direction: ltr;
+
+      margin-top: 6px;
+    }
+
+    .majd-emblem-sub {
+      direction: ltr;
+
+      color: #998453;
+
+      font-size: 7px;
+      letter-spacing: 2px;
+
+      margin-top: 5px;
+    }
+
+    /* =====================================================
+       STAT CARDS
+       ===================================================== */
+
+    .stats-grid {
       display: grid;
 
       grid-template-columns:
-        44px 1fr 15px;
-
-      align-items: center;
+        repeat(6, minmax(0, 1fr));
 
       gap: 8px;
 
-      padding: 9px 0;
-
-      border-bottom: 1px solid #142638;
+      margin-bottom: 10px;
     }
 
-    .activity:last-child {
+    .stat-card {
+      min-height: 96px;
+
+      border: 1px solid #1b3042;
+      border-radius: 7px;
+
+      background:
+        linear-gradient(
+          180deg,
+          #091622,
+          #07111b
+        );
+
+      padding: 12px 12px 10px;
+
+      position: relative;
+
+      overflow: hidden;
+    }
+
+    .stat-card::after {
+      content: "";
+
+      position: absolute;
+
+      top: 0;
+      right: 0;
+
+      width: 3px;
+      height: 100%;
+
+      background: var(--accent, #577a96);
+    }
+
+    .stat-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+
+      gap: 8px;
+
+      margin-bottom: 8px;
+    }
+
+    .stat-icon {
+      width: 26px;
+      height: 26px;
+
+      display: grid;
+      place-items: center;
+
+      border-radius: 7px;
+
+      background:
+        color-mix(
+          in srgb,
+          var(--accent) 15%,
+          transparent
+        );
+
+      color: var(--accent);
+
+      font-size: 13px;
+    }
+
+    .stat-title {
+      color: #8fa0ae;
+
+      font-size: 9px;
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: 800;
+
+      direction: ltr;
+      text-align: right;
+    }
+
+    .stat-footer {
+      display: flex;
+      align-items: center;
+
+      gap: 5px;
+
+      margin-top: 7px;
+
+      color: #62798c;
+
+      font-size: 7px;
+    }
+
+    .trend-up {
+      color: #35d381;
+    }
+
+    /* =====================================================
+       PANELS
+       ===================================================== */
+
+    .dashboard-row {
+      display: grid;
+
+      grid-template-columns:
+        .95fr
+        1.55fr
+        .95fr;
+
+      gap: 8px;
+
+      margin-bottom: 8px;
+    }
+
+    .panel {
+      border: 1px solid #1b3042;
+      border-radius: 7px;
+
+      background:
+        linear-gradient(
+          180deg,
+          rgba(8,20,31,.98),
+          rgba(6,14,23,.99)
+        );
+
+      box-shadow: var(--shadow);
+
+      padding: 12px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+
+      gap: 8px;
+
+      margin-bottom: 10px;
+    }
+
+    .panel-title {
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .panel-action {
+      color: #5476d7;
+      font-size: 8px;
+    }
+
+    /* =====================================================
+       ACTIVITY
+       ===================================================== */
+
+    .activity-list {
+      display: grid;
+    }
+
+    .activity-item {
+      display: grid;
+
+      grid-template-columns:
+        35px
+        minmax(0,1fr)
+        9px;
+
+      align-items: center;
+
+      gap: 7px;
+
+      min-height: 43px;
+
+      border-bottom: 1px solid #142536;
+
+      font-size: 9px;
+    }
+
+    .activity-item:last-child {
       border-bottom: 0;
     }
 
     .activity-time {
-      color: #778b9d;
-      font-size: 11px;
       direction: ltr;
+
+      color: #5f7486;
+
+      font-size: 8px;
     }
 
-    .activity-title {
-      font-size: 12px;
+    .activity-text {
+      color: #b8c5cf;
     }
 
-    .activity-title small {
+    .activity-text small {
       display: block;
 
-      color: #7296cf;
+      color: #627fa4;
 
-      margin-top: 4px;
+      margin-top: 3px;
+
+      font-size: 7px;
     }
 
-    /* ======================================================
-       CHART
-       ====================================================== */
+    /* =====================================================
+       GRAPH
+       ===================================================== */
 
-    .chart {
-      height: 205px;
+    .analytics {
+      min-height: 235px;
+    }
 
+    .chart-area {
+      position: relative;
+
+      height: 175px;
+
+      border-bottom: 1px solid #173047;
+
+      overflow: hidden;
+
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(255,255,255,.025) 1px,
+          transparent 1px
+        );
+
+      background-size: 100% 35px;
+    }
+
+    .chart-svg {
+      position: absolute;
+      inset: 8px 2px 0;
+
+      width: calc(100% - 4px);
+      height: calc(100% - 8px);
+    }
+
+    .chart-labels {
       display: flex;
-      align-items: flex-end;
-      gap: 10px;
+      justify-content: space-between;
 
-      padding: 20px 5px 4px;
+      padding: 5px 5px 0;
 
-      border-bottom: 1px solid #1f3850;
+      color: #53697b;
 
-      direction: ltr;
-    }
-
-    .chart-column {
-      flex: 1;
-
-      display: flex;
-      gap: 3px;
-
-      align-items: flex-end;
-
-      height: 100%;
-    }
-
-    .bar {
-      flex: 1;
-
-      min-height: 3px;
-
-      border-radius: 4px 4px 0 0;
-
-      transition: height .5s ease;
-    }
-
-    .bar.users {
-      background: var(--purple);
-    }
-
-    .bar.views {
-      background: var(--blue);
-    }
-
-    .bar.revenue {
-      background: var(--green);
+      font-size: 7px;
     }
 
     .chart-legend {
       display: flex;
+      align-items: center;
       justify-content: center;
-      gap: 18px;
 
-      margin-top: 12px;
+      flex-wrap: wrap;
 
-      color: #8ea1b3;
-      font-size: 11px;
+      gap: 14px;
+
+      margin-top: 6px;
+
+      color: #72889a;
+
+      font-size: 7px;
     }
 
-    /* ======================================================
-       SERVERS
-       ====================================================== */
+    /* =====================================================
+       DISTRIBUTION
+       ===================================================== */
 
-    .server-row {
+    .distribution {
+      min-height: 235px;
+    }
+
+    .donut-wrap {
+      display: grid;
+      place-items: center;
+
+      padding: 8px 0 9px;
+    }
+
+    .donut {
+      width: 112px;
+      height: 112px;
+
+      display: grid;
+      place-items: center;
+
+      border-radius: 50%;
+
+      background:
+        conic-gradient(
+          #9961ff 0 42%,
+          #3e9eff 42% 68%,
+          #31d58b 68% 82%,
+          #ff9b45 82% 92%,
+          #efc34f 92% 100%
+        );
+
+      position: relative;
+    }
+
+    .donut::after {
+      content: "";
+
+      width: 72px;
+      height: 72px;
+
+      position: absolute;
+
+      border-radius: 50%;
+
+      background: #07121d;
+    }
+
+    .donut-center {
+      position: relative;
+      z-index: 2;
+
+      text-align: center;
+    }
+
+    .donut-center strong {
+      display: block;
+      font-size: 16px;
+    }
+
+    .donut-center small {
+      color: #708697;
+      font-size: 7px;
+    }
+
+    .legend-list {
+      display: grid;
+      gap: 6px;
+    }
+
+    .legend-row {
       display: grid;
 
       grid-template-columns:
-        11px 1fr auto;
+        7px
+        1fr
+        auto;
+
+      gap: 6px;
+
+      align-items: center;
+
+      color: #8296a6;
+
+      font-size: 8px;
+    }
+
+    .legend-color {
+      width: 6px;
+      height: 6px;
+
+      border-radius: 2px;
+    }
+
+    /* =====================================================
+       SECOND ROW
+       ===================================================== */
+
+    .secondary-row {
+      display: grid;
+
+      grid-template-columns:
+        1.15fr
+        1fr
+        1fr;
+
+      gap: 8px;
+
+      margin-bottom: 8px;
+    }
+
+    .live-list {
+      display: grid;
+      gap: 7px;
+    }
+
+    .live-card {
+      display: grid;
+
+      grid-template-columns:
+        58px
+        minmax(0,1fr)
+        auto;
 
       gap: 8px;
 
       align-items: center;
 
-      padding: 10px 0;
+      padding: 7px;
 
-      border-bottom: 1px solid #152536;
+      border: 1px solid #14283a;
+      border-radius: 6px;
 
-      font-size: 12px;
+      background: #08141f;
     }
 
-    .server-row:last-child {
+    .live-thumb {
+      height: 40px;
+
+      display: grid;
+      place-items: center;
+
+      border-radius: 5px;
+
+      background:
+        radial-gradient(
+          circle,
+          #213c58,
+          #0c1b28
+        );
+
+      font-size: 20px;
+    }
+
+    .live-info strong {
+      display: block;
+
+      font-size: 8px;
+      margin-bottom: 4px;
+    }
+
+    .live-info small {
+      color: #71889a;
+      font-size: 7px;
+    }
+
+    .live-badge {
+      color: #ff7185;
+
+      border: 1px solid rgba(255,78,104,.30);
+      border-radius: 4px;
+
+      background: rgba(255,78,104,.08);
+
+      padding: 3px 5px;
+
+      font-size: 6px;
+    }
+
+    .alerts-list {
+      display: grid;
+      gap: 7px;
+    }
+
+    .alert-item {
+      display: grid;
+
+      grid-template-columns:
+        28px
+        minmax(0,1fr)
+        auto;
+
+      gap: 8px;
+
+      align-items: center;
+
+      padding: 8px;
+
+      border: 1px solid #172b3d;
+      border-radius: 6px;
+
+      background: #08141f;
+    }
+
+    .alert-icon {
+      width: 28px;
+      height: 28px;
+
+      display: grid;
+      place-items: center;
+
+      border-radius: 6px;
+
+      background: #101f2d;
+
+      font-size: 13px;
+    }
+
+    .alert-text strong {
+      display: block;
+      font-size: 8px;
+    }
+
+    .alert-text small {
+      color: #6f8394;
+      font-size: 7px;
+    }
+
+    .alert-time {
+      color: #52697b;
+      font-size: 6px;
+    }
+
+    .system-list {
+      display: grid;
+    }
+
+    .system-row {
+      display: grid;
+
+      grid-template-columns:
+        8px
+        minmax(0,1fr)
+        auto;
+
+      gap: 7px;
+
+      align-items: center;
+
+      min-height: 32px;
+
+      border-bottom: 1px solid #142638;
+
+      font-size: 8px;
+    }
+
+    .system-row:last-child {
       border-bottom: 0;
     }
 
-    .server-state {
-      color: #91a4b4;
-      font-size: 11px;
+    .system-name {
+      color: #99aab7;
     }
 
-    /* ======================================================
-       QUICK ACTIONS
-       ====================================================== */
+    .system-value {
+      color: #6f8597;
 
-    .quick {
-      margin-bottom: 12px;
+      direction: ltr;
+    }
+
+    /* =====================================================
+       QUICK ACTIONS
+       ===================================================== */
+
+    .quick-panel {
+      margin-bottom: 8px;
     }
 
     .quick-grid {
       display: grid;
 
       grid-template-columns:
-        repeat(8, minmax(100px, 1fr));
+        repeat(8, minmax(0,1fr));
 
-      gap: 8px;
+      gap: 6px;
     }
 
     .quick-btn {
-      min-height: 88px;
+      min-height: 69px;
 
-      border: 1px solid #22374a;
-      border-radius: 9px;
+      display: flex;
+      flex-direction: column;
 
-      background: #091622;
+      align-items: center;
+      justify-content: center;
 
-      color: #dce5ec;
+      gap: 6px;
+
+      border: 1px solid #1b3041;
+      border-radius: 6px;
+
+      background:
+        linear-gradient(
+          180deg,
+          #0a1723,
+          #07131e
+        );
+
+      color: #b7c4ce;
+
+      font-size: 8px;
+    }
+
+    .quick-btn:hover {
+      border-color: #6b5429;
+
+      background:
+        linear-gradient(
+          180deg,
+          #102130,
+          #0a1723
+        );
+
+      color: white;
+    }
+
+    .quick-icon {
+      font-size: 21px;
+    }
+
+    /* =====================================================
+       LOWER CONTENT
+       ===================================================== */
+
+    .lower-grid {
+      display: grid;
+
+      grid-template-columns:
+        1.15fr
+        1fr
+        1fr;
+
+      gap: 8px;
+
+      margin-bottom: 8px;
+    }
+
+    .performance-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .performance-row {
+      display: grid;
+
+      grid-template-columns:
+        65px
+        minmax(0,1fr)
+        34px;
+
+      gap: 8px;
+
+      align-items: center;
+
+      font-size: 8px;
+    }
+
+    .progress-track {
+      height: 5px;
+
+      overflow: hidden;
+
+      border-radius: 4px;
+
+      background: #10202d;
+    }
+
+    .progress-bar {
+      height: 100%;
+
+      border-radius: inherit;
+
+      background:
+        linear-gradient(
+          90deg,
+          #ae7cff,
+          #4b9aff
+        );
+    }
+
+    .game-ranking {
+      display: grid;
+      gap: 7px;
+    }
+
+    .game-rank-row {
+      display: grid;
+
+      grid-template-columns:
+        22px
+        37px
+        minmax(0,1fr)
+        auto;
+
+      gap: 7px;
+
+      align-items: center;
+
+      padding: 5px 0;
+
+      border-bottom: 1px solid #142536;
+
+      font-size: 8px;
+    }
+
+    .game-rank-row:last-child {
+      border-bottom: 0;
+    }
+
+    .rank-number {
+      color: #d8aa43;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .game-thumb {
+      height: 28px;
 
       display: grid;
       place-items: center;
 
-      gap: 5px;
+      border-radius: 5px;
+
+      background:
+        linear-gradient(
+          135deg,
+          #263e52,
+          #101e2b
+        );
+    }
+
+    .game-title small {
+      display: block;
+
+      color: #657c8e;
+      font-size: 6px;
+
+      margin-top: 2px;
+    }
+
+    .game-stat {
+      color: #6b8192;
+
+      font-size: 7px;
+      direction: ltr;
+    }
+
+    .content-summary {
+      display: grid;
+
+      grid-template-columns:
+        repeat(2,1fr);
+
+      gap: 7px;
+    }
+
+    .content-box {
+      min-height: 65px;
+
+      display: flex;
+      flex-direction: column;
+
+      justify-content: center;
+
+      border: 1px solid #183044;
+      border-radius: 6px;
+
+      background: #08151f;
+
+      padding: 8px;
+    }
+
+    .content-box span {
+      color: #6d8496;
+      font-size: 7px;
+    }
+
+    .content-box strong {
+      margin-top: 5px;
+
+      font-size: 14px;
+    }
+
+    /* =====================================================
+       SYSTEM CONSOLE
+       ===================================================== */
+
+    .console-panel {
+      margin-bottom: 8px;
+    }
+
+    .system-console {
+      max-height: 160px;
+
+      overflow: auto;
+
+      direction: ltr;
+      text-align: left;
+
+      border: 1px solid #152b3d;
+      border-radius: 6px;
+
+      background: #02070b;
 
       padding: 10px;
+
+      color: #7891a4;
+
+      font-family: monospace;
+      font-size: 8px;
+      line-height: 1.7;
+
+      white-space: pre-wrap;
     }
 
-    .quick-btn:hover {
-      border-color: #745d31;
-      background: #10202e;
-    }
-
-    .quick-icon {
-      font-size: 28px;
-    }
-
-    /* ======================================================
-       OWNER COMMAND MODAL
-       ====================================================== */
+    /* =====================================================
+       MODAL
+       ===================================================== */
 
     .modal-backdrop {
       position: fixed;
-      z-index: 100;
+
+      z-index: 500;
 
       inset: 0;
-
-      background: rgba(0,0,0,.72);
 
       display: none;
       align-items: center;
       justify-content: center;
 
       padding: 18px;
+
+      background: rgba(0,0,0,.78);
+
+      backdrop-filter: blur(7px);
     }
 
     .modal-backdrop.open {
@@ -801,117 +1623,109 @@
     }
 
     .modal {
-      width: min(700px, 100%);
+      width: min(680px,100%);
 
-      border: 1px solid #725b2d;
-      border-radius: 14px;
+      border: 1px solid #725824;
+      border-radius: 10px;
 
-      background: #08131e;
+      background:
+        linear-gradient(
+          180deg,
+          #0a1722,
+          #07121c
+        );
 
-      box-shadow: 0 30px 100px #000;
+      padding: 18px;
 
-      padding: 22px;
+      box-shadow:
+        0 35px 100px rgba(0,0,0,.65);
     }
 
-    .modal h3 {
-      color: var(--gold);
-      margin-bottom: 14px;
+    .modal-title {
+      color: #e7b34a;
+
+      font-size: 15px;
+      font-weight: 700;
+
+      margin-bottom: 12px;
     }
 
     .command-input {
       width: 100%;
-      min-height: 110px;
+      min-height: 120px;
 
       resize: vertical;
 
-      border: 1px solid #30475c;
-      border-radius: 10px;
+      border: 1px solid #2b4357;
+      border-radius: 7px;
 
-      background: #03090f;
+      background: #02080d;
+
       color: white;
 
-      padding: 13px;
+      padding: 11px;
 
       outline: none;
     }
 
     .modal-actions {
       display: flex;
-      gap: 10px;
+      gap: 8px;
 
-      margin-top: 12px;
+      margin-top: 10px;
+    }
+
+    .primary-btn,
+    .secondary-btn {
+      border-radius: 6px;
+
+      padding: 9px 15px;
+
+      font-size: 10px;
+
+      color: white;
     }
 
     .primary-btn {
-      border: 1px solid #926e2e;
+      border: 1px solid #90702c;
 
       background:
         linear-gradient(
           180deg,
-          #a97925,
-          #6b4816
+          #a77a27,
+          #6e4b18
         );
-
-      color: white;
-
-      padding: 11px 18px;
-
-      border-radius: 8px;
     }
 
     .secondary-btn {
-      border: 1px solid #34485a;
-      background: #101c27;
-      color: white;
-      padding: 11px 18px;
-      border-radius: 8px;
+      border: 1px solid #304759;
+      background: #0f1c27;
     }
 
-    /* ======================================================
-       SYSTEM LOG
-       ====================================================== */
-
-    .system-console {
-      margin-top: 12px;
-
-      max-height: 200px;
-      overflow: auto;
-
-      direction: ltr;
-      text-align: left;
-
-      border: 1px solid #1f3448;
-      border-radius: 9px;
-
-      background: #02070c;
-
-      padding: 13px;
-
-      font-family: monospace;
-      font-size: 11px;
-
-      color: #9fb0bf;
-
-      white-space: pre-wrap;
-    }
+    /* =====================================================
+       FOOTER
+       ===================================================== */
 
     .footer {
       text-align: center;
-      color: #536b7e;
-      font-size: 11px;
-      padding: 15px 0 2px;
+
+      color: #3e5567;
+
+      font-size: 7px;
+
+      padding: 10px 0 2px;
     }
 
-    /* ======================================================
+    /* =====================================================
        RESPONSIVE
-       ====================================================== */
+       ===================================================== */
 
     @media (max-width: 1250px) {
       :root {
-        --sidebar: 210px;
+        --sidebar-width: 215px;
       }
 
-      .stats {
+      .stats-grid {
         grid-template-columns:
           repeat(3, 1fr);
       }
@@ -923,69 +1737,92 @@
     }
 
     @media (max-width: 900px) {
-      .layout {
+      .app-shell {
         display: block;
       }
 
       .sidebar {
         position: relative;
 
-        width: 100%;
         height: auto;
 
         border-left: 0;
-        border-bottom: 1px solid #203448;
+        border-bottom: 1px solid #1a2b3b;
       }
 
       .nav {
         grid-template-columns:
-          repeat(2, 1fr);
+          repeat(2,1fr);
       }
 
-      .main {
-        padding: 0 10px 24px;
-      }
-
-      .dashboard-grid {
+      .dashboard-row,
+      .secondary-row,
+      .lower-grid {
         grid-template-columns: 1fr;
       }
 
-      .hero-crown {
-        opacity: .2;
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-visual {
+        min-height: 165px;
+      }
+
+      .stats-grid {
+        grid-template-columns:
+          repeat(2,1fr);
       }
     }
 
-    @media (max-width: 650px) {
-      .topbar {
-        flex-wrap: wrap;
-        padding: 8px 0;
+    @media (max-width: 600px) {
+      .main {
+        padding: 0 8px 18px;
       }
 
-      .search {
-        order: 3;
+      .topbar {
+        height: auto;
+
+        min-height: 52px;
+
+        flex-wrap: wrap;
+
+        padding: 7px 0;
+      }
+
+      .topbar-right {
+        order: 2;
         width: 100%;
       }
 
-      .stats {
-        grid-template-columns:
-          repeat(2, 1fr);
+      .global-search {
+        width: 100%;
+      }
+
+      .nav {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-content {
+        padding: 22px 17px;
+      }
+
+      .hero-title {
+        font-size: 20px;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr 1fr;
       }
 
       .quick-grid {
         grid-template-columns:
-          repeat(2, 1fr);
+          repeat(2,1fr);
       }
 
-      .hero {
-        padding: 20px 16px;
-      }
-
-      .hero h1 {
-        font-size: 22px;
-      }
-
-      .nav {
-        grid-template-columns: 1fr;
+      .owner-command-button {
+        left: 9px;
+        top: 9px;
       }
     }
   </style>
@@ -993,1434 +1830,2522 @@
 
 <body>
 
-<div class="layout">
+  <div class="app-shell">
 
-  <!-- ======================================================
-       MAIN
-       ====================================================== -->
+    <!-- ===================================================
+         MAIN
+         =================================================== -->
 
-  <main class="main">
+    <main class="main">
 
-    <header class="topbar">
+      <!-- TOPBAR -->
 
-      <div class="top-actions">
-        <button class="top-button">⚙</button>
-        <button class="top-button">☾</button>
-        <button class="top-button">🔔</button>
+      <header class="topbar">
 
-        <div class="live-clock">
-          <span id="clock">--:--:--</span>
-          <span class="live-label">● LIVE</span>
-        </div>
-      </div>
+        <div class="topbar-right">
 
-      <input
-        class="search"
-        type="search"
-        placeholder="بحث شامل..."
-      />
+          <input
+            type="search"
+            class="global-search"
+            placeholder="بحث شامل..."
+          />
 
-    </header>
+          <button class="language">
+            العربية
+          </button>
 
-    <!-- ====================================================
-         HERO
-         ==================================================== -->
-
-    <section class="hero">
-
-      <button
-        class="owner-command-btn"
-        id="open-owner-command"
-      >
-        👑 أوامر المالك
-      </button>
-
-      <div class="hero-content">
-
-        <h1>
-          مرحباً بك في لوحة التحكم السيادية
-        </h1>
-
-        <div class="hero-gold">
-          منصة مجد الرسمية السيادية
         </div>
 
-        <p>
-          مركز التشغيل والتحكم والمراقبة للألعاب
-          والإعلام والذكاء الاصطناعي والبنية التحتية.
-        </p>
+        <div class="topbar-left">
 
-        <div class="hero-status-row">
+          <button
+            class="icon-btn top-counter"
+            data-count="12"
+            title="الإشعارات"
+          >
+            ♢
+          </button>
 
-          <div class="real-status">
-            <span
-              class="indicator"
-              id="main-server-dot"
-            ></span>
+          <button
+            class="icon-btn top-counter"
+            data-count="7"
+            title="الرسائل"
+          >
+            ◫
+          </button>
 
-            <span id="main-server-text">
-              جارٍ فحص النظام...
+          <button
+            class="icon-btn"
+            title="الوضع"
+          >
+            ◐
+          </button>
+
+          <button
+            class="icon-btn"
+            title="الإعدادات"
+          >
+            ⚙
+          </button>
+
+          <div class="clock">
+            <span id="clock">--:--:--</span>
+            <span class="live-label">
+              ● LIVE
             </span>
           </div>
 
-          <div>
-            API:
-            <strong id="api-state">CHECKING</strong>
-          </div>
-
-          <div>
-            البيئة:
-            <strong id="environment-state">
-              PRODUCTION
-            </strong>
-          </div>
-
-        </div>
-      </div>
-
-      <div class="hero-crown">
-        <div class="crown">👑</div>
-        <strong>MAJD</strong>
-        <small>THE SOVEREIGN PLATFORM</small>
-      </div>
-
-    </section>
-
-    <!-- ====================================================
-         LIVE REAL STATS
-         ==================================================== -->
-
-    <section class="stats">
-
-      <div class="stat">
-        <div class="stat-label">
-          المستخدمون الكليون
-        </div>
-        <div
-          class="stat-value"
-          id="stat-users"
-        >—</div>
-        <div class="stat-note">
-          من Backend
-        </div>
-      </div>
-
-      <div class="stat">
-        <div class="stat-label">
-          المستخدمون النشطون
-        </div>
-        <div
-          class="stat-value"
-          id="stat-active-users"
-        >—</div>
-        <div class="stat-note">
-          بيانات حقيقية فقط
-        </div>
-      </div>
-
-      <div class="stat">
-        <div class="stat-label">
-          الإيرادات
-        </div>
-        <div
-          class="stat-value"
-          id="stat-revenue"
-        >—</div>
-        <div class="stat-note">
-          لا توجد بيانات وهمية
-        </div>
-      </div>
-
-      <div class="stat">
-        <div class="stat-label">
-          المعاملات
-        </div>
-        <div
-          class="stat-value"
-          id="stat-transactions"
-        >—</div>
-        <div class="stat-note">
-          Ledger
-        </div>
-      </div>
-
-      <div class="stat">
-        <div class="stat-label">
-          المشاهدات
-        </div>
-        <div
-          class="stat-value"
-          id="stat-views"
-        >—</div>
-        <div class="stat-note">
-          Live Data
-        </div>
-      </div>
-
-      <div class="stat">
-        <div class="stat-label">
-          الألعاب المنشورة
-        </div>
-        <div
-          class="stat-value"
-          id="stat-games"
-        >—</div>
-        <div class="stat-note">
-          Factory
-        </div>
-      </div>
-
-    </section>
-
-    <!-- ====================================================
-         DASHBOARD
-         ==================================================== -->
-
-    <section class="dashboard-grid">
-
-      <!-- ACTIVITY -->
-
-      <article class="panel">
-
-        <div class="panel-title">
-          <span>النشاط المباشر</span>
-          <span class="panel-link">
-            LIVE
-          </span>
         </div>
 
-        <div
-          class="activity-list"
-          id="activity-list"
+      </header>
+
+      <!-- HERO -->
+
+      <section class="hero">
+
+        <button
+          class="owner-command-button"
+          id="open-owner-command"
         >
+          👑 أوامر المالك
+        </button>
 
-          <div class="activity">
-            <div class="activity-time">--:--</div>
+        <div class="hero-content">
 
-            <div class="activity-title">
-              في انتظار بيانات السيرفر
-              <small>Backend Activity</small>
+          <h1 class="hero-title">
+            مرحباً بك في لوحة التحكم السيادية
+          </h1>
+
+          <div class="hero-subtitle">
+            منصة مجد الرسمية السيادية
+          </div>
+
+          <p class="hero-description">
+            نظام متكامل لإدارة الألعاب والإعلام
+            والذكاء الاصطناعي والبنية التحتية
+            والأمان والبناء والنشر من مركز تحكم واحد.
+          </p>
+
+          <div class="hero-meta">
+
+            <div class="hero-meta-item">
+              <span
+                class="status-dot"
+                id="main-server-dot"
+              ></span>
+
+              <span id="main-server-text">
+                جارٍ فحص النظام...
+              </span>
             </div>
 
-            <span class="indicator"></span>
+            <div>
+              API:
+              <strong id="api-state">
+                CHECKING
+              </strong>
+            </div>
+
+            <div>
+              الإصدار:
+              <strong>2.0.0</strong>
+            </div>
+
+            <div>
+              البيئة:
+              <strong id="environment-state">
+                PRODUCTION
+              </strong>
+            </div>
+
           </div>
 
         </div>
 
-      </article>
+        <div class="hero-visual">
 
-      <!-- CHART -->
+          <div class="majd-emblem">
 
-      <article class="panel">
+            <div class="majd-emblem-crown">
+              ♛
+            </div>
 
-        <div class="panel-title">
-          <span>إحصائيات المنصة</span>
-          <span class="panel-link">
-            REAL API
+            <div class="majd-emblem-name">
+              MAJD
+            </div>
+
+            <div class="majd-emblem-sub">
+              THE SOVEREIGN PLATFORM
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- STATS -->
+
+      <section class="stats-grid">
+
+        <article
+          class="stat-card"
+          style="--accent:#9d60ff"
+        >
+
+          <div class="stat-top">
+
+            <span class="stat-title">
+              المستخدمون الكليون
+            </span>
+
+            <span class="stat-icon">
+              ◉
+            </span>
+
+          </div>
+
+          <div
+            class="stat-value"
+            id="stat-users"
+          >
+            —
+          </div>
+
+          <div class="stat-footer">
+            <span class="trend-up">
+              LIVE
+            </span>
+            <span>
+              من Backend
+            </span>
+          </div>
+
+        </article>
+
+        <article
+          class="stat-card"
+          style="--accent:#3ca8ff"
+        >
+
+          <div class="stat-top">
+
+            <span class="stat-title">
+              المستخدمون النشطون
+            </span>
+
+            <span class="stat-icon">
+              ∿
+            </span>
+
+          </div>
+
+          <div
+            class="stat-value"
+            id="stat-active-users"
+          >
+            —
+          </div>
+
+          <div class="stat-footer">
+            <span class="trend-up">
+              LIVE
+            </span>
+            <span>
+              بيانات حقيقية
+            </span>
+          </div>
+
+        </article>
+
+        <article
+          class="stat-card"
+          style="--accent:#35d381"
+        >
+
+          <div class="stat-top">
+
+            <span class="stat-title">
+              الإيرادات الإجمالية
+            </span>
+
+            <span class="stat-icon">
+              $
+            </span>
+
+          </div>
+
+          <div
+            class="stat-value"
+            id="stat-revenue"
+          >
+            —
+          </div>
+
+          <div class="stat-footer">
+            <span>
+              SAR
+            </span>
+          </div>
+
+        </article>
+
+        <article
+          class="stat-card"
+          style="--accent:#e2ae43"
+        >
+
+          <div class="stat-top">
+
+            <span class="stat-title">
+              المعاملات اليوم
+            </span>
+
+            <span class="stat-icon">
+              ▣
+            </span>
+
+          </div>
+
+          <div
+            class="stat-value"
+            id="stat-transactions"
+          >
+            —
+          </div>
+
+          <div class="stat-footer">
+            <span>
+              Ledger
+            </span>
+          </div>
+
+        </article>
+
+        <article
+          class="stat-card"
+          style="--accent:#ff4e68"
+        >
+
+          <div class="stat-top">
+
+            <span class="stat-title">
+              المشاهدات اليوم
+            </span>
+
+            <span class="stat-icon">
+              ◉
+            </span>
+
+          </div>
+
+          <div
+            class="stat-value"
+            id="stat-views"
+          >
+            —
+          </div>
+
+          <div class="stat-footer">
+            <span>
+              Live Data
+            </span>
+          </div>
+
+        </article>
+
+        <article
+          class="stat-card"
+          style="--accent:#3ca8ff"
+        >
+
+          <div class="stat-top">
+
+            <span class="stat-title">
+              الألعاب المنشورة
+            </span>
+
+            <span class="stat-icon">
+              ⌘
+            </span>
+
+          </div>
+
+          <div
+            class="stat-value"
+            id="stat-games"
+          >
+            —
+          </div>
+
+          <div class="stat-footer">
+            <span>
+              Game Factory
+            </span>
+          </div>
+
+        </article>
+
+      </section>
+
+      <!-- FIRST DASHBOARD ROW -->
+
+      <section class="dashboard-row">
+
+        <!-- ACTIVITY -->
+
+        <article class="panel">
+
+          <div class="panel-header">
+
+            <span class="panel-title">
+              النشاط المباشر
+            </span>
+
+            <span class="panel-action">
+              عرض الكل
+            </span>
+
+          </div>
+
+          <div
+            class="activity-list"
+            id="activity-list"
+          >
+
+            <div class="activity-item">
+
+              <span class="activity-time">
+                --:--
+              </span>
+
+              <span class="activity-text">
+                في انتظار بيانات السيرفر
+                <small>
+                  Backend Activity
+                </small>
+              </span>
+
+              <span class="status-dot"></span>
+
+            </div>
+
+          </div>
+
+        </article>
+
+        <!-- ANALYTICS -->
+
+        <article class="panel analytics">
+
+          <div class="panel-header">
+
+            <span class="panel-title">
+              إحصائيات المنصة
+            </span>
+
+            <span class="panel-action">
+              آخر 7 أيام
+            </span>
+
+          </div>
+
+          <div class="chart-area">
+
+            <svg
+              class="chart-svg"
+              viewBox="0 0 600 170"
+              preserveAspectRatio="none"
+            >
+
+              <polyline
+                points="
+                0,135
+                90,120
+                180,126
+                270,92
+                360,105
+                450,65
+                540,78
+                600,48
+                "
+                fill="none"
+                stroke="#9d60ff"
+                stroke-width="3"
+              />
+
+              <polyline
+                points="
+                0,145
+                90,132
+                180,114
+                270,119
+                360,89
+                450,101
+                540,59
+                600,72
+                "
+                fill="none"
+                stroke="#3ca8ff"
+                stroke-width="3"
+              />
+
+              <polyline
+                points="
+                0,155
+                90,150
+                180,143
+                270,132
+                360,124
+                450,109
+                540,116
+                600,90
+                "
+                fill="none"
+                stroke="#35d381"
+                stroke-width="3"
+              />
+
+            </svg>
+
+          </div>
+
+          <div class="chart-labels">
+            <span>اليوم</span>
+            <span>-1</span>
+            <span>-2</span>
+            <span>-3</span>
+            <span>-4</span>
+            <span>-5</span>
+            <span>-6</span>
+          </div>
+
+          <div class="chart-legend">
+            <span>● المستخدمون</span>
+            <span>● المشاهدات</span>
+            <span>● الإيرادات</span>
+          </div>
+
+        </article>
+
+        <!-- DISTRIBUTION -->
+
+        <article class="panel distribution">
+
+          <div class="panel-header">
+
+            <span class="panel-title">
+              توزيع المستخدمين
+            </span>
+
+            <span class="panel-action">
+              LIVE
+            </span>
+
+          </div>
+
+          <div class="donut-wrap">
+
+            <div class="donut">
+
+              <div class="donut-center">
+                <strong id="distribution-total">
+                  —
+                </strong>
+                <small>
+                  إجمالي
+                </small>
+              </div>
+
+            </div>
+
+          </div>
+
+          <div class="legend-list">
+
+            <div class="legend-row">
+              <span
+                class="legend-color"
+                style="background:#9961ff"
+              ></span>
+              <span>لاعبون</span>
+              <span>—</span>
+            </div>
+
+            <div class="legend-row">
+              <span
+                class="legend-color"
+                style="background:#3e9eff"
+              ></span>
+              <span>مشاهدون</span>
+              <span>—</span>
+            </div>
+
+            <div class="legend-row">
+              <span
+                class="legend-color"
+                style="background:#31d58b"
+              ></span>
+              <span>صناع محتوى</span>
+              <span>—</span>
+            </div>
+
+            <div class="legend-row">
+              <span
+                class="legend-color"
+                style="background:#ff9b45"
+              ></span>
+              <span>مطورون</span>
+              <span>—</span>
+            </div>
+
+          </div>
+
+        </article>
+
+      </section>
+
+      <!-- SECOND ROW -->
+
+      <section class="secondary-row">
+
+        <!-- LIVE -->
+
+        <article class="panel">
+
+          <div class="panel-header">
+
+            <span class="panel-title">
+              البث المباشر
+            </span>
+
+            <span class="panel-action">
+              عرض الكل
+            </span>
+
+          </div>
+
+          <div class="live-list">
+
+            <div class="live-card">
+
+              <div class="live-thumb">
+                ◉
+              </div>
+
+              <div class="live-info">
+                <strong>
+                  MAJD Official Live
+                </strong>
+                <small>
+                  في انتظار مصدر البث الحقيقي
+                </small>
+              </div>
+
+              <span class="live-badge">
+                LIVE
+              </span>
+
+            </div>
+
+            <div class="live-card">
+
+              <div class="live-thumb">
+                ◈
+              </div>
+
+              <div class="live-info">
+                <strong>
+                  Game Stream
+                </strong>
+                <small>
+                  —
+                </small>
+              </div>
+
+              <span class="live-badge">
+                LIVE
+              </span>
+
+            </div>
+
+          </div>
+
+        </article>
+
+        <!-- ALERTS -->
+
+        <article class="panel">
+
+          <div class="panel-header">
+
+            <span class="panel-title">
+              التنبيهات الأخيرة
+            </span>
+
+            <span class="panel-action">
+              LIVE
+            </span>
+
+          </div>
+
+          <div class="alerts-list">
+
+            <div class="alert-item">
+
+              <div class="alert-icon">
+                ✓
+              </div>
+
+              <div class="alert-text">
+                <strong>
+                  Backend API
+                </strong>
+                <small id="alert-backend">
+                  جارٍ الفحص...
+                </small>
+              </div>
+
+              <span class="alert-time">
+                الآن
+              </span>
+
+            </div>
+
+            <div class="alert-item">
+
+              <div class="alert-icon">
+                ⌘
+              </div>
+
+              <div class="alert-text">
+                <strong>
+                  خادم الألعاب
+                </strong>
+                <small id="alert-game">
+                  جارٍ الفحص...
+                </small>
+              </div>
+
+              <span class="alert-time">
+                الآن
+              </span>
+
+            </div>
+
+            <div class="alert-item">
+
+              <div class="alert-icon">
+                ◉
+              </div>
+
+              <div class="alert-text">
+                <strong>
+                  قاعدة البيانات
+                </strong>
+                <small id="alert-database">
+                  غير مؤكدة
+                </small>
+              </div>
+
+              <span class="alert-time">
+                الآن
+              </span>
+
+            </div>
+
+          </div>
+
+        </article>
+
+        <!-- SYSTEMS -->
+
+        <article class="panel">
+
+          <div class="panel-header">
+
+            <span class="panel-title">
+              حالة الأنظمة
+            </span>
+
+            <span class="panel-action">
+              LIVE
+            </span>
+
+          </div>
+
+          <div class="system-list">
+
+            <div class="system-row">
+              <span
+                class="status-dot"
+                id="frontend-dot"
+              ></span>
+
+              <span class="system-name">
+                واجهة المنصة
+              </span>
+
+              <span
+                class="system-value"
+                id="frontend-state"
+              >
+                CHECKING
+              </span>
+            </div>
+
+            <div class="system-row">
+              <span
+                class="status-dot"
+                id="backend-dot"
+              ></span>
+
+              <span class="system-name">
+                Backend API
+              </span>
+
+              <span
+                class="system-value"
+                id="backend-state"
+              >
+                CHECKING
+              </span>
+            </div>
+
+            <div class="system-row">
+              <span
+                class="status-dot"
+                id="game-dot"
+              ></span>
+
+              <span class="system-name">
+                خادم الألعاب
+              </span>
+
+              <span
+                class="system-value"
+                id="game-state"
+              >
+                CHECKING
+              </span>
+            </div>
+
+            <div class="system-row">
+              <span
+                class="status-dot"
+                id="database-dot"
+              ></span>
+
+              <span class="system-name">
+                قاعدة البيانات
+              </span>
+
+              <span
+                class="system-value"
+                id="database-state"
+              >
+                UNKNOWN
+              </span>
+            </div>
+
+            <div class="system-row">
+              <span
+                class="status-dot"
+                id="ai-dot"
+              ></span>
+
+              <span class="system-name">
+                الذكاء الاصطناعي
+              </span>
+
+              <span
+                class="system-value"
+                id="ai-state"
+              >
+                UNKNOWN
+              </span>
+            </div>
+
+          </div>
+
+        </article>
+
+      </section>
+
+      <!-- QUICK ACTIONS -->
+
+      <section class="panel quick-panel">
+
+        <div class="panel-header">
+
+          <span class="panel-title">
+            اختصارات سريعة
           </span>
+
+          <span class="panel-action">
+            مركز التحكم
+          </span>
+
+        </div>
+
+        <div class="quick-grid">
+
+          <button
+            class="quick-btn"
+            id="launch-game"
+          >
+            <span class="quick-icon">
+              ⌘
+            </span>
+            تشغيل سيادة الشتاء
+          </button>
+
+          <button
+            class="quick-btn"
+            id="refresh-system"
+          >
+            <span class="quick-icon">
+              ↻
+            </span>
+            تحديث الأنظمة
+          </button>
+
+          <button
+            class="quick-btn"
+            id="test-api"
+          >
+            <span class="quick-icon">
+              ⇆
+            </span>
+            اختبار API
+          </button>
+
+          <button class="quick-btn">
+            <span class="quick-icon">
+              ◇
+            </span>
+            الذكاء الاصطناعي
+          </button>
+
+          <button class="quick-btn">
+            <span class="quick-icon">
+              ◉
+            </span>
+            بث جديد
+          </button>
+
+          <button class="quick-btn">
+            <span class="quick-icon">
+              $
+            </span>
+            المالية
+          </button>
+
+          <button class="quick-btn">
+            <span class="quick-icon">
+              ♜
+            </span>
+            بطولة
+          </button>
+
+          <button
+            class="quick-btn"
+            id="open-owner-command-2"
+          >
+            <span class="quick-icon">
+              ♛
+            </span>
+            أمر المالك
+          </button>
+
+        </div>
+
+      </section>
+
+      <!-- LOWER -->
+
+      <section class="lower-grid">
+
+        <!-- PERFORMANCE -->
+
+        <article class="panel">
+
+          <div class="panel-header">
+
+            <span class="panel-title">
+              أداء المنصة
+            </span>
+
+            <span class="panel-action">
+              REAL DATA
+            </span>
+
+          </div>
+
+          <div class="performance-list">
+
+            <div class="performance-row">
+              <span>CPU</span>
+              <div class="progress-track">
+                <div
+                  class="progress-bar"
+                  style="width:0%"
+                  id="cpu-bar"
+                ></div>
+              </div>
+              <span id="cpu-value">—</span>
+            </div>
+
+            <div class="performance-row">
+              <span>Memory</span>
+              <div class="progress-track">
+                <div
+                  class="progress-bar"
+                  style="width:0%"
+                  id="memory-bar"
+                ></div>
+              </div>
+              <span id="memory-value">—</span>
+            </div>
+
+            <div class="performance-row">
+              <span>API</span>
+              <div class="progress-track">
+                <div
+                  class="progress-bar"
+                  style="width:0%"
+                  id="api-bar"
+                ></div>
+              </div>
+              <span id="api-performance-value">
+                —
+              </span>
+            </div>
+
+          </div>
+
+        </article>
+
+        <!-- GAMES -->
+
+        <article class="panel">
+
+          <div class="panel-header">
+
+            <span class="panel-title">
+              أفضل الألعاب
+            </span>
+
+            <span class="panel-action">
+              عرض الكل
+            </span>
+
+          </div>
+
+          <div class="game-ranking">
+
+            <div class="game-rank-row">
+
+              <span class="rank-number">
+                1
+              </span>
+
+              <span class="game-thumb">
+                ❄
+              </span>
+
+              <span class="game-title">
+                سيادة الشتاء
+                <small>
+                  Winter Sovereignty
+                </small>
+              </span>
+
+              <span class="game-stat">
+                READY
+              </span>
+
+            </div>
+
+            <div class="game-rank-row">
+
+              <span class="rank-number">
+                2
+              </span>
+
+              <span class="game-thumb">
+                —
+              </span>
+
+              <span class="game-title">
+                —
+                <small>
+                  لا توجد لعبة حقيقية
+                </small>
+              </span>
+
+              <span class="game-stat">
+                —
+              </span>
+
+            </div>
+
+          </div>
+
+        </article>
+
+        <!-- CONTENT -->
+
+        <article class="panel">
+
+          <div class="panel-header">
+
+            <span class="panel-title">
+              ملخص المحتوى
+            </span>
+
+            <span class="panel-action">
+              LIVE
+            </span>
+
+          </div>
+
+          <div class="content-summary">
+
+            <div class="content-box">
+              <span>
+                فيديوهات
+              </span>
+              <strong id="content-videos">
+                —
+              </strong>
+            </div>
+
+            <div class="content-box">
+              <span>
+                بثوث
+              </span>
+              <strong id="content-streams">
+                —
+              </strong>
+            </div>
+
+            <div class="content-box">
+              <span>
+                أفلام
+              </span>
+              <strong id="content-movies">
+                —
+              </strong>
+            </div>
+
+            <div class="content-box">
+              <span>
+                فعاليات
+              </span>
+              <strong id="content-events">
+                —
+              </strong>
+            </div>
+
+          </div>
+
+        </article>
+
+      </section>
+
+      <!-- CONSOLE -->
+
+      <section class="panel console-panel">
+
+        <div class="panel-header">
+
+          <span class="panel-title">
+            مراقبة النظام الحقيقية
+          </span>
+
+          <span
+            class="panel-action"
+            id="last-check"
+          >
+            لم يتم الفحص
+          </span>
+
         </div>
 
         <div
-          class="chart"
-          id="chart"
-        >
-          <div class="chart-column">
-            <div class="bar users" style="height:15%"></div>
-            <div class="bar views" style="height:15%"></div>
-            <div class="bar revenue" style="height:15%"></div>
-          </div>
-
-          <div class="chart-column">
-            <div class="bar users" style="height:15%"></div>
-            <div class="bar views" style="height:15%"></div>
-            <div class="bar revenue" style="height:15%"></div>
-          </div>
-
-          <div class="chart-column">
-            <div class="bar users" style="height:15%"></div>
-            <div class="bar views" style="height:15%"></div>
-            <div class="bar revenue" style="height:15%"></div>
-          </div>
-
-          <div class="chart-column">
-            <div class="bar users" style="height:15%"></div>
-            <div class="bar views" style="height:15%"></div>
-            <div class="bar revenue" style="height:15%"></div>
-          </div>
-
-          <div class="chart-column">
-            <div class="bar users" style="height:15%"></div>
-            <div class="bar views" style="height:15%"></div>
-            <div class="bar revenue" style="height:15%"></div>
-          </div>
-
-          <div class="chart-column">
-            <div class="bar users" style="height:15%"></div>
-            <div class="bar views" style="height:15%"></div>
-            <div class="bar revenue" style="height:15%"></div>
-          </div>
-
-        </div>
-
-        <div class="chart-legend">
-          <span>🟣 المستخدمون</span>
-          <span>🔵 المشاهدات</span>
-          <span>🟢 الإيرادات</span>
-        </div>
-
-      </article>
-
-      <!-- SERVERS -->
-
-      <article class="panel">
-
-        <div class="panel-title">
-          <span>حالة الأنظمة</span>
-          <span class="panel-link">
-            LIVE
-          </span>
-        </div>
-
-        <div class="server-row">
-          <span
-            class="indicator"
-            id="frontend-dot"
-          ></span>
-
-          <span>واجهة المنصة</span>
-
-          <span
-            class="server-state"
-            id="frontend-state"
-          >
-            CHECKING
-          </span>
-        </div>
-
-        <div class="server-row">
-          <span
-            class="indicator"
-            id="backend-dot"
-          ></span>
-
-          <span>Backend API</span>
-
-          <span
-            class="server-state"
-            id="backend-state"
-          >
-            CHECKING
-          </span>
-        </div>
-
-        <div class="server-row">
-          <span
-            class="indicator"
-            id="game-dot"
-          ></span>
-
-          <span>خادم الألعاب</span>
-
-          <span
-            class="server-state"
-            id="game-state"
-          >
-            CHECKING
-          </span>
-        </div>
-
-        <div class="server-row">
-          <span class="indicator"></span>
-          <span>قاعدة البيانات</span>
-          <span class="server-state">UNKNOWN</span>
-        </div>
-
-        <div class="server-row">
-          <span class="indicator"></span>
-          <span>الذكاء الاصطناعي</span>
-          <span class="server-state">UNKNOWN</span>
-        </div>
-
-      </article>
-
-    </section>
-
-    <!-- ====================================================
-         QUICK ACTIONS
-         ==================================================== -->
-
-    <section class="panel quick">
-
-      <div class="panel-title">
-        <span>مختصرات سريعة</span>
-      </div>
-
-      <div class="quick-grid">
-
-        <button
-          class="quick-btn"
-          id="launch-game"
-        >
-          <span class="quick-icon">🎮</span>
-          تشغيل سيادة الشتاء
-        </button>
-
-        <button
-          class="quick-btn"
-          id="refresh-system"
-        >
-          <span class="quick-icon">🔄</span>
-          تحديث الأنظمة
-        </button>
-
-        <button
-          class="quick-btn"
-          id="test-api"
-        >
-          <span class="quick-icon">🔌</span>
-          اختبار API
-        </button>
-
-        <button class="quick-btn">
-          <span class="quick-icon">🤖</span>
-          الذكاء الاصطناعي
-        </button>
-
-        <button class="quick-btn">
-          <span class="quick-icon">📡</span>
-          بث جديد
-        </button>
-
-        <button class="quick-btn">
-          <span class="quick-icon">💳</span>
-          المالية
-        </button>
-
-        <button class="quick-btn">
-          <span class="quick-icon">🏆</span>
-          بطولة
-        </button>
-
-        <button
-          class="quick-btn"
-          id="open-owner-command-2"
-        >
-          <span class="quick-icon">👑</span>
-          أمر المالك
-        </button>
-
-      </div>
-
-    </section>
-
-    <!-- ====================================================
-         LOG
-         ==================================================== -->
-
-    <section class="panel">
-
-      <div class="panel-title">
-        <span>مراقبة النظام الحقيقية</span>
-        <span
-          class="panel-link"
-          id="last-check"
-        >
-          لم يتم الفحص
-        </span>
-      </div>
-
-      <div
-        class="system-console"
-        id="console"
-      >MAJD SOVEREIGN CONTROL CENTER
+          class="system-console"
+          id="console"
+        >MAJD SOVEREIGN CONTROL CENTER
 --------------------------------
 Waiting for real server check...</div>
 
-    </section>
+      </section>
 
-    <footer class="footer">
-      👑 MAJD PLATFORM © 2026 — SUPREME OWNER
-    </footer>
+      <footer class="footer">
+        MAJD SOVEREIGN PLATFORM © 2026
+      </footer>
 
-  </main>
+    </main>
 
-  <!-- ======================================================
-       SIDEBAR
-       ====================================================== -->
+    <!-- ===================================================
+         SIDEBAR
+         =================================================== -->
 
-  <aside class="sidebar">
+    <aside class="sidebar">
 
-    <div class="logo">
-      <span class="logo-crown">👑</span>
-      MAJD
-    </div>
+      <div class="brand">
 
-    <div class="owner-card">
-
-      <div class="owner-avatar">
-        👑
-      </div>
-
-      <div>
-        <div class="owner-name">
-          MAJD KING
+        <div class="brand-mark">
+          <div class="brand-crown">
+            ♛
+          </div>
         </div>
 
-        <div class="owner-role">
-          المالك الأعلى
+        <div class="brand-text">
+          MAJD
         </div>
+
       </div>
 
-    </div>
-
-    <nav class="nav">
-
-      <button class="nav-item active">
-        <span class="nav-icon">⌂</span>
-        لوحة القيادة
-      </button>
-
-      <button class="nav-item">
-        <span class="nav-icon">🤖</span>
-        الذكاء الاصطناعي
-      </button>
-
-      <button class="nav-item">
-        <span class="nav-icon">🎮</span>
-        الألعاب
-      </button>
-
-      <button class="nav-item">
-        <span class="nav-icon">👥</span>
-        الإعلام والمجتمع
-      </button>
-
-      <button class="nav-item">
-        <span class="nav-icon">📡</span>
-        البث المباشر
-      </button>
-
-      <button class="nav-item">
-        <span class="nav-icon">🎬</span>
-        السينما والمسلسلات
-      </button>
-
-      <button class="nav-item">
-        <span class="nav-icon">🏆</span>
-        الفعاليات والبطولات
-      </button>
-
-      <button class="nav-item">
-        <span class="nav-icon">👤</span>
-        المستخدمون
-      </button>
-
-      <button class="nav-item">
-        <span class="nav-icon">💲</span>
-        المالية والإعلانات
-      </button>
-
-      <button class="nav-item">
-        <span class="nav-icon">🛡</span>
-        المراقبة والأمان
-      </button>
-
-      <button class="nav-item">
-        <span class="nav-icon">⌨</span>
-        البناء والنشر
-      </button>
-
-      <button class="nav-item">
-        <span class="nav-icon">⚙</span>
-        الإعدادات العامة
-      </button>
-
-    </nav>
-
-    <div class="server-mini">
-
-      <h4>
-        حالة الخوادم
-      </h4>
-
-      <div class="server-mini-row">
-        <span>الويب</span>
-        <span
-          class="indicator"
-          id="mini-web-dot"
-        ></span>
+      <div class="brand-sub">
+        SUPREME OWNER
       </div>
 
-      <div class="server-mini-row">
-        <span>Backend</span>
-        <span
-          class="indicator"
-          id="mini-backend-dot"
-        ></span>
+      <div class="owner-card">
+
+        <div class="owner-avatar">
+          ♛
+        </div>
+
+        <div class="owner-info">
+
+          <div class="owner-name">
+            MAJD KING
+            <span class="verified">
+              ✓
+            </span>
+          </div>
+
+          <div class="owner-role">
+            المالك الأعلى
+          </div>
+
+        </div>
+
       </div>
 
-      <div class="server-mini-row">
-        <span>الألعاب</span>
-        <span
-          class="indicator"
-          id="mini-game-dot"
-        ></span>
+      <div class="nav-title">
+        القائمة الرئيسية
       </div>
 
-    </div>
+      <nav class="nav">
 
-  </aside>
+        <button class="nav-item active">
+          <span class="nav-icon">⌂</span>
+          <span class="nav-label">
+            الرئيسية
+          </span>
+        </button>
 
-</div>
+        <button class="nav-item">
+          <span class="nav-icon">◇</span>
+          <span class="nav-label">
+            الذكاء الاصطناعي
+          </span>
+        </button>
 
-<!-- ========================================================
-     OWNER COMMAND
-     ======================================================== -->
+        <button class="nav-item">
+          <span class="nav-icon">⌘</span>
+          <span class="nav-label">
+            الألعاب
+          </span>
+        </button>
 
-<div
-  class="modal-backdrop"
-  id="owner-modal"
->
+        <button class="nav-item">
+          <span class="nav-icon">◉</span>
+          <span class="nav-label">
+            الإعلام والمجتمع
+          </span>
+          <span class="nav-badge">
+            جديد
+          </span>
+        </button>
 
-  <div class="modal">
+        <button class="nav-item">
+          <span class="nav-icon">◍</span>
+          <span class="nav-label">
+            البث المباشر
+          </span>
+        </button>
 
-    <h3>
-      👑 مركز أوامر المالك
-    </h3>
+        <button class="nav-item">
+          <span class="nav-icon">▣</span>
+          <span class="nav-label">
+            السينما والمسلسلات
+          </span>
+        </button>
 
-    <textarea
-      class="command-input"
-      id="owner-command"
-      placeholder="اكتب أمر المالك..."
-    ></textarea>
+        <button class="nav-item">
+          <span class="nav-icon">♜</span>
+          <span class="nav-label">
+            الفعاليات والبطولات
+          </span>
+        </button>
 
-    <div class="modal-actions">
+        <button class="nav-item">
+          <span class="nav-icon">◎</span>
+          <span class="nav-label">
+            المستخدمون
+          </span>
+        </button>
 
-      <button
-        class="primary-btn"
-        id="send-owner-command"
-      >
-        تنفيذ
-      </button>
+        <button class="nav-item">
+          <span class="nav-icon">$</span>
+          <span class="nav-label">
+            المالية والإعلانات
+          </span>
+        </button>
 
-      <button
-        class="secondary-btn"
-        id="close-owner-command"
-      >
-        إغلاق
-      </button>
+        <button class="nav-item">
+          <span class="nav-icon">◇</span>
+          <span class="nav-label">
+            المراقبة والأمان
+          </span>
+        </button>
+
+        <button class="nav-item">
+          <span class="nav-icon">⌨</span>
+          <span class="nav-label">
+            البناء والنشر
+          </span>
+        </button>
+
+        <button class="nav-item">
+          <span class="nav-icon">⚙</span>
+          <span class="nav-label">
+            الإعدادات العامة
+          </span>
+        </button>
+
+      </nav>
+
+      <div class="server-card">
+
+        <div class="server-card-title">
+
+          <span>
+            حالة الخوادم
+          </span>
+
+          <span class="server-card-link">
+            عرض الكل
+          </span>
+
+        </div>
+
+        <div class="server-mini-row">
+          <span
+            class="status-dot"
+            id="mini-web-dot"
+          ></span>
+          <span>
+            خادم الويب
+          </span>
+          <span id="mini-web-value">
+            CHECKING
+          </span>
+        </div>
+
+        <div class="server-mini-row">
+          <span
+            class="status-dot"
+            id="mini-backend-dot"
+          ></span>
+          <span>
+            Backend API
+          </span>
+          <span id="mini-backend-value">
+            CHECKING
+          </span>
+        </div>
+
+        <div class="server-mini-row">
+          <span
+            class="status-dot"
+            id="mini-game-dot"
+          ></span>
+          <span>
+            خادم الألعاب
+          </span>
+          <span id="mini-game-value">
+            CHECKING
+          </span>
+        </div>
+
+        <div class="server-mini-row">
+          <span
+            class="status-dot"
+            id="mini-db-dot"
+          ></span>
+          <span>
+            قاعدة البيانات
+          </span>
+          <span id="mini-db-value">
+            UNKNOWN
+          </span>
+        </div>
+
+        <div class="server-mini-row">
+          <span
+            class="status-dot"
+            id="mini-ai-dot"
+          ></span>
+          <span>
+            الذكاء الاصطناعي
+          </span>
+          <span id="mini-ai-value">
+            UNKNOWN
+          </span>
+        </div>
+
+      </div>
+
+    </aside>
+
+  </div>
+
+  <!-- =====================================================
+       OWNER COMMAND MODAL
+       ===================================================== -->
+
+  <div
+    class="modal-backdrop"
+    id="owner-modal"
+  >
+
+    <div class="modal">
+
+      <div class="modal-title">
+        ♛ مركز أوامر المالك
+      </div>
+
+      <textarea
+        class="command-input"
+        id="owner-command"
+        placeholder="اكتب أمر المالك..."
+      ></textarea>
+
+      <div class="modal-actions">
+
+        <button
+          class="primary-btn"
+          id="send-owner-command"
+        >
+          تنفيذ الأمر
+        </button>
+
+        <button
+          class="secondary-btn"
+          id="close-owner-command"
+        >
+          إغلاق
+        </button>
+
+      </div>
 
     </div>
 
   </div>
 
-</div>
+  <script>
+    "use strict";
 
-<script>
-"use strict";
+    /* =====================================================
+       CONFIG
+       ===================================================== */
 
-/* ==========================================================
-   MAJD REAL CONNECTION CONFIGURATION
-   ========================================================== */
+    const GAME_PATH =
+      "./public/games/winter-sovereignty.html";
 
-/*
-  نحافظ على رابط اللعبة الموجود عندك.
-*/
-const GAME_PATH =
-  "./public/games/winter-sovereignty.html";
+    const API_BASE =
+      "/api";
 
-/*
-  لا نستخدم 127.0.0.1 من المتصفح العام.
+    const HEALTH_CANDIDATES = [
+      API_BASE + "/health",
+      API_BASE + "/status",
+      API_BASE + "/"
+    ];
 
-  Nginx يجب أن يربط:
-      /api/*
-  بالـ Backend الحقيقي على المنفذ الداخلي 8000.
+    /* =====================================================
+       ELEMENTS
+       ===================================================== */
 
-  بهذه الطريقة يبقى المتصفح على:
-      https://majd.shop
-*/
-const API_BASE =
-  "/api";
-
-/*
-  الـ Backend الذي ظهر عند الاختبار السابق كان يملك /
-  و /run.
-
-  لذلك نفحص أكثر من مسار بدون افتراض نجاح وهمي.
-*/
-const HEALTH_CANDIDATES = [
-  API_BASE + "/health",
-  API_BASE + "/api/health",
-  API_BASE + "/",
-  API_BASE
-];
-
-/* ==========================================================
-   ELEMENTS
-   ========================================================== */
-
-const consoleBox =
-  document.getElementById("console");
-
-const mainServerDot =
-  document.getElementById("main-server-dot");
-
-const mainServerText =
-  document.getElementById("main-server-text");
-
-const apiState =
-  document.getElementById("api-state");
-
-const frontendDot =
-  document.getElementById("frontend-dot");
-
-const backendDot =
-  document.getElementById("backend-dot");
-
-const gameDot =
-  document.getElementById("game-dot");
-
-const miniWebDot =
-  document.getElementById("mini-web-dot");
-
-const miniBackendDot =
-  document.getElementById("mini-backend-dot");
-
-const miniGameDot =
-  document.getElementById("mini-game-dot");
-
-const frontendState =
-  document.getElementById("frontend-state");
-
-const backendState =
-  document.getElementById("backend-state");
-
-const gameState =
-  document.getElementById("game-state");
-
-const lastCheck =
-  document.getElementById("last-check");
-
-/* ==========================================================
-   LOGGING
-   ========================================================== */
-
-function log(message) {
-  const time =
-    new Date().toLocaleTimeString("ar-SA");
-
-  consoleBox.textContent +=
-    "\n[" +
-    time +
-    "] " +
-    message;
-
-  consoleBox.scrollTop =
-    consoleBox.scrollHeight;
-}
-
-/* ==========================================================
-   STATUS
-   ========================================================== */
-
-function setDot(
-  element,
-  online
-) {
-  element.classList.remove(
-    "online",
-    "offline"
-  );
-
-  element.classList.add(
-    online
-      ? "online"
-      : "offline"
-  );
-}
-
-function setFrontendStatus(
-  online
-) {
-  setDot(
-    frontendDot,
-    online
-  );
-
-  setDot(
-    miniWebDot,
-    online
-  );
-
-  frontendState.textContent =
-    online
-      ? "ONLINE"
-      : "OFFLINE";
-}
-
-function setBackendStatus(
-  online
-) {
-  setDot(
-    backendDot,
-    online
-  );
-
-  setDot(
-    miniBackendDot,
-    online
-  );
-
-  setDot(
-    mainServerDot,
-    online
-  );
-
-  backendState.textContent =
-    online
-      ? "ONLINE"
-      : "OFFLINE";
-
-  apiState.textContent =
-    online
-      ? "ONLINE"
-      : "OFFLINE";
-
-  mainServerText.textContent =
-    online
-      ? "جميع الاتصالات الأساسية تعمل"
-      : "Backend غير متصل";
-}
-
-function setGameStatus(
-  online
-) {
-  setDot(
-    gameDot,
-    online
-  );
-
-  setDot(
-    miniGameDot,
-    online
-  );
-
-  gameState.textContent =
-    online
-      ? "READY"
-      : "OFFLINE";
-}
-
-/* ==========================================================
-   HTTP
-   ========================================================== */
-
-async function fetchWithTimeout(
-  url,
-  options = {},
-  timeout = 8000
-) {
-  const controller =
-    new AbortController();
-
-  const timer =
-    setTimeout(
-      () =>
-        controller.abort(),
-      timeout
-    );
-
-  try {
-    return await fetch(
-      url,
-      {
-        ...options,
-        signal:
-          controller.signal,
-        cache:
-          "no-store"
-      }
-    );
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/* ==========================================================
-   FRONTEND CHECK
-   ========================================================== */
-
-async function checkFrontend() {
-  try {
-    const response =
-      await fetchWithTimeout(
-        location.origin + "/"
+    const consoleBox =
+      document.getElementById(
+        "console"
       );
 
-    const ok =
-      response.ok;
+    const mainServerDot =
+      document.getElementById(
+        "main-server-dot"
+      );
 
-    setFrontendStatus(ok);
+    const mainServerText =
+      document.getElementById(
+        "main-server-text"
+      );
 
-    log(
-      "Frontend / => HTTP " +
-      response.status
-    );
+    const apiState =
+      document.getElementById(
+        "api-state"
+      );
 
-    return ok;
+    const frontendDot =
+      document.getElementById(
+        "frontend-dot"
+      );
 
-  } catch (error) {
-    setFrontendStatus(false);
+    const backendDot =
+      document.getElementById(
+        "backend-dot"
+      );
 
-    log(
-      "Frontend ERROR => " +
-      error.message
-    );
+    const gameDot =
+      document.getElementById(
+        "game-dot"
+      );
 
-    return false;
-  }
-}
+    const databaseDot =
+      document.getElementById(
+        "database-dot"
+      );
 
-/* ==========================================================
-   BACKEND CHECK
-   ========================================================== */
+    const aiDot =
+      document.getElementById(
+        "ai-dot"
+      );
 
-async function checkBackend() {
-  for (
-    const endpoint
-    of HEALTH_CANDIDATES
-  ) {
-    try {
-      const response =
-        await fetchWithTimeout(
-          endpoint,
+    const frontendState =
+      document.getElementById(
+        "frontend-state"
+      );
+
+    const backendState =
+      document.getElementById(
+        "backend-state"
+      );
+
+    const gameState =
+      document.getElementById(
+        "game-state"
+      );
+
+    const databaseState =
+      document.getElementById(
+        "database-state"
+      );
+
+    const aiState =
+      document.getElementById(
+        "ai-state"
+      );
+
+    const miniWebDot =
+      document.getElementById(
+        "mini-web-dot"
+      );
+
+    const miniBackendDot =
+      document.getElementById(
+        "mini-backend-dot"
+      );
+
+    const miniGameDot =
+      document.getElementById(
+        "mini-game-dot"
+      );
+
+    const miniDbDot =
+      document.getElementById(
+        "mini-db-dot"
+      );
+
+    const miniAiDot =
+      document.getElementById(
+        "mini-ai-dot"
+      );
+
+    const lastCheck =
+      document.getElementById(
+        "last-check"
+      );
+
+    /* =====================================================
+       HELPERS
+       ===================================================== */
+
+    function log(message) {
+      const time =
+        new Date()
+          .toLocaleTimeString(
+            "ar-SA"
+          );
+
+      consoleBox.textContent +=
+        "\n[" +
+        time +
+        "] " +
+        message;
+
+      consoleBox.scrollTop =
+        consoleBox.scrollHeight;
+    }
+
+    function setDot(
+      element,
+      state
+    ) {
+      if (!element) {
+        return;
+      }
+
+      element.classList.remove(
+        "online",
+        "offline",
+        "warning"
+      );
+
+      if (
+        state === true ||
+        state === "ONLINE" ||
+        state === "READY" ||
+        state === "CONFIGURED"
+      ) {
+        element.classList.add(
+          "online"
+        );
+
+        return;
+      }
+
+      if (
+        state === false ||
+        state === "OFFLINE" ||
+        state === "FAILED"
+      ) {
+        element.classList.add(
+          "offline"
+        );
+
+        return;
+      }
+
+      element.classList.add(
+        "warning"
+      );
+    }
+
+    function setText(
+      id,
+      value
+    ) {
+      const element =
+        document.getElementById(id);
+
+      if (!element) {
+        return;
+      }
+
+      if (
+        value === undefined ||
+        value === null ||
+        value === ""
+      ) {
+        element.textContent =
+          "—";
+
+        return;
+      }
+
+      element.textContent =
+        value;
+    }
+
+    function formatValue(
+      value
+    ) {
+      if (
+        value === null ||
+        value === undefined ||
+        value === ""
+      ) {
+        return "—";
+      }
+
+      if (
+        typeof value === "number"
+      ) {
+        return new Intl.NumberFormat(
+          "ar-SA"
+        ).format(value);
+      }
+
+      return value;
+    }
+
+    async function fetchWithTimeout(
+      url,
+      options = {},
+      timeout = 8000
+    ) {
+      const controller =
+        new AbortController();
+
+      const timer =
+        setTimeout(
+          () =>
+            controller.abort(),
+          timeout
+        );
+
+      try {
+        return await fetch(
+          url,
           {
-            headers: {
-              Accept:
-                "application/json"
-            }
+            ...options,
+
+            signal:
+              controller.signal,
+
+            cache:
+              "no-store"
           }
         );
+      } finally {
+        clearTimeout(timer);
+      }
+    }
 
-      log(
-        endpoint +
-        " => HTTP " +
-        response.status
+    /* =====================================================
+       FRONTEND
+       ===================================================== */
+
+    function setFrontendStatus(
+      online
+    ) {
+      setDot(
+        frontendDot,
+        online
       );
 
-      if (response.ok) {
-        setBackendStatus(true);
+      setDot(
+        miniWebDot,
+        online
+      );
 
-        return {
-          success: true,
-          endpoint,
-          status:
+      frontendState.textContent =
+        online
+          ? "ONLINE"
+          : "OFFLINE";
+
+      setText(
+        "mini-web-value",
+        online
+          ? "ONLINE"
+          : "OFFLINE"
+      );
+    }
+
+    async function checkFrontend() {
+      try {
+        const response =
+          await fetchWithTimeout(
+            location.origin + "/"
+          );
+
+        const online =
+          response.ok;
+
+        setFrontendStatus(
+          online
+        );
+
+        log(
+          "Frontend / => HTTP " +
+          response.status
+        );
+
+        return online;
+
+      } catch (error) {
+        setFrontendStatus(
+          false
+        );
+
+        log(
+          "Frontend ERROR => " +
+          error.message
+        );
+
+        return false;
+      }
+    }
+
+    /* =====================================================
+       BACKEND
+       ===================================================== */
+
+    function setBackendStatus(
+      online
+    ) {
+      setDot(
+        backendDot,
+        online
+      );
+
+      setDot(
+        miniBackendDot,
+        online
+      );
+
+      setDot(
+        mainServerDot,
+        online
+      );
+
+      backendState.textContent =
+        online
+          ? "ONLINE"
+          : "OFFLINE";
+
+      apiState.textContent =
+        online
+          ? "ONLINE"
+          : "OFFLINE";
+
+      setText(
+        "mini-backend-value",
+        online
+          ? "ONLINE"
+          : "OFFLINE"
+      );
+
+      setText(
+        "alert-backend",
+        online
+          ? "يعمل بصورة طبيعية"
+          : "غير متصل"
+      );
+
+      mainServerText.textContent =
+        online
+          ? "جميع الاتصالات الأساسية تعمل"
+          : "Backend غير متصل";
+    }
+
+    async function checkBackend() {
+      for (
+        const endpoint
+        of HEALTH_CANDIDATES
+      ) {
+        try {
+          const response =
+            await fetchWithTimeout(
+              endpoint,
+              {
+                headers: {
+                  Accept:
+                    "application/json"
+                }
+              }
+            );
+
+          log(
+            endpoint +
+            " => HTTP " +
             response.status
-        };
+          );
+
+          if (
+            response.ok
+          ) {
+            setBackendStatus(
+              true
+            );
+
+            return {
+              success: true,
+              endpoint,
+              status:
+                response.status
+            };
+          }
+
+        } catch (error) {
+          log(
+            endpoint +
+            " => ERROR " +
+            error.message
+          );
+        }
       }
 
-    } catch (error) {
+      setBackendStatus(
+        false
+      );
+
+      return {
+        success: false
+      };
+    }
+
+    /* =====================================================
+       GAME
+       ===================================================== */
+
+    function setGameStatus(
+      online
+    ) {
+      setDot(
+        gameDot,
+        online
+      );
+
+      setDot(
+        miniGameDot,
+        online
+      );
+
+      gameState.textContent =
+        online
+          ? "READY"
+          : "OFFLINE";
+
+      setText(
+        "mini-game-value",
+        online
+          ? "READY"
+          : "OFFLINE"
+      );
+
+      setText(
+        "alert-game",
+        online
+          ? "سيادة الشتاء جاهزة"
+          : "اللعبة غير متاحة"
+      );
+    }
+
+    async function checkGame() {
+      try {
+        const response =
+          await fetchWithTimeout(
+            GAME_PATH
+          );
+
+        const online =
+          response.ok;
+
+        setGameStatus(
+          online
+        );
+
+        log(
+          "Game => HTTP " +
+          response.status
+        );
+
+        return online;
+
+      } catch (error) {
+        setGameStatus(
+          false
+        );
+
+        log(
+          "Game ERROR => " +
+          error.message
+        );
+
+        return false;
+      }
+    }
+
+    /* =====================================================
+       DASHBOARD REAL DATA
+       ===================================================== */
+
+    function updateSystemState(
+      name,
+      state
+    ) {
+      const normalized =
+        String(
+          state || "UNKNOWN"
+        ).toUpperCase();
+
+      if (
+        name === "database"
+      ) {
+        setDot(
+          databaseDot,
+          normalized
+        );
+
+        setDot(
+          miniDbDot,
+          normalized
+        );
+
+        databaseState.textContent =
+          normalized;
+
+        setText(
+          "mini-db-value",
+          normalized
+        );
+
+        setText(
+          "alert-database",
+          normalized
+        );
+      }
+
+      if (
+        name === "ai"
+      ) {
+        setDot(
+          aiDot,
+          normalized
+        );
+
+        setDot(
+          miniAiDot,
+          normalized
+        );
+
+        aiState.textContent =
+          normalized;
+
+        setText(
+          "mini-ai-value",
+          normalized
+        );
+      }
+    }
+
+    async function loadDashboardData() {
+      try {
+        const response =
+          await fetchWithTimeout(
+            API_BASE +
+            "/dashboard"
+          );
+
+        log(
+          "/api/dashboard => HTTP " +
+          response.status
+        );
+
+        if (
+          !response.ok
+        ) {
+          return false;
+        }
+
+        const data =
+          await response.json();
+
+        /*
+          Backend الحالي يعيد:
+
+          {
+            metrics: {
+              users_total,
+              users_online,
+              revenue,
+              transactions,
+              views,
+              published_games
+            },
+
+            systems: {
+              frontend,
+              backend,
+              game_server,
+              database,
+              ai
+            }
+          }
+        */
+
+        const metrics =
+          data.metrics || {};
+
+        const systems =
+          data.systems || {};
+
+        setText(
+          "stat-users",
+          formatValue(
+            metrics.users_total
+          )
+        );
+
+        setText(
+          "stat-active-users",
+          formatValue(
+            metrics.users_online
+          )
+        );
+
+        setText(
+          "stat-revenue",
+          formatValue(
+            metrics.revenue
+          )
+        );
+
+        setText(
+          "stat-transactions",
+          formatValue(
+            metrics.transactions
+          )
+        );
+
+        setText(
+          "stat-views",
+          formatValue(
+            metrics.views
+          )
+        );
+
+        setText(
+          "stat-games",
+          formatValue(
+            metrics.published_games
+          )
+        );
+
+        setText(
+          "distribution-total",
+          formatValue(
+            metrics.users_total
+          )
+        );
+
+        if (
+          systems.frontend
+        ) {
+          setFrontendStatus(
+            systems.frontend ===
+              "ONLINE"
+          );
+        }
+
+        if (
+          systems.backend
+        ) {
+          setBackendStatus(
+            systems.backend ===
+              "ONLINE"
+          );
+        }
+
+        if (
+          systems.game_server
+        ) {
+          setGameStatus(
+            systems.game_server ===
+              "READY" ||
+            systems.game_server ===
+              "ONLINE"
+          );
+        }
+
+        updateSystemState(
+          "database",
+          systems.database
+        );
+
+        updateSystemState(
+          "ai",
+          systems.ai
+        );
+
+        if (
+          data.environment
+        ) {
+          setText(
+            "environment-state",
+            data.environment
+          );
+        }
+
+        return true;
+
+      } catch (error) {
+        log(
+          "Dashboard data unavailable: " +
+          error.message
+        );
+
+        return false;
+      }
+    }
+
+    /* =====================================================
+       FULL CHECK
+       ===================================================== */
+
+    async function runFullCheck() {
       log(
-        endpoint +
-        " => ERROR " +
-        error.message
+        "================================"
+      );
+
+      log(
+        "STARTING REAL MAJD SYSTEM CHECK"
+      );
+
+      const [
+        frontend,
+        backend,
+        game
+      ] =
+        await Promise.all([
+          checkFrontend(),
+          checkBackend(),
+          checkGame()
+        ]);
+
+      if (
+        backend.success
+      ) {
+        await loadDashboardData();
+      }
+
+      lastCheck.textContent =
+        new Date()
+          .toLocaleTimeString(
+            "ar-SA"
+          );
+
+      log(
+        "--------------------------------"
+      );
+
+      log(
+        "Frontend: " +
+        (
+          frontend
+            ? "PASS"
+            : "FAIL"
+        )
+      );
+
+      log(
+        "Backend: " +
+        (
+          backend.success
+            ? "PASS"
+            : "FAIL"
+        )
+      );
+
+      log(
+        "Game: " +
+        (
+          game
+            ? "PASS"
+            : "FAIL"
+        )
+      );
+
+      if (
+        frontend &&
+        backend.success &&
+        game
+      ) {
+        log(
+          "MAJD CORE CONNECTION: PASS"
+        );
+      } else {
+        log(
+          "MAJD CORE CONNECTION: FAIL"
+        );
+      }
+
+      return (
+        frontend &&
+        backend.success &&
+        game
       );
     }
-  }
 
-  setBackendStatus(false);
+    /* =====================================================
+       GAME LAUNCH
+       ===================================================== */
 
-  return {
-    success: false
-  };
-}
-
-/* ==========================================================
-   GAME CHECK
-   ========================================================== */
-
-async function checkGame() {
-  try {
-    const response =
-      await fetchWithTimeout(
-        GAME_PATH
+    function launchGame() {
+      log(
+        "Opening Winter Sovereignty..."
       );
 
-    const ok =
-      response.ok;
-
-    setGameStatus(ok);
-
-    log(
-      "Game => HTTP " +
-      response.status
-    );
-
-    return ok;
-
-  } catch (error) {
-    setGameStatus(false);
-
-    log(
-      "Game ERROR => " +
-      error.message
-    );
-
-    return false;
-  }
-}
-
-/* ==========================================================
-   REAL DASHBOARD DATA
-   ========================================================== */
-
-function setValue(
-  id,
-  value
-) {
-  const element =
-    document.getElementById(id);
-
-  if (!element) {
-    return;
-  }
-
-  if (
-    value === undefined ||
-    value === null ||
-    value === ""
-  ) {
-    element.textContent =
-      "—";
-
-    return;
-  }
-
-  element.textContent =
-    value;
-}
-
-async function loadDashboardData() {
-  /*
-    هذا المسار لن يعتبر PASS إلا إذا كان موجودًا فعليًا.
-    عند إضافة endpoint حقيقي للإحصائيات سيظهر مباشرة.
-
-    لا توجد أرقام تجريبية هنا.
-  */
-
-  try {
-    const response =
-      await fetchWithTimeout(
-        API_BASE +
-        "/dashboard"
-      );
-
-    log(
-      "/api/dashboard => HTTP " +
-      response.status
-    );
-
-    if (!response.ok) {
-      return false;
+      window.location.href =
+        GAME_PATH;
     }
 
-    const data =
-      await response.json();
+    /* =====================================================
+       OWNER COMMAND
+       ===================================================== */
 
-    setValue(
-      "stat-users",
-      data.users
-    );
-
-    setValue(
-      "stat-active-users",
-      data.active_users
-    );
-
-    setValue(
-      "stat-revenue",
-      data.revenue
-    );
-
-    setValue(
-      "stat-transactions",
-      data.transactions
-    );
-
-    setValue(
-      "stat-views",
-      data.views
-    );
-
-    setValue(
-      "stat-games",
-      data.games
-    );
-
-    return true;
-
-  } catch (error) {
-    log(
-      "Dashboard data unavailable: " +
-      error.message
-    );
-
-    return false;
-  }
-}
-
-/* ==========================================================
-   FULL REAL CHECK
-   ========================================================== */
-
-async function runFullCheck() {
-  log(
-    "================================"
-  );
-
-  log(
-    "STARTING REAL MAJD SYSTEM CHECK"
-  );
-
-  const [
-    frontend,
-    backend,
-    game
-  ] =
-    await Promise.all([
-      checkFrontend(),
-      checkBackend(),
-      checkGame()
-    ]);
-
-  if (
-    backend.success
-  ) {
-    await loadDashboardData();
-  }
-
-  lastCheck.textContent =
-    new Date()
-      .toLocaleTimeString(
-        "ar-SA"
+    const modal =
+      document.getElementById(
+        "owner-modal"
       );
 
-  log(
-    "--------------------------------"
-  );
+    function openOwnerModal() {
+      modal.classList.add(
+        "open"
+      );
+    }
 
-  log(
-    "Frontend: " +
-    (
-      frontend
-        ? "PASS"
-        : "FAIL"
-    )
-  );
+    function closeOwnerModal() {
+      modal.classList.remove(
+        "open"
+      );
+    }
 
-  log(
-    "Backend: " +
-    (
-      backend.success
-        ? "PASS"
-        : "FAIL"
-    )
-  );
+    async function executeOwnerCommand() {
+      const command =
+        document
+          .getElementById(
+            "owner-command"
+          )
+          .value
+          .trim();
 
-  log(
-    "Game: " +
-    (
-      game
-        ? "PASS"
-        : "FAIL"
-    )
-  );
+      if (
+        !command
+      ) {
+        log(
+          "Owner command is empty."
+        );
 
-  if (
-    frontend &&
-    backend.success &&
-    game
-  ) {
-    log(
-      "MAJD CORE CONNECTION: PASS"
+        return;
+      }
+
+      try {
+        log(
+          "Sending owner command..."
+        );
+
+        const response =
+          await fetchWithTimeout(
+            API_BASE +
+            "/run",
+            {
+              method:
+                "POST",
+
+              credentials:
+                "include",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                Accept:
+                  "application/json"
+              },
+
+              body:
+                JSON.stringify({
+                  command
+                })
+            },
+            30000
+          );
+
+        log(
+          "Owner command => HTTP " +
+          response.status
+        );
+
+        if (
+          response.status ===
+          401
+        ) {
+          log(
+            "FAIL: Owner authentication required."
+          );
+
+          return;
+        }
+
+        if (
+          response.status ===
+          403
+        ) {
+          log(
+            "FAIL: SUPREME_OWNER permission denied."
+          );
+
+          return;
+        }
+
+        if (
+          !response.ok
+        ) {
+          log(
+            "FAIL: Backend rejected owner command."
+          );
+
+          return;
+        }
+
+        log(
+          "Owner command accepted by Backend."
+        );
+
+        closeOwnerModal();
+
+      } catch (error) {
+        log(
+          "Owner command ERROR => " +
+          error.message
+        );
+      }
+    }
+
+    /* =====================================================
+       CLOCK
+       ===================================================== */
+
+    function updateClock() {
+      document
+        .getElementById(
+          "clock"
+        )
+        .textContent =
+          new Date()
+            .toLocaleTimeString(
+              "en-GB"
+            );
+    }
+
+    setInterval(
+      updateClock,
+      1000
     );
-  } else {
-    log(
-      "MAJD CORE CONNECTION: FAIL"
-    );
-  }
 
-  return (
-    frontend &&
-    backend.success &&
-    game
-  );
-}
+    updateClock();
 
-/* ==========================================================
-   GAME
-   ========================================================== */
+    /* =====================================================
+       EVENTS
+       ===================================================== */
 
-function launchGame() {
-  log(
-    "Opening Winter Sovereignty..."
-  );
-
-  window.location.href =
-    GAME_PATH;
-}
-
-/* ==========================================================
-   OWNER COMMAND
-   ========================================================== */
-
-const modal =
-  document.getElementById(
-    "owner-modal"
-  );
-
-function openOwnerModal() {
-  modal.classList.add(
-    "open"
-  );
-}
-
-function closeOwnerModal() {
-  modal.classList.remove(
-    "open"
-  );
-}
-
-async function executeOwnerCommand() {
-  const command =
     document
       .getElementById(
-        "owner-command"
+        "launch-game"
       )
-      .value
-      .trim();
-
-  if (!command) {
-    log(
-      "Owner command is empty."
-    );
-
-    return;
-  }
-
-  /*
-    لا نضع Token داخل HTML.
-    المصادقة يجب أن تكون من Backend
-    باستخدام جلسة آمنة / Cookie HttpOnly
-    أو نظام المصادقة الحقيقي.
-  */
-
-  try {
-    log(
-      "Sending owner command..."
-    );
-
-    const response =
-      await fetchWithTimeout(
-        API_BASE +
-        "/run",
-        {
-          method:
-            "POST",
-
-          credentials:
-            "include",
-
-          headers: {
-            "Content-Type":
-              "application/json",
-
-            Accept:
-              "application/json"
-          },
-
-          body:
-            JSON.stringify({
-              command
-            })
-        },
-        30000
+      .addEventListener(
+        "click",
+        launchGame
       );
 
-    log(
-      "Owner command => HTTP " +
-      response.status
-    );
-
-    if (
-      response.status === 401
-    ) {
-      log(
-        "FAIL: Owner authentication required."
+    document
+      .getElementById(
+        "refresh-system"
+      )
+      .addEventListener(
+        "click",
+        runFullCheck
       );
 
-      return;
-    }
-
-    if (
-      response.status === 403
-    ) {
-      log(
-        "FAIL: SUPREME_OWNER permission denied."
+    document
+      .getElementById(
+        "test-api"
+      )
+      .addEventListener(
+        "click",
+        checkBackend
       );
 
-      return;
-    }
-
-    if (!response.ok) {
-      log(
-        "FAIL: Backend rejected owner command."
+    document
+      .getElementById(
+        "open-owner-command"
+      )
+      .addEventListener(
+        "click",
+        openOwnerModal
       );
 
-      return;
-    }
+    document
+      .getElementById(
+        "open-owner-command-2"
+      )
+      .addEventListener(
+        "click",
+        openOwnerModal
+      );
 
-    log(
-      "Owner command accepted by Backend."
+    document
+      .getElementById(
+        "close-owner-command"
+      )
+      .addEventListener(
+        "click",
+        closeOwnerModal
+      );
+
+    document
+      .getElementById(
+        "send-owner-command"
+      )
+      .addEventListener(
+        "click",
+        executeOwnerCommand
+      );
+
+    modal.addEventListener(
+      "click",
+      event => {
+        if (
+          event.target ===
+          modal
+        ) {
+          closeOwnerModal();
+        }
+      }
     );
 
-    closeOwnerModal();
+    /* =====================================================
+       BOOT
+       ===================================================== */
 
-  } catch (error) {
-    log(
-      "Owner command ERROR => " +
-      error.message
-    );
-  }
-}
-
-/* ==========================================================
-   CLOCK
-   ========================================================== */
-
-function updateClock() {
-  document
-    .getElementById(
-      "clock"
-    )
-    .textContent =
-      new Date()
-        .toLocaleTimeString(
-          "en-GB"
+    window.addEventListener(
+      "load",
+      async () => {
+        log(
+          "MAJD Sovereign Dashboard loaded."
         );
-}
 
-setInterval(
-  updateClock,
-  1000
-);
+        log(
+          "Game path: " +
+          GAME_PATH
+        );
 
-updateClock();
+        log(
+          "API base: " +
+          API_BASE
+        );
 
-/* ==========================================================
-   EVENTS
-   ========================================================== */
-
-document
-  .getElementById(
-    "launch-game"
-  )
-  .addEventListener(
-    "click",
-    launchGame
-  );
-
-document
-  .getElementById(
-    "refresh-system"
-  )
-  .addEventListener(
-    "click",
-    runFullCheck
-  );
-
-document
-  .getElementById(
-    "test-api"
-  )
-  .addEventListener(
-    "click",
-    checkBackend
-  );
-
-document
-  .getElementById(
-    "open-owner-command"
-  )
-  .addEventListener(
-    "click",
-    openOwnerModal
-  );
-
-document
-  .getElementById(
-    "open-owner-command-2"
-  )
-  .addEventListener(
-    "click",
-    openOwnerModal
-  );
-
-document
-  .getElementById(
-    "close-owner-command"
-  )
-  .addEventListener(
-    "click",
-    closeOwnerModal
-  );
-
-document
-  .getElementById(
-    "send-owner-command"
-  )
-  .addEventListener(
-    "click",
-    executeOwnerCommand
-  );
-
-modal.addEventListener(
-  "click",
-  event => {
-    if (
-      event.target === modal
-    ) {
-      closeOwnerModal();
-    }
-  }
-);
-
-/* ==========================================================
-   BOOT
-   ========================================================== */
-
-window.addEventListener(
-  "load",
-  async () => {
-    log(
-      "MAJD Sovereign Dashboard loaded."
+        await runFullCheck();
+      }
     );
-
-    log(
-      "Game path: " +
-      GAME_PATH
-    );
-
-    log(
-      "API base: " +
-      API_BASE
-    );
-
-    await runFullCheck();
-  }
-);
-
-</script>
+  </script>
 
 </body>
 </html>
