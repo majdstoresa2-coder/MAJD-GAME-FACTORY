@@ -1,12 +1,44 @@
-<!doctype html>
+        <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
 
-  <title>MAJD GAMES</title>
+  <meta
+    name="theme-color"
+    content="#050b12"
+  />
+
+  <title>MAJD — Supreme Owner</title>
 
   <style>
+    :root {
+      --bg: #050b12;
+      --bg2: #08121d;
+      --panel: rgba(8, 18, 29, 0.96);
+      --panel2: rgba(11, 24, 38, 0.96);
+
+      --line: #1f3448;
+      --line2: #36536d;
+
+      --text: #f5f7fb;
+      --muted: #8499ad;
+
+      --gold: #e9b949;
+      --gold2: #ffcf65;
+
+      --green: #35d07f;
+      --red: #ff4d68;
+      --orange: #ff9d3d;
+      --blue: #3fa9ff;
+      --purple: #a45dff;
+
+      --sidebar: 245px;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -17,648 +49,2378 @@
     body {
       width: 100%;
       min-height: 100%;
-      background: #07111d;
-      color: #ffffff;
-      font-family: Arial, Tahoma, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-family:
+        Arial,
+        Tahoma,
+        sans-serif;
     }
 
     body {
       min-height: 100vh;
+
       background:
-        radial-gradient(circle at top right, #17314c 0, transparent 35%),
-        radial-gradient(circle at bottom left, #10273b 0, transparent 35%),
-        #07111d;
+        radial-gradient(
+          circle at 70% 0%,
+          rgba(24, 71, 120, 0.22),
+          transparent 33%
+        ),
+        radial-gradient(
+          circle at 15% 100%,
+          rgba(158, 82, 255, 0.08),
+          transparent 30%
+        ),
+        var(--bg);
     }
 
-    #app {
-      width: 100%;
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .layout {
       min-height: 100vh;
-      padding: 18px;
+      display: grid;
+      grid-template-columns:
+        minmax(0, 1fr)
+        var(--sidebar);
     }
 
-    .container {
-      width: min(1200px, 100%);
-      margin: 0 auto;
+    /* ======================================================
+       SIDEBAR
+       ====================================================== */
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+
+      height: 100vh;
+      overflow-y: auto;
+
+      border-left: 1px solid #243344;
+
+      background:
+        linear-gradient(
+          180deg,
+          rgba(4, 10, 17, 0.99),
+          rgba(6, 14, 23, 0.99)
+        );
+
+      padding: 18px 13px;
     }
 
-    .header {
+    .logo {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 20px;
-      border: 1px solid #29435d;
-      border-radius: 18px;
-      background: rgba(10, 24, 39, 0.94);
+      justify-content: center;
+      gap: 10px;
+
+      color: var(--gold);
+
+      font-family: Georgia, serif;
+      font-size: 31px;
+      letter-spacing: 3px;
+
+      padding: 12px 6px 22px;
+    }
+
+    .logo-crown {
+      font-size: 30px;
+    }
+
+    .owner-card {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+
+      padding: 13px;
+
+      border: 1px solid #26384a;
+      border-radius: 13px;
+
+      background:
+        linear-gradient(
+          135deg,
+          rgba(24, 31, 40, .96),
+          rgba(10, 18, 28, .96)
+        );
+
       margin-bottom: 18px;
     }
 
-    .brand h1 {
+    .owner-avatar {
+      width: 54px;
+      height: 54px;
+
+      display: grid;
+      place-items: center;
+
+      flex: 0 0 54px;
+
+      border-radius: 50%;
+
+      border: 2px solid var(--gold);
+
+      background:
+        radial-gradient(
+          circle,
+          #5c4219,
+          #15120d
+        );
+
       font-size: 28px;
-      margin-bottom: 6px;
     }
 
-    .brand p {
-      color: #9fb4c8;
+    .owner-name {
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .owner-role {
+      font-size: 12px;
+      color: #c8a65d;
+    }
+
+    .nav {
+      display: grid;
+      gap: 5px;
+    }
+
+    .nav-item {
+      width: 100%;
+
+      display: flex;
+      align-items: center;
+      gap: 11px;
+
+      padding: 12px 13px;
+
+      border: 1px solid transparent;
+      border-radius: 9px;
+
+      background: transparent;
+      color: #c5d0db;
+
+      text-align: right;
+    }
+
+    .nav-item:hover {
+      background: #101c28;
+      border-color: #263b4d;
+    }
+
+    .nav-item.active {
+      color: #ffd876;
+
+      border-color: #725a27;
+
+      background:
+        linear-gradient(
+          90deg,
+          rgba(121, 87, 26, .34),
+          rgba(60, 43, 15, .45)
+        );
+    }
+
+    .nav-icon {
+      width: 23px;
+      text-align: center;
+      font-size: 18px;
+    }
+
+    .server-mini {
+      margin-top: 18px;
+
+      border: 1px solid #25394b;
+      border-radius: 12px;
+
+      background: #091522;
+
+      padding: 14px;
+    }
+
+    .server-mini h4 {
+      margin-bottom: 12px;
       font-size: 14px;
     }
 
-    .status {
-      display: inline-flex;
+    .server-mini-row {
+      display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 8px;
-      padding: 10px 14px;
-      border-radius: 999px;
-      background: #0b2c20;
-      border: 1px solid #245d45;
-      color: #8df0bd;
-      white-space: nowrap;
+
+      padding: 7px 0;
+
+      font-size: 12px;
+      color: #b6c4d1;
     }
 
-    .dot {
-      width: 9px;
-      height: 9px;
+    .indicator {
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      background: #40d88b;
-      box-shadow: 0 0 14px #40d88b;
+
+      background: #556575;
     }
+
+    .indicator.online {
+      background: var(--green);
+      box-shadow: 0 0 10px var(--green);
+    }
+
+    .indicator.offline {
+      background: var(--red);
+      box-shadow: 0 0 10px rgba(255, 77, 104, .55);
+    }
+
+    /* ======================================================
+       MAIN
+       ====================================================== */
+
+    .main {
+      min-width: 0;
+      padding: 0 18px 28px;
+    }
+
+    .topbar {
+      min-height: 57px;
+
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+
+      gap: 16px;
+
+      border-bottom: 1px solid #192b3b;
+
+      margin-bottom: 12px;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .top-button {
+      border: 1px solid #26394b;
+
+      background: #09131e;
+      color: #d7e0e8;
+
+      border-radius: 9px;
+      padding: 9px 12px;
+    }
+
+    .live-clock {
+      direction: ltr;
+      text-align: left;
+
+      font-size: 14px;
+    }
+
+    .live-label {
+      color: var(--green);
+      font-size: 10px;
+      margin-right: 5px;
+    }
+
+    .search {
+      width: min(360px, 46vw);
+
+      border: 1px solid #25384a;
+      border-radius: 18px;
+
+      background: #08121c;
+
+      color: white;
+
+      padding: 9px 15px;
+      outline: none;
+    }
+
+    /* ======================================================
+       HERO
+       ====================================================== */
 
     .hero {
+      position: relative;
+      overflow: hidden;
+
+      min-height: 225px;
+
+      display: flex;
+      align-items: center;
+
+      border: 1px solid #725729;
+      border-radius: 10px;
+
       padding: 28px;
-      border: 1px solid #29435d;
-      border-radius: 20px;
-      background: rgba(8, 20, 33, 0.95);
-      margin-bottom: 18px;
+
+      background:
+        radial-gradient(
+          circle at 70% 45%,
+          rgba(24, 91, 170, .38),
+          transparent 30%
+        ),
+        radial-gradient(
+          circle at 91% 15%,
+          rgba(111, 75, 255, .18),
+          transparent 26%
+        ),
+        linear-gradient(
+          100deg,
+          #07111b,
+          #07182c 65%,
+          #07111b
+        );
+
+      margin-bottom: 15px;
     }
 
-    .hero h2 {
-      font-size: 30px;
+    .hero::after {
+      content: "";
+
+      position: absolute;
+      inset: 0;
+
+      pointer-events: none;
+
+      background:
+        linear-gradient(
+          90deg,
+          rgba(255,255,255,.025) 1px,
+          transparent 1px
+        );
+
+      background-size: 38px 100%;
+      opacity: .2;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+
+      max-width: 630px;
+    }
+
+    .hero h1 {
+      font-size: 28px;
+      margin-bottom: 12px;
+    }
+
+    .hero-gold {
+      color: var(--gold);
+      font-size: 21px;
       margin-bottom: 12px;
     }
 
     .hero p {
-      color: #aabed0;
+      color: #9cafbf;
       line-height: 1.9;
-      max-width: 850px;
+      margin-bottom: 24px;
     }
 
-    .games {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 16px;
-      margin-bottom: 18px;
+    .hero-status-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 24px;
+
+      color: #c5d1db;
+      font-size: 13px;
     }
 
-    .game-card {
-      overflow: hidden;
-      border: 1px solid #31536c;
-      border-radius: 18px;
-      background: rgba(8, 23, 37, 0.96);
-    }
-
-    .game-cover {
-      min-height: 220px;
+    .real-status {
       display: flex;
       align-items: center;
-      justify-content: center;
-      padding: 24px;
-      text-align: center;
+      gap: 8px;
+    }
+
+    .owner-command-btn {
+      position: absolute;
+      z-index: 3;
+
+      left: 18px;
+      top: 18px;
+
+      border: 1px solid #6846db;
+
+      border-radius: 8px;
+
+      color: #f0eaff;
+
       background:
-        radial-gradient(circle at center, rgba(135, 220, 255, .25), transparent 40%),
-        linear-gradient(180deg, #244c66, #102636);
+        linear-gradient(
+          180deg,
+          #3c2699,
+          #241565
+        );
+
+      padding: 11px 17px;
     }
 
-    .game-cover .symbol {
-      font-size: 80px;
-      filter: drop-shadow(0 8px 20px rgba(0,0,0,.35));
+    .hero-crown {
+      position: absolute;
+      z-index: 1;
+
+      left: 18%;
+      top: 50%;
+
+      transform: translate(-50%, -50%);
+
+      text-align: center;
+
+      color: #efc45d;
+
+      opacity: .95;
     }
 
-    .game-body {
-      padding: 18px;
+    .hero-crown .crown {
+      font-size: 76px;
     }
 
-    .game-body h3 {
-      font-size: 23px;
+    .hero-crown strong {
+      display: block;
+
+      font-family: Georgia, serif;
+
+      font-size: 34px;
+
+      letter-spacing: 5px;
+    }
+
+    .hero-crown small {
+      display: block;
+      margin-top: 6px;
+      letter-spacing: 2px;
+    }
+
+    /* ======================================================
+       STATISTICS
+       ====================================================== */
+
+    .stats {
+      display: grid;
+
+      grid-template-columns:
+        repeat(6, minmax(135px, 1fr));
+
+      gap: 10px;
+
+      margin-bottom: 14px;
+    }
+
+    .stat {
+      border: 1px solid #203548;
+      border-radius: 9px;
+
+      background:
+        linear-gradient(
+          180deg,
+          #0b1825,
+          #08131f
+        );
+
+      padding: 15px;
+    }
+
+    .stat-label {
+      color: #9cadbd;
+      font-size: 12px;
       margin-bottom: 8px;
     }
 
-    .game-body p {
-      color: #a9bdcc;
-      line-height: 1.8;
-      margin-bottom: 14px;
+    .stat-value {
+      font-size: 21px;
+      font-weight: 700;
     }
 
-    .tags {
+    .stat-note {
+      margin-top: 7px;
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    /* ======================================================
+       CONTENT GRID
+       ====================================================== */
+
+    .dashboard-grid {
+      display: grid;
+
+      grid-template-columns:
+        1fr 1.7fr 1fr;
+
+      gap: 12px;
+
+      margin-bottom: 12px;
+    }
+
+    .panel {
+      border: 1px solid #203448;
+      border-radius: 10px;
+
+      background:
+        linear-gradient(
+          180deg,
+          rgba(10, 23, 35, .98),
+          rgba(7, 17, 27, .98)
+        );
+
+      padding: 15px;
+    }
+
+    .panel-title {
       display: flex;
-      flex-wrap: wrap;
-      gap: 7px;
-      margin-bottom: 15px;
+      justify-content: space-between;
+      align-items: center;
+
+      gap: 10px;
+
+      margin-bottom: 14px;
+
+      font-size: 14px;
+      font-weight: 700;
     }
 
-    .tag {
-      padding: 6px 10px;
-      border: 1px solid #365b75;
-      border-radius: 999px;
-      background: #0d293e;
-      color: #acd4ea;
+    .panel-link {
+      color: #6b81ff;
+      font-size: 11px;
+      font-weight: 400;
+    }
+
+    /* ======================================================
+       ACTIVITY
+       ====================================================== */
+
+    .activity-list {
+      display: grid;
+      gap: 4px;
+    }
+
+    .activity {
+      display: grid;
+
+      grid-template-columns:
+        44px 1fr 15px;
+
+      align-items: center;
+
+      gap: 8px;
+
+      padding: 9px 0;
+
+      border-bottom: 1px solid #142638;
+    }
+
+    .activity:last-child {
+      border-bottom: 0;
+    }
+
+    .activity-time {
+      color: #778b9d;
+      font-size: 11px;
+      direction: ltr;
+    }
+
+    .activity-title {
       font-size: 12px;
     }
 
-    .play-button {
-      width: 100%;
-      border: 1px solid #3e8aad;
-      border-radius: 12px;
-      background: linear-gradient(180deg, #1a6d92, #104965);
-      color: white;
-      padding: 14px;
-      cursor: pointer;
-      font-size: 16px;
-      font-weight: bold;
+    .activity-title small {
+      display: block;
+
+      color: #7296cf;
+
+      margin-top: 4px;
     }
 
-    .play-button:hover {
-      background: linear-gradient(180deg, #2282aa, #145b7c);
+    /* ======================================================
+       CHART
+       ====================================================== */
+
+    .chart {
+      height: 205px;
+
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+
+      padding: 20px 5px 4px;
+
+      border-bottom: 1px solid #1f3850;
+
+      direction: ltr;
     }
 
-    .grid {
+    .chart-column {
+      flex: 1;
+
+      display: flex;
+      gap: 3px;
+
+      align-items: flex-end;
+
+      height: 100%;
+    }
+
+    .bar {
+      flex: 1;
+
+      min-height: 3px;
+
+      border-radius: 4px 4px 0 0;
+
+      transition: height .5s ease;
+    }
+
+    .bar.users {
+      background: var(--purple);
+    }
+
+    .bar.views {
+      background: var(--blue);
+    }
+
+    .bar.revenue {
+      background: var(--green);
+    }
+
+    .chart-legend {
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+
+      margin-top: 12px;
+
+      color: #8ea1b3;
+      font-size: 11px;
+    }
+
+    /* ======================================================
+       SERVERS
+       ====================================================== */
+
+    .server-row {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 14px;
-      margin-bottom: 18px;
+
+      grid-template-columns:
+        11px 1fr auto;
+
+      gap: 8px;
+
+      align-items: center;
+
+      padding: 10px 0;
+
+      border-bottom: 1px solid #152536;
+
+      font-size: 12px;
     }
 
-    .card {
-      border: 1px solid #29435d;
-      background: rgba(10, 24, 39, 0.92);
-      border-radius: 16px;
+    .server-row:last-child {
+      border-bottom: 0;
+    }
+
+    .server-state {
+      color: #91a4b4;
+      font-size: 11px;
+    }
+
+    /* ======================================================
+       QUICK ACTIONS
+       ====================================================== */
+
+    .quick {
+      margin-bottom: 12px;
+    }
+
+    .quick-grid {
+      display: grid;
+
+      grid-template-columns:
+        repeat(8, minmax(100px, 1fr));
+
+      gap: 8px;
+    }
+
+    .quick-btn {
+      min-height: 88px;
+
+      border: 1px solid #22374a;
+      border-radius: 9px;
+
+      background: #091622;
+
+      color: #dce5ec;
+
+      display: grid;
+      place-items: center;
+
+      gap: 5px;
+
+      padding: 10px;
+    }
+
+    .quick-btn:hover {
+      border-color: #745d31;
+      background: #10202e;
+    }
+
+    .quick-icon {
+      font-size: 28px;
+    }
+
+    /* ======================================================
+       OWNER COMMAND MODAL
+       ====================================================== */
+
+    .modal-backdrop {
+      position: fixed;
+      z-index: 100;
+
+      inset: 0;
+
+      background: rgba(0,0,0,.72);
+
+      display: none;
+      align-items: center;
+      justify-content: center;
+
       padding: 18px;
-      min-height: 120px;
     }
 
-    .card .label {
-      color: #93abc0;
-      font-size: 13px;
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal {
+      width: min(700px, 100%);
+
+      border: 1px solid #725b2d;
+      border-radius: 14px;
+
+      background: #08131e;
+
+      box-shadow: 0 30px 100px #000;
+
+      padding: 22px;
+    }
+
+    .modal h3 {
+      color: var(--gold);
       margin-bottom: 14px;
     }
 
-    .card .value {
-      font-size: 23px;
-      font-weight: bold;
-    }
+    .command-input {
+      width: 100%;
+      min-height: 110px;
 
-    .ok {
-      color: #62e6a2;
-    }
+      resize: vertical;
 
-    .section {
-      border: 1px solid #29435d;
-      background: rgba(10, 24, 39, 0.92);
-      border-radius: 18px;
-      padding: 20px;
-      margin-bottom: 18px;
-    }
+      border: 1px solid #30475c;
+      border-radius: 10px;
 
-    .section h3 {
-      margin-bottom: 16px;
-      font-size: 20px;
-    }
-
-    .actions {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-    }
-
-    button {
-      border: 1px solid #31516e;
-      border-radius: 12px;
-      background: #10283e;
+      background: #03090f;
       color: white;
-      padding: 14px;
-      cursor: pointer;
-      font-size: 15px;
+
+      padding: 13px;
+
+      outline: none;
     }
 
-    button:hover {
-      background: #173754;
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+
+      margin-top: 12px;
     }
 
-    .console {
-      margin-top: 16px;
-      background: #03080e;
-      border: 1px solid #21374b;
-      border-radius: 12px;
-      padding: 16px;
-      min-height: 170px;
+    .primary-btn {
+      border: 1px solid #926e2e;
+
+      background:
+        linear-gradient(
+          180deg,
+          #a97925,
+          #6b4816
+        );
+
+      color: white;
+
+      padding: 11px 18px;
+
+      border-radius: 8px;
+    }
+
+    .secondary-btn {
+      border: 1px solid #34485a;
+      background: #101c27;
+      color: white;
+      padding: 11px 18px;
+      border-radius: 8px;
+    }
+
+    /* ======================================================
+       SYSTEM LOG
+       ====================================================== */
+
+    .system-console {
+      margin-top: 12px;
+
+      max-height: 200px;
+      overflow: auto;
+
       direction: ltr;
       text-align: left;
+
+      border: 1px solid #1f3448;
+      border-radius: 9px;
+
+      background: #02070c;
+
+      padding: 13px;
+
       font-family: monospace;
-      line-height: 1.8;
-      overflow: auto;
+      font-size: 11px;
+
+      color: #9fb0bf;
+
       white-space: pre-wrap;
     }
 
     .footer {
       text-align: center;
-      color: #728ba0;
-      padding: 14px;
-      font-size: 13px;
+      color: #536b7e;
+      font-size: 11px;
+      padding: 15px 0 2px;
     }
 
-    @media (max-width: 850px) {
-      .games {
-        grid-template-columns: 1fr;
+    /* ======================================================
+       RESPONSIVE
+       ====================================================== */
+
+    @media (max-width: 1250px) {
+      :root {
+        --sidebar: 210px;
       }
 
-      .grid {
-        grid-template-columns: repeat(2, 1fr);
+      .stats {
+        grid-template-columns:
+          repeat(3, 1fr);
       }
 
-      .actions {
-        grid-template-columns: 1fr;
-      }
-
-      .header {
-        flex-direction: column;
-        align-items: flex-start;
+      .quick-grid {
+        grid-template-columns:
+          repeat(4, 1fr);
       }
     }
 
-    @media (max-width: 480px) {
-      #app {
-        padding: 10px;
+    @media (max-width: 900px) {
+      .layout {
+        display: block;
       }
 
-      .grid {
+      .sidebar {
+        position: relative;
+
+        width: 100%;
+        height: auto;
+
+        border-left: 0;
+        border-bottom: 1px solid #203448;
+      }
+
+      .nav {
+        grid-template-columns:
+          repeat(2, 1fr);
+      }
+
+      .main {
+        padding: 0 10px 24px;
+      }
+
+      .dashboard-grid {
         grid-template-columns: 1fr;
+      }
+
+      .hero-crown {
+        opacity: .2;
+      }
+    }
+
+    @media (max-width: 650px) {
+      .topbar {
+        flex-wrap: wrap;
+        padding: 8px 0;
+      }
+
+      .search {
+        order: 3;
+        width: 100%;
+      }
+
+      .stats {
+        grid-template-columns:
+          repeat(2, 1fr);
+      }
+
+      .quick-grid {
+        grid-template-columns:
+          repeat(2, 1fr);
       }
 
       .hero {
-        padding: 20px;
+        padding: 20px 16px;
       }
 
-      .hero h2 {
-        font-size: 24px;
+      .hero h1 {
+        font-size: 22px;
       }
 
-      .game-cover {
-        min-height: 180px;
+      .nav {
+        grid-template-columns: 1fr;
       }
     }
   </style>
 </head>
 
 <body>
-  <main id="app">
-    <div class="container">
 
-      <header class="header">
-        <div class="brand">
-          <h1>MAJD GAMES</h1>
-          <p>مصنع ألعاب مجد — الألعاب الأصلية والتجارب القابلة للتشغيل</p>
+<div class="layout">
+
+  <!-- ======================================================
+       MAIN
+       ====================================================== -->
+
+  <main class="main">
+
+    <header class="topbar">
+
+      <div class="top-actions">
+        <button class="top-button">⚙</button>
+        <button class="top-button">☾</button>
+        <button class="top-button">🔔</button>
+
+        <div class="live-clock">
+          <span id="clock">--:--:--</span>
+          <span class="live-label">● LIVE</span>
         </div>
+      </div>
 
-        <div class="status">
-          <span class="dot"></span>
-          GAME FACTORY ONLINE
+      <input
+        class="search"
+        type="search"
+        placeholder="بحث شامل..."
+      />
+
+    </header>
+
+    <!-- ====================================================
+         HERO
+         ==================================================== -->
+
+    <section class="hero">
+
+      <button
+        class="owner-command-btn"
+        id="open-owner-command"
+      >
+        👑 أوامر المالك
+      </button>
+
+      <div class="hero-content">
+
+        <h1>
+          مرحباً بك في لوحة التحكم السيادية
+        </h1>
+
+        <div class="hero-gold">
+          منصة مجد الرسمية السيادية
         </div>
-      </header>
-
-      <section class="hero">
-        <h2>مركز ألعاب مجد</h2>
 
         <p>
-          هذه هي واجهة مصنع الألعاب المستقل. من هنا يتم عرض الألعاب التي
-          ينتجها MAJD GAME FACTORY وتجربتها على الجوال والكمبيوتر.
-          جميع الألعاب التي تظهر هنا مصممة بهوية مجد الخاصة.
+          مركز التشغيل والتحكم والمراقبة للألعاب
+          والإعلام والذكاء الاصطناعي والبنية التحتية.
         </p>
-      </section>
 
-      <section class="games">
+        <div class="hero-status-row">
 
-        <article class="game-card">
-          <div class="game-cover">
-            <div class="symbol">❄️👑</div>
+          <div class="real-status">
+            <span
+              class="indicator"
+              id="main-server-dot"
+            ></span>
+
+            <span id="main-server-text">
+              جارٍ فحص النظام...
+            </span>
           </div>
 
-          <div class="game-body">
-            <h3>سيادة الشتاء</h3>
+          <div>
+            API:
+            <strong id="api-state">CHECKING</strong>
+          </div>
 
-            <p>
-              لعبة استراتيجية وبقاء أصلية من مجد. ابنِ مدينتك في عالم
-              متجمد، اجمع الموارد، طوّر القادة والجيش، استكشف الأراضي
-              وواجه أخطار الشتاء.
-            </p>
+          <div>
+            البيئة:
+            <strong id="environment-state">
+              PRODUCTION
+            </strong>
+          </div>
 
-            <div class="tags">
-              <span class="tag">استراتيجية</span>
-              <span class="tag">بقاء</span>
-              <span class="tag">مدينة</span>
-              <span class="tag">قادة</span>
-              <span class="tag">تحالفات</span>
+        </div>
+      </div>
+
+      <div class="hero-crown">
+        <div class="crown">👑</div>
+        <strong>MAJD</strong>
+        <small>THE SOVEREIGN PLATFORM</small>
+      </div>
+
+    </section>
+
+    <!-- ====================================================
+         LIVE REAL STATS
+         ==================================================== -->
+
+    <section class="stats">
+
+      <div class="stat">
+        <div class="stat-label">
+          المستخدمون الكليون
+        </div>
+        <div
+          class="stat-value"
+          id="stat-users"
+        >—</div>
+        <div class="stat-note">
+          من Backend
+        </div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-label">
+          المستخدمون النشطون
+        </div>
+        <div
+          class="stat-value"
+          id="stat-active-users"
+        >—</div>
+        <div class="stat-note">
+          بيانات حقيقية فقط
+        </div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-label">
+          الإيرادات
+        </div>
+        <div
+          class="stat-value"
+          id="stat-revenue"
+        >—</div>
+        <div class="stat-note">
+          لا توجد بيانات وهمية
+        </div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-label">
+          المعاملات
+        </div>
+        <div
+          class="stat-value"
+          id="stat-transactions"
+        >—</div>
+        <div class="stat-note">
+          Ledger
+        </div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-label">
+          المشاهدات
+        </div>
+        <div
+          class="stat-value"
+          id="stat-views"
+        >—</div>
+        <div class="stat-note">
+          Live Data
+        </div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-label">
+          الألعاب المنشورة
+        </div>
+        <div
+          class="stat-value"
+          id="stat-games"
+        >—</div>
+        <div class="stat-note">
+          Factory
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ====================================================
+         DASHBOARD
+         ==================================================== -->
+
+    <section class="dashboard-grid">
+
+      <!-- ACTIVITY -->
+
+      <article class="panel">
+
+        <div class="panel-title">
+          <span>النشاط المباشر</span>
+          <span class="panel-link">
+            LIVE
+          </span>
+        </div>
+
+        <div
+          class="activity-list"
+          id="activity-list"
+        >
+
+          <div class="activity">
+            <div class="activity-time">--:--</div>
+
+            <div class="activity-title">
+              في انتظار بيانات السيرفر
+              <small>Backend Activity</small>
             </div>
 
-            <button class="play-button" id="play-winter">
-              تشغيل سيادة الشتاء
-            </button>
+            <span class="indicator"></span>
           </div>
-        </article>
 
-      </section>
-
-      <section class="grid">
-
-        <div class="card">
-          <div class="label">Repository Entry</div>
-          <div class="value ok">FOUND</div>
         </div>
 
-        <div class="card">
-          <div class="label">Winter Sovereignty</div>
-          <div class="value ok">READY</div>
+      </article>
+
+      <!-- CHART -->
+
+      <article class="panel">
+
+        <div class="panel-title">
+          <span>إحصائيات المنصة</span>
+          <span class="panel-link">
+            REAL API
+          </span>
         </div>
 
-        <div class="card">
-          <div class="label">JavaScript</div>
-          <div class="value ok">READY</div>
+        <div
+          class="chart"
+          id="chart"
+        >
+          <div class="chart-column">
+            <div class="bar users" style="height:15%"></div>
+            <div class="bar views" style="height:15%"></div>
+            <div class="bar revenue" style="height:15%"></div>
+          </div>
+
+          <div class="chart-column">
+            <div class="bar users" style="height:15%"></div>
+            <div class="bar views" style="height:15%"></div>
+            <div class="bar revenue" style="height:15%"></div>
+          </div>
+
+          <div class="chart-column">
+            <div class="bar users" style="height:15%"></div>
+            <div class="bar views" style="height:15%"></div>
+            <div class="bar revenue" style="height:15%"></div>
+          </div>
+
+          <div class="chart-column">
+            <div class="bar users" style="height:15%"></div>
+            <div class="bar views" style="height:15%"></div>
+            <div class="bar revenue" style="height:15%"></div>
+          </div>
+
+          <div class="chart-column">
+            <div class="bar users" style="height:15%"></div>
+            <div class="bar views" style="height:15%"></div>
+            <div class="bar revenue" style="height:15%"></div>
+          </div>
+
+          <div class="chart-column">
+            <div class="bar users" style="height:15%"></div>
+            <div class="bar views" style="height:15%"></div>
+            <div class="bar revenue" style="height:15%"></div>
+          </div>
+
         </div>
 
-        <div class="card">
-          <div class="label">Test</div>
-          <div class="value" id="test-status">WAITING</div>
+        <div class="chart-legend">
+          <span>🟣 المستخدمون</span>
+          <span>🔵 المشاهدات</span>
+          <span>🟢 الإيرادات</span>
         </div>
 
-      </section>
+      </article>
 
-      <section class="section">
-        <h3>اختبار مصنع الألعاب</h3>
+      <!-- SERVERS -->
 
-        <div class="actions">
-          <button id="run-test">تشغيل الاختبار</button>
-          <button id="browser-test">معلومات المتصفح</button>
-          <button id="clear-test">مسح النتائج</button>
+      <article class="panel">
+
+        <div class="panel-title">
+          <span>حالة الأنظمة</span>
+          <span class="panel-link">
+            LIVE
+          </span>
         </div>
 
-        <div id="console" class="console">MAJD GAME FACTORY TEST
----------------------------
-index.html loaded.
-Winter Sovereignty entry configured.
-Waiting for test...</div>
-      </section>
+        <div class="server-row">
+          <span
+            class="indicator"
+            id="frontend-dot"
+          ></span>
 
-      <footer class="footer">
-        MAJD GAMES — GAME FACTORY
-      </footer>
+          <span>واجهة المنصة</span>
 
-    </div>
+          <span
+            class="server-state"
+            id="frontend-state"
+          >
+            CHECKING
+          </span>
+        </div>
+
+        <div class="server-row">
+          <span
+            class="indicator"
+            id="backend-dot"
+          ></span>
+
+          <span>Backend API</span>
+
+          <span
+            class="server-state"
+            id="backend-state"
+          >
+            CHECKING
+          </span>
+        </div>
+
+        <div class="server-row">
+          <span
+            class="indicator"
+            id="game-dot"
+          ></span>
+
+          <span>خادم الألعاب</span>
+
+          <span
+            class="server-state"
+            id="game-state"
+          >
+            CHECKING
+          </span>
+        </div>
+
+        <div class="server-row">
+          <span class="indicator"></span>
+          <span>قاعدة البيانات</span>
+          <span class="server-state">UNKNOWN</span>
+        </div>
+
+        <div class="server-row">
+          <span class="indicator"></span>
+          <span>الذكاء الاصطناعي</span>
+          <span class="server-state">UNKNOWN</span>
+        </div>
+
+      </article>
+
+    </section>
+
+    <!-- ====================================================
+         QUICK ACTIONS
+         ==================================================== -->
+
+    <section class="panel quick">
+
+      <div class="panel-title">
+        <span>مختصرات سريعة</span>
+      </div>
+
+      <div class="quick-grid">
+
+        <button
+          class="quick-btn"
+          id="launch-game"
+        >
+          <span class="quick-icon">🎮</span>
+          تشغيل سيادة الشتاء
+        </button>
+
+        <button
+          class="quick-btn"
+          id="refresh-system"
+        >
+          <span class="quick-icon">🔄</span>
+          تحديث الأنظمة
+        </button>
+
+        <button
+          class="quick-btn"
+          id="test-api"
+        >
+          <span class="quick-icon">🔌</span>
+          اختبار API
+        </button>
+
+        <button class="quick-btn">
+          <span class="quick-icon">🤖</span>
+          الذكاء الاصطناعي
+        </button>
+
+        <button class="quick-btn">
+          <span class="quick-icon">📡</span>
+          بث جديد
+        </button>
+
+        <button class="quick-btn">
+          <span class="quick-icon">💳</span>
+          المالية
+        </button>
+
+        <button class="quick-btn">
+          <span class="quick-icon">🏆</span>
+          بطولة
+        </button>
+
+        <button
+          class="quick-btn"
+          id="open-owner-command-2"
+        >
+          <span class="quick-icon">👑</span>
+          أمر المالك
+        </button>
+
+      </div>
+
+    </section>
+
+    <!-- ====================================================
+         LOG
+         ==================================================== -->
+
+    <section class="panel">
+
+      <div class="panel-title">
+        <span>مراقبة النظام الحقيقية</span>
+        <span
+          class="panel-link"
+          id="last-check"
+        >
+          لم يتم الفحص
+        </span>
+      </div>
+
+      <div
+        class="system-console"
+        id="console"
+      >MAJD SOVEREIGN CONTROL CENTER
+--------------------------------
+Waiting for real server check...</div>
+
+    </section>
+
+    <footer class="footer">
+      👑 MAJD PLATFORM © 2026 — SUPREME OWNER
+    </footer>
+
   </main>
 
-  <script>
-    "use strict";
+  <!-- ======================================================
+       SIDEBAR
+       ====================================================== -->
 
-    const GAME_PATH =
-      "./public/games/winter-sovereignty.html";
+  <aside class="sidebar">
 
-    const consoleBox =
-      document.getElementById("console");
+    <div class="logo">
+      <span class="logo-crown">👑</span>
+      MAJD
+    </div>
 
-    const statusBox =
-      document.getElementById("test-status");
+    <div class="owner-card">
 
-    function log(message) {
-      const time =
-        new Date().toLocaleTimeString();
+      <div class="owner-avatar">
+        👑
+      </div>
 
-      consoleBox.textContent +=
-        "\n[" + time + "] " + message;
+      <div>
+        <div class="owner-name">
+          MAJD KING
+        </div>
 
-      consoleBox.scrollTop =
-        consoleBox.scrollHeight;
-    }
+        <div class="owner-role">
+          المالك الأعلى
+        </div>
+      </div>
 
-    function setStatus(
-      text,
-      success
-    ) {
-      statusBox.textContent = text;
+    </div>
 
-      if (success) {
-        statusBox.classList.add("ok");
-      } else {
-        statusBox.classList.remove("ok");
-      }
-    }
+    <nav class="nav">
 
-    function openWinterSovereignty() {
-      log(
-        "Opening Winter Sovereignty..."
-      );
+      <button class="nav-item active">
+        <span class="nav-icon">⌂</span>
+        لوحة القيادة
+      </button>
 
-      window.location.href =
-        GAME_PATH;
-    }
+      <button class="nav-item">
+        <span class="nav-icon">🤖</span>
+        الذكاء الاصطناعي
+      </button>
 
-    async function runTest() {
-      log(
-        "Starting MAJD GAME FACTORY test..."
-      );
+      <button class="nav-item">
+        <span class="nav-icon">🎮</span>
+        الألعاب
+      </button>
 
-      const checks = {
-        document:
-          typeof document !== "undefined",
+      <button class="nav-item">
+        <span class="nav-icon">👥</span>
+        الإعلام والمجتمع
+      </button>
 
-        body:
-          !!document.body,
+      <button class="nav-item">
+        <span class="nav-icon">📡</span>
+        البث المباشر
+      </button>
 
-        javascript:
-          true,
+      <button class="nav-item">
+        <span class="nav-icon">🎬</span>
+        السينما والمسلسلات
+      </button>
 
-        fetch:
-          typeof fetch === "function",
+      <button class="nav-item">
+        <span class="nav-icon">🏆</span>
+        الفعاليات والبطولات
+      </button>
 
-        localStorage:
-          typeof localStorage !== "undefined",
+      <button class="nav-item">
+        <span class="nav-icon">👤</span>
+        المستخدمون
+      </button>
 
-        viewport:
-          window.innerWidth > 0 &&
-          window.innerHeight > 0,
+      <button class="nav-item">
+        <span class="nav-icon">💲</span>
+        المالية والإعلانات
+      </button>
 
-        indexPath:
-          location.pathname.length > 0
-      };
+      <button class="nav-item">
+        <span class="nav-icon">🛡</span>
+        المراقبة والأمان
+      </button>
 
-      let success = true;
+      <button class="nav-item">
+        <span class="nav-icon">⌨</span>
+        البناء والنشر
+      </button>
 
-      for (
-        const [name, passed]
-        of Object.entries(checks)
-      ) {
-        log(
-          (passed ? "PASS" : "FAIL") +
-          " - " +
-          name
-        );
+      <button class="nav-item">
+        <span class="nav-icon">⚙</span>
+        الإعدادات العامة
+      </button>
 
-        if (!passed) {
-          success = false;
-        }
-      }
+    </nav>
 
-      try {
-        const response =
-          await fetch(
-            GAME_PATH,
-            {
-              cache: "no-store"
-            }
-          );
+    <div class="server-mini">
 
-        const gameReady =
-          response.ok;
+      <h4>
+        حالة الخوادم
+      </h4>
 
-        log(
-          (gameReady ? "PASS" : "FAIL") +
-          " - winter-sovereignty.html"
-        );
+      <div class="server-mini-row">
+        <span>الويب</span>
+        <span
+          class="indicator"
+          id="mini-web-dot"
+        ></span>
+      </div>
 
-        if (!gameReady) {
-          success = false;
-        }
-      } catch (error) {
-        success = false;
+      <div class="server-mini-row">
+        <span>Backend</span>
+        <span
+          class="indicator"
+          id="mini-backend-dot"
+        ></span>
+      </div>
 
-        log(
-          "FAIL - winter-sovereignty.html"
-        );
+      <div class="server-mini-row">
+        <span>الألعاب</span>
+        <span
+          class="indicator"
+          id="mini-game-dot"
+        ></span>
+      </div>
 
-        log(
-          String(error)
-        );
-      }
+    </div>
 
-      if (success) {
-        setStatus(
-          "PASSED",
-          true
-        );
+  </aside>
 
-        log(
-          "---------------------------"
-        );
+</div>
 
-        log(
-          "MAJD GAME FACTORY TEST PASSED"
-        );
+<!-- ========================================================
+     OWNER COMMAND
+     ======================================================== -->
 
-        log(
-          "Winter Sovereignty is reachable."
-        );
-      } else {
-        setStatus(
-          "FAILED",
-          false
-        );
+<div
+  class="modal-backdrop"
+  id="owner-modal"
+>
 
-        log(
-          "---------------------------"
-        );
+  <div class="modal">
 
-        log(
-          "MAJD GAME FACTORY TEST FAILED"
-        );
-      }
-    }
+    <h3>
+      👑 مركز أوامر المالك
+    </h3>
 
-    function browserTest() {
-      log("Browser test:");
+    <textarea
+      class="command-input"
+      id="owner-command"
+      placeholder="اكتب أمر المالك..."
+    ></textarea>
 
-      log(
-        "URL: " +
-        location.href
-      );
+    <div class="modal-actions">
 
-      log(
-        "Protocol: " +
-        location.protocol
-      );
+      <button
+        class="primary-btn"
+        id="send-owner-command"
+      >
+        تنفيذ
+      </button>
 
-      log(
-        "Host: " +
-        location.host
-      );
+      <button
+        class="secondary-btn"
+        id="close-owner-command"
+      >
+        إغلاق
+      </button>
 
-      log(
-        "Path: " +
-        location.pathname
-      );
+    </div>
 
-      log(
-        "Viewport: " +
-        window.innerWidth +
-        "x" +
-        window.innerHeight
-      );
+  </div>
 
-      log(
-        "Game path: " +
-        GAME_PATH
-      );
-    }
+</div>
 
-    function clearTest() {
-      consoleBox.textContent =
-`MAJD GAME FACTORY TEST
----------------------------
-Console cleared.`;
+<script>
+"use strict";
 
-      setStatus(
-        "WAITING",
-        false
-      );
-    }
+/* ==========================================================
+   MAJD REAL CONNECTION CONFIGURATION
+   ========================================================== */
 
-    document
-      .getElementById(
-        "play-winter"
-      )
-      .addEventListener(
-        "click",
-        openWinterSovereignty
-      );
+/*
+  نحافظ على رابط اللعبة الموجود عندك.
+*/
+const GAME_PATH =
+  "./public/games/winter-sovereignty.html";
 
-    document
-      .getElementById("run-test")
-      .addEventListener(
-        "click",
-        runTest
-      );
+/*
+  لا نستخدم 127.0.0.1 من المتصفح العام.
 
-    document
-      .getElementById("browser-test")
-      .addEventListener(
-        "click",
-        browserTest
-      );
+  Nginx يجب أن يربط:
+      /api/*
+  بالـ Backend الحقيقي على المنفذ الداخلي 8000.
 
-    document
-      .getElementById("clear-test")
-      .addEventListener(
-        "click",
-        clearTest
-      );
+  بهذه الطريقة يبقى المتصفح على:
+      https://majd.shop
+*/
+const API_BASE =
+  "/api";
 
-    window.addEventListener(
-      "load",
-      () => {
-        log(
-          "index.html loaded successfully."
-        );
+/*
+  الـ Backend الذي ظهر عند الاختبار السابق كان يملك /
+  و /run.
 
-        log(
-          "Winter Sovereignty launch path ready."
-        );
+  لذلك نفحص أكثر من مسار بدون افتراض نجاح وهمي.
+*/
+const HEALTH_CANDIDATES = [
+  API_BASE + "/health",
+  API_BASE + "/api/health",
+  API_BASE + "/",
+  API_BASE
+];
+
+/* ==========================================================
+   ELEMENTS
+   ========================================================== */
+
+const consoleBox =
+  document.getElementById("console");
+
+const mainServerDot =
+  document.getElementById("main-server-dot");
+
+const mainServerText =
+  document.getElementById("main-server-text");
+
+const apiState =
+  document.getElementById("api-state");
+
+const frontendDot =
+  document.getElementById("frontend-dot");
+
+const backendDot =
+  document.getElementById("backend-dot");
+
+const gameDot =
+  document.getElementById("game-dot");
+
+const miniWebDot =
+  document.getElementById("mini-web-dot");
+
+const miniBackendDot =
+  document.getElementById("mini-backend-dot");
+
+const miniGameDot =
+  document.getElementById("mini-game-dot");
+
+const frontendState =
+  document.getElementById("frontend-state");
+
+const backendState =
+  document.getElementById("backend-state");
+
+const gameState =
+  document.getElementById("game-state");
+
+const lastCheck =
+  document.getElementById("last-check");
+
+/* ==========================================================
+   LOGGING
+   ========================================================== */
+
+function log(message) {
+  const time =
+    new Date().toLocaleTimeString("ar-SA");
+
+  consoleBox.textContent +=
+    "\n[" +
+    time +
+    "] " +
+    message;
+
+  consoleBox.scrollTop =
+    consoleBox.scrollHeight;
+}
+
+/* ==========================================================
+   STATUS
+   ========================================================== */
+
+function setDot(
+  element,
+  online
+) {
+  element.classList.remove(
+    "online",
+    "offline"
+  );
+
+  element.classList.add(
+    online
+      ? "online"
+      : "offline"
+  );
+}
+
+function setFrontendStatus(
+  online
+) {
+  setDot(
+    frontendDot,
+    online
+  );
+
+  setDot(
+    miniWebDot,
+    online
+  );
+
+  frontendState.textContent =
+    online
+      ? "ONLINE"
+      : "OFFLINE";
+}
+
+function setBackendStatus(
+  online
+) {
+  setDot(
+    backendDot,
+    online
+  );
+
+  setDot(
+    miniBackendDot,
+    online
+  );
+
+  setDot(
+    mainServerDot,
+    online
+  );
+
+  backendState.textContent =
+    online
+      ? "ONLINE"
+      : "OFFLINE";
+
+  apiState.textContent =
+    online
+      ? "ONLINE"
+      : "OFFLINE";
+
+  mainServerText.textContent =
+    online
+      ? "جميع الاتصالات الأساسية تعمل"
+      : "Backend غير متصل";
+}
+
+function setGameStatus(
+  online
+) {
+  setDot(
+    gameDot,
+    online
+  );
+
+  setDot(
+    miniGameDot,
+    online
+  );
+
+  gameState.textContent =
+    online
+      ? "READY"
+      : "OFFLINE";
+}
+
+/* ==========================================================
+   HTTP
+   ========================================================== */
+
+async function fetchWithTimeout(
+  url,
+  options = {},
+  timeout = 8000
+) {
+  const controller =
+    new AbortController();
+
+  const timer =
+    setTimeout(
+      () =>
+        controller.abort(),
+      timeout
+    );
+
+  try {
+    return await fetch(
+      url,
+      {
+        ...options,
+        signal:
+          controller.signal,
+        cache:
+          "no-store"
       }
     );
-  </script>
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* ==========================================================
+   FRONTEND CHECK
+   ========================================================== */
+
+async function checkFrontend() {
+  try {
+    const response =
+      await fetchWithTimeout(
+        location.origin + "/"
+      );
+
+    const ok =
+      response.ok;
+
+    setFrontendStatus(ok);
+
+    log(
+      "Frontend / => HTTP " +
+      response.status
+    );
+
+    return ok;
+
+  } catch (error) {
+    setFrontendStatus(false);
+
+    log(
+      "Frontend ERROR => " +
+      error.message
+    );
+
+    return false;
+  }
+}
+
+/* ==========================================================
+   BACKEND CHECK
+   ========================================================== */
+
+async function checkBackend() {
+  for (
+    const endpoint
+    of HEALTH_CANDIDATES
+  ) {
+    try {
+      const response =
+        await fetchWithTimeout(
+          endpoint,
+          {
+            headers: {
+              Accept:
+                "application/json"
+            }
+          }
+        );
+
+      log(
+        endpoint +
+        " => HTTP " +
+        response.status
+      );
+
+      if (response.ok) {
+        setBackendStatus(true);
+
+        return {
+          success: true,
+          endpoint,
+          status:
+            response.status
+        };
+      }
+
+    } catch (error) {
+      log(
+        endpoint +
+        " => ERROR " +
+        error.message
+      );
+    }
+  }
+
+  setBackendStatus(false);
+
+  return {
+    success: false
+  };
+}
+
+/* ==========================================================
+   GAME CHECK
+   ========================================================== */
+
+async function checkGame() {
+  try {
+    const response =
+      await fetchWithTimeout(
+        GAME_PATH
+      );
+
+    const ok =
+      response.ok;
+
+    setGameStatus(ok);
+
+    log(
+      "Game => HTTP " +
+      response.status
+    );
+
+    return ok;
+
+  } catch (error) {
+    setGameStatus(false);
+
+    log(
+      "Game ERROR => " +
+      error.message
+    );
+
+    return false;
+  }
+}
+
+/* ==========================================================
+   REAL DASHBOARD DATA
+   ========================================================== */
+
+function setValue(
+  id,
+  value
+) {
+  const element =
+    document.getElementById(id);
+
+  if (!element) {
+    return;
+  }
+
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    element.textContent =
+      "—";
+
+    return;
+  }
+
+  element.textContent =
+    value;
+}
+
+async function loadDashboardData() {
+  /*
+    هذا المسار لن يعتبر PASS إلا إذا كان موجودًا فعليًا.
+    عند إضافة endpoint حقيقي للإحصائيات سيظهر مباشرة.
+
+    لا توجد أرقام تجريبية هنا.
+  */
+
+  try {
+    const response =
+      await fetchWithTimeout(
+        API_BASE +
+        "/dashboard"
+      );
+
+    log(
+      "/api/dashboard => HTTP " +
+      response.status
+    );
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const data =
+      await response.json();
+
+    setValue(
+      "stat-users",
+      data.users
+    );
+
+    setValue(
+      "stat-active-users",
+      data.active_users
+    );
+
+    setValue(
+      "stat-revenue",
+      data.revenue
+    );
+
+    setValue(
+      "stat-transactions",
+      data.transactions
+    );
+
+    setValue(
+      "stat-views",
+      data.views
+    );
+
+    setValue(
+      "stat-games",
+      data.games
+    );
+
+    return true;
+
+  } catch (error) {
+    log(
+      "Dashboard data unavailable: " +
+      error.message
+    );
+
+    return false;
+  }
+}
+
+/* ==========================================================
+   FULL REAL CHECK
+   ========================================================== */
+
+async function runFullCheck() {
+  log(
+    "================================"
+  );
+
+  log(
+    "STARTING REAL MAJD SYSTEM CHECK"
+  );
+
+  const [
+    frontend,
+    backend,
+    game
+  ] =
+    await Promise.all([
+      checkFrontend(),
+      checkBackend(),
+      checkGame()
+    ]);
+
+  if (
+    backend.success
+  ) {
+    await loadDashboardData();
+  }
+
+  lastCheck.textContent =
+    new Date()
+      .toLocaleTimeString(
+        "ar-SA"
+      );
+
+  log(
+    "--------------------------------"
+  );
+
+  log(
+    "Frontend: " +
+    (
+      frontend
+        ? "PASS"
+        : "FAIL"
+    )
+  );
+
+  log(
+    "Backend: " +
+    (
+      backend.success
+        ? "PASS"
+        : "FAIL"
+    )
+  );
+
+  log(
+    "Game: " +
+    (
+      game
+        ? "PASS"
+        : "FAIL"
+    )
+  );
+
+  if (
+    frontend &&
+    backend.success &&
+    game
+  ) {
+    log(
+      "MAJD CORE CONNECTION: PASS"
+    );
+  } else {
+    log(
+      "MAJD CORE CONNECTION: FAIL"
+    );
+  }
+
+  return (
+    frontend &&
+    backend.success &&
+    game
+  );
+}
+
+/* ==========================================================
+   GAME
+   ========================================================== */
+
+function launchGame() {
+  log(
+    "Opening Winter Sovereignty..."
+  );
+
+  window.location.href =
+    GAME_PATH;
+}
+
+/* ==========================================================
+   OWNER COMMAND
+   ========================================================== */
+
+const modal =
+  document.getElementById(
+    "owner-modal"
+  );
+
+function openOwnerModal() {
+  modal.classList.add(
+    "open"
+  );
+}
+
+function closeOwnerModal() {
+  modal.classList.remove(
+    "open"
+  );
+}
+
+async function executeOwnerCommand() {
+  const command =
+    document
+      .getElementById(
+        "owner-command"
+      )
+      .value
+      .trim();
+
+  if (!command) {
+    log(
+      "Owner command is empty."
+    );
+
+    return;
+  }
+
+  /*
+    لا نضع Token داخل HTML.
+    المصادقة يجب أن تكون من Backend
+    باستخدام جلسة آمنة / Cookie HttpOnly
+    أو نظام المصادقة الحقيقي.
+  */
+
+  try {
+    log(
+      "Sending owner command..."
+    );
+
+    const response =
+      await fetchWithTimeout(
+        API_BASE +
+        "/run",
+        {
+          method:
+            "POST",
+
+          credentials:
+            "include",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            Accept:
+              "application/json"
+          },
+
+          body:
+            JSON.stringify({
+              command
+            })
+        },
+        30000
+      );
+
+    log(
+      "Owner command => HTTP " +
+      response.status
+    );
+
+    if (
+      response.status === 401
+    ) {
+      log(
+        "FAIL: Owner authentication required."
+      );
+
+      return;
+    }
+
+    if (
+      response.status === 403
+    ) {
+      log(
+        "FAIL: SUPREME_OWNER permission denied."
+      );
+
+      return;
+    }
+
+    if (!response.ok) {
+      log(
+        "FAIL: Backend rejected owner command."
+      );
+
+      return;
+    }
+
+    log(
+      "Owner command accepted by Backend."
+    );
+
+    closeOwnerModal();
+
+  } catch (error) {
+    log(
+      "Owner command ERROR => " +
+      error.message
+    );
+  }
+}
+
+/* ==========================================================
+   CLOCK
+   ========================================================== */
+
+function updateClock() {
+  document
+    .getElementById(
+      "clock"
+    )
+    .textContent =
+      new Date()
+        .toLocaleTimeString(
+          "en-GB"
+        );
+}
+
+setInterval(
+  updateClock,
+  1000
+);
+
+updateClock();
+
+/* ==========================================================
+   EVENTS
+   ========================================================== */
+
+document
+  .getElementById(
+    "launch-game"
+  )
+  .addEventListener(
+    "click",
+    launchGame
+  );
+
+document
+  .getElementById(
+    "refresh-system"
+  )
+  .addEventListener(
+    "click",
+    runFullCheck
+  );
+
+document
+  .getElementById(
+    "test-api"
+  )
+  .addEventListener(
+    "click",
+    checkBackend
+  );
+
+document
+  .getElementById(
+    "open-owner-command"
+  )
+  .addEventListener(
+    "click",
+    openOwnerModal
+  );
+
+document
+  .getElementById(
+    "open-owner-command-2"
+  )
+  .addEventListener(
+    "click",
+    openOwnerModal
+  );
+
+document
+  .getElementById(
+    "close-owner-command"
+  )
+  .addEventListener(
+    "click",
+    closeOwnerModal
+  );
+
+document
+  .getElementById(
+    "send-owner-command"
+  )
+  .addEventListener(
+    "click",
+    executeOwnerCommand
+  );
+
+modal.addEventListener(
+  "click",
+  event => {
+    if (
+      event.target === modal
+    ) {
+      closeOwnerModal();
+    }
+  }
+);
+
+/* ==========================================================
+   BOOT
+   ========================================================== */
+
+window.addEventListener(
+  "load",
+  async () => {
+    log(
+      "MAJD Sovereign Dashboard loaded."
+    );
+
+    log(
+      "Game path: " +
+      GAME_PATH
+    );
+
+    log(
+      "API base: " +
+      API_BASE
+    );
+
+    await runFullCheck();
+  }
+);
+
+</script>
+
 </body>
 </html>
