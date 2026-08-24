@@ -4442,3 +4442,24 @@ Waiting for real server check...</div>
   }
 }
 </style>
+
+<style id="majd-ipad-final-scale-fix">
+/* FINAL FIX — iPad only */
+@media (max-width: 1250px) and (min-width: 601px) {
+  body {
+    zoom: 0.72 !important;
+  }
+
+  .app-shell {
+    width: 100% !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  }
+
+  .quick-grid {
+    grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
+  }
+}
+</style>
