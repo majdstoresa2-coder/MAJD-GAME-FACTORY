@@ -1720,109 +1720,205 @@
        RESPONSIVE
        ===================================================== */
 
-    @media (max-width: 1250px) {
-      :root {
-        --sidebar-width: 215px;
+    @media (max-width: 1250px) and (min-width: 601px) {
+      html,
+      body {
+        width: 100%;
+        min-width: 100%;
+        overflow-x: hidden;
       }
 
-      .stats-grid {
-        grid-template-columns:
-          repeat(3, 1fr);
+      body {
+        zoom: 0.78;
       }
 
-      .quick-grid {
-        grid-template-columns:
-          repeat(4, 1fr);
-      }
-    }
-
-    @media (max-width: 900px) {
       .app-shell {
-        display: block;
+        width: 128.205128%;
+        min-height: 128.205128vh;
+
+        display: grid;
+
+        grid-template-columns:
+          minmax(0, 1fr)
+          245px;
       }
 
       .sidebar {
-        position: relative;
+        position: sticky;
+        top: 0;
 
-        height: auto;
+        height: 100vh;
 
-        border-left: 0;
-        border-bottom: 1px solid #1a2b3b;
+        overflow-y: auto;
+
+        border-left: 1px solid #1a2b3b;
+        border-bottom: 0;
+      }
+
+      .main {
+        min-width: 0;
+        padding: 0 14px 24px;
       }
 
       .nav {
-        grid-template-columns:
-          repeat(2,1fr);
-      }
-
-      .dashboard-row,
-      .secondary-row,
-      .lower-grid {
         grid-template-columns: 1fr;
       }
 
       .hero {
-        grid-template-columns: 1fr;
+        grid-template-columns:
+          minmax(0, 1fr)
+          38%;
       }
 
       .hero-visual {
-        min-height: 165px;
+        min-height: auto;
       }
 
       .stats-grid {
         grid-template-columns:
-          repeat(2,1fr);
+          repeat(6, minmax(0, 1fr));
+      }
+
+      .dashboard-row {
+        grid-template-columns:
+          .95fr
+          1.55fr
+          .95fr;
+      }
+
+      .secondary-row {
+        grid-template-columns:
+          1.15fr
+          1fr
+          1fr;
+      }
+
+      .lower-grid {
+        grid-template-columns:
+          1.15fr
+          1fr
+          1fr;
+      }
+
+      .quick-grid {
+        grid-template-columns:
+          repeat(8, minmax(0, 1fr));
       }
     }
 
     @media (max-width: 600px) {
+      html,
+      body {
+        width: 100%;
+        min-width: 100%;
+        overflow-x: hidden;
+      }
+
+      body {
+        zoom: 0.47;
+      }
+
+      .app-shell {
+        width: 212.765957%;
+        min-height: 212.765957vh;
+
+        display: grid;
+
+        grid-template-columns:
+          minmax(0, 1fr)
+          245px;
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+
+        height: 100vh;
+
+        overflow-y: auto;
+
+        border-left: 1px solid #1a2b3b;
+        border-bottom: 0;
+      }
+
       .main {
-        padding: 0 8px 18px;
+        min-width: 0;
+        padding: 0 14px 24px;
       }
 
       .topbar {
-        height: auto;
+        height: 52px;
 
-        min-height: 52px;
+        flex-wrap: nowrap;
 
-        flex-wrap: wrap;
-
-        padding: 7px 0;
+        padding: 0;
       }
 
       .topbar-right {
-        order: 2;
-        width: 100%;
+        order: initial;
+        width: auto;
       }
 
       .global-search {
-        width: 100%;
+        width: min(370px, 45vw);
       }
 
       .nav {
         grid-template-columns: 1fr;
       }
 
+      .hero {
+        grid-template-columns:
+          minmax(0, 1fr)
+          38%;
+      }
+
       .hero-content {
-        padding: 22px 17px;
+        padding: 30px 31px;
       }
 
       .hero-title {
-        font-size: 20px;
+        font-size: 24px;
+      }
+
+      .hero-visual {
+        min-height: auto;
       }
 
       .stats-grid {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns:
+          repeat(6, minmax(0, 1fr));
+      }
+
+      .dashboard-row {
+        grid-template-columns:
+          .95fr
+          1.55fr
+          .95fr;
+      }
+
+      .secondary-row {
+        grid-template-columns:
+          1.15fr
+          1fr
+          1fr;
+      }
+
+      .lower-grid {
+        grid-template-columns:
+          1.15fr
+          1fr
+          1fr;
       }
 
       .quick-grid {
         grid-template-columns:
-          repeat(2,1fr);
+          repeat(8, minmax(0, 1fr));
       }
 
       .owner-command-button {
-        left: 9px;
-        top: 9px;
+        left: 15px;
+        top: 13px;
       }
     }
   </style>
@@ -2192,8 +2288,6 @@
 
       <section class="dashboard-row">
 
-        <!-- ACTIVITY -->
-
         <article class="panel">
 
           <div class="panel-header">
@@ -2233,8 +2327,6 @@
           </div>
 
         </article>
-
-        <!-- ANALYTICS -->
 
         <article class="panel analytics">
 
@@ -2328,8 +2420,6 @@
 
         </article>
 
-        <!-- DISTRIBUTION -->
-
         <article class="panel distribution">
 
           <div class="panel-header">
@@ -2409,8 +2499,6 @@
 
       <section class="secondary-row">
 
-        <!-- LIVE -->
-
         <article class="panel">
 
           <div class="panel-header">
@@ -2472,8 +2560,6 @@
           </div>
 
         </article>
-
-        <!-- ALERTS -->
 
         <article class="panel">
 
@@ -2557,8 +2643,6 @@
           </div>
 
         </article>
-
-        <!-- SYSTEMS -->
 
         <article class="panel">
 
@@ -2766,8 +2850,6 @@
 
       <section class="lower-grid">
 
-        <!-- PERFORMANCE -->
-
         <article class="panel">
 
           <div class="panel-header">
@@ -2825,8 +2907,6 @@
           </div>
 
         </article>
-
-        <!-- GAMES -->
 
         <article class="panel">
 
@@ -2893,8 +2973,6 @@
           </div>
 
         </article>
-
-        <!-- CONTENT -->
 
         <article class="panel">
 
@@ -2988,9 +3066,7 @@ Waiting for real server check...</div>
 
     </main>
 
-    <!-- ===================================================
-         SIDEBAR
-         =================================================== -->
+    <!-- SIDEBAR -->
 
     <aside class="sidebar">
 
@@ -3215,9 +3291,7 @@ Waiting for real server check...</div>
 
   </div>
 
-  <!-- =====================================================
-       OWNER COMMAND MODAL
-       ===================================================== -->
+  <!-- OWNER COMMAND MODAL -->
 
   <div
     class="modal-backdrop"
