@@ -4,46 +4,72 @@
 """
 MAJD GAME FACTORY
 MAJD-FULL-EXECUTION-RUNTIME-06.py
-=================================
+============================================================
 
-FULL EXECUTION RUNTIME
+SOVEREIGN FULL EXECUTION RUNTIME
 
-وظيفة هذا الملف:
+هذا الملف هو بوابة التنفيذ المركزية بين واجهة المالك
+والعقل المدبر السيادي.
+
+المسؤوليات:
 - استقبال أمر المالك.
-- تشغيل مركز أوامر المالك 02.
-- توجيه أوامر المالك العامة إلى مركز الأوامر الحقيقي.
-- تشغيل سلسلة إنشاء الألعاب فقط عند CREATE_GAME.
-- تشغيل العقل المدبر 01 فعلياً.
-- ربط منفذ الألعاب الحقيقي 03.
-- ربط منصة مجد الرسمية عبر 04.
-- منع النجاح الوهمي.
-- التحقق من وجود مخرجات لعبة حقيقية.
-- التحقق من وجود Playable Artifact فعلي.
-- حفظ نتيجة التشغيل النهائية.
+- تحميل مركز أوامر المالك 02.
+- التحقق من هوية وسلطة المالك عبر 02.
+- تحليل الأوامر العربية والإنجليزية.
+- تمرير أوامر الحالة إلى 02.
+- تمرير CREATE_GAME إلى العقل المدبر 01.
+- تمرير الأوامر العامة/البرمجية إلى العقل المدبر 01.
+- عدم إعادة تنفيذ 03 و04 داخل 06 لأن 01 يديرهما.
+- التحقق من نتيجة العقل المدبر.
+- التحقق من Artifact الحقيقي في أوامر إنشاء الألعاب.
+- التحقق من أن النسخة المنشورة موجودة فعلياً.
+- منع HTTP 200 أو accepted من أن يعتبر نجاح تنفيذ.
+- حفظ Runtime ID ونتيجة كل مرحلة.
+- إعادة النتيجة النهائية الحقيقية لواجهة المالك.
 
 السلسلة:
 
-OWNER COMMAND
-      ↓
+OWNER UI
+   ↓
 06 FULL EXECUTION RUNTIME
-      ↓
+   ↓
 02 OWNER COMMAND CENTER
-      ↓
-COMMAND ROUTING
-      ├── OWNER/SYSTEM COMMAND → 02 → REAL RESULT
-      └── CREATE_GAME
-              ↓
-              01 AI MASTERMIND
-              ↓
-              03 REAL GAME EXECUTOR
-              ↓
-              04 OFFICIAL PLATFORM BRIDGE
-              ↓
-              BUILD / TEST / AUTO REPAIR
-              ↓
-              PLAYABLE ARTIFACT
-              ↓
-              MAJD PLATFORM
+   ↓
+COMMAND CLASSIFICATION
+   ├── STATUS / SYSTEM_STATUS
+   │       ↓
+   │      02
+   │       ↓
+   │   REAL STATUS
+   │
+   └── CREATE_GAME / GENERAL OWNER OBJECTIVE
+           ↓
+          01 SOVEREIGN MASTERMIND
+           ↓
+      PLAN / DIAGNOSE / REPAIR
+           ↓
+          03
+           ↓
+      REAL BUILD / TEST
+           ↓
+      PLAYABLE ARTIFACT
+           ↓
+          04
+           ↓
+      PUBLISHED ARTIFACT
+           ↓
+          01
+           ↓
+      VERIFIED FINAL RESULT
+           ↓
+          06
+           ↓
+        OWNER UI
+
+قاعدة أساسية:
+06 لا يكرر مسؤوليات 01.
+01 هو العقل المدبر.
+06 هو Runtime / Gateway / Final Verification Layer.
 """
 
 from __future__ import annotations
@@ -65,60 +91,101 @@ from typing import Any, Callable, Dict, Optional
 # PATHS
 # ============================================================
 
-ROOT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = Path(
+    __file__
+).resolve().parent
+
 
 MASTERMIND_FILE = (
-    ROOT_DIR / "MAJD-AI-MASTERMIND-01.py"
+    ROOT_DIR
+    /
+    "MAJD-AI-MASTERMIND-01.py"
 )
+
 
 OWNER_COMMAND_CENTER_FILE = (
-    ROOT_DIR / "MAJD-OWNER-COMMAND-CENTER-02.py"
+    ROOT_DIR
+    /
+    "MAJD-OWNER-COMMAND-CENTER-02.py"
 )
+
 
 REAL_GAME_EXECUTOR_FILE = (
-    ROOT_DIR / "MAJD-REAL-GAME-EXECUTOR-03.py"
+    ROOT_DIR
+    /
+    "MAJD-REAL-GAME-EXECUTOR-03.py"
 )
+
 
 OFFICIAL_PLATFORM_BRIDGE_FILE = (
-    ROOT_DIR / "MAJD-OFFICIAL-PLATFORM-BRIDGE-04.py"
+    ROOT_DIR
+    /
+    "MAJD-OFFICIAL-PLATFORM-BRIDGE-04.py"
 )
+
 
 STATE_DIR = (
-    ROOT_DIR / "majd_factory_state"
+    ROOT_DIR
+    /
+    "majd_factory_state"
 )
+
 
 RUNTIME_DIR = (
-    STATE_DIR / "runtime"
+    STATE_DIR
+    /
+    "runtime"
 )
+
 
 OUTPUT_DIR = (
-    ROOT_DIR / "majd_game_output"
+    ROOT_DIR
+    /
+    "majd_game_output"
 )
 
-RUNTIME_DIR.mkdir(
-    parents=True,
-    exist_ok=True
+
+PUBLIC_DIR = (
+    ROOT_DIR
+    /
+    "public"
 )
 
-OUTPUT_DIR.mkdir(
-    parents=True,
-    exist_ok=True
+
+ARTIFACTS_DIR = (
+    PUBLIC_DIR
+    /
+    "artifacts"
 )
+
+
+for directory in (
+    STATE_DIR,
+    RUNTIME_DIR,
+    OUTPUT_DIR,
+    PUBLIC_DIR,
+    ARTIFACTS_DIR,
+):
+
+    directory.mkdir(
+        parents=True,
+        exist_ok=True
+    )
 
 
 # ============================================================
-# CONSTANTS
+# IDENTITY
 # ============================================================
 
 SYSTEM_NAME = "MAJD-GAME-FACTORY"
 
 RUNTIME_NAME = "MAJD-FULL-EXECUTION-RUNTIME"
 
-VERSION = "1.0.1"
+VERSION = "2.0.0"
 
 DEFAULT_OWNER = "MAJD"
 
-OFFICIAL_MAJD_PLATFORM = "https://majd.shop/"
+OFFICIAL_MAJD_PLATFORM = "https://majd.shop"
 
 
 # ============================================================
@@ -141,11 +208,16 @@ def save_json(
     data: Dict[str, Any]
 ) -> None:
 
-    temp = path.with_suffix(
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    temporary = path.with_suffix(
         path.suffix + ".tmp"
     )
 
-    with temp.open(
+    with temporary.open(
         "w",
         encoding="utf-8"
     ) as file:
@@ -158,7 +230,9 @@ def save_json(
             default=str
         )
 
-    temp.replace(path)
+    temporary.replace(
+        path
+    )
 
 
 # ============================================================
@@ -168,7 +242,7 @@ def save_json(
 def load_module(
     path: Path,
     module_name: str
-):
+) -> Any:
 
     if not path.exists():
 
@@ -176,9 +250,12 @@ def load_module(
             f"Required file not found: {path.name}"
         )
 
-    spec = importlib.util.spec_from_file_location(
-        module_name,
-        str(path)
+    spec = (
+        importlib.util
+        .spec_from_file_location(
+            module_name,
+            str(path)
+        )
     )
 
     if (
@@ -191,11 +268,16 @@ def load_module(
             f"Unable to load module: {path.name}"
         )
 
-    module = importlib.util.module_from_spec(
-        spec
+    module = (
+        importlib.util
+        .module_from_spec(
+            spec
+        )
     )
 
-    sys.modules[module_name] = module
+    sys.modules[
+        module_name
+    ] = module
 
     spec.loader.exec_module(
         module
@@ -211,7 +293,9 @@ def load_module(
 def find_callable(
     module: Any,
     names: tuple[str, ...]
-) -> Optional[Callable[..., Any]]:
+) -> Optional[
+    Callable[..., Any]
+]:
 
     for name in names:
 
@@ -221,7 +305,9 @@ def find_callable(
             None
         )
 
-        if callable(value):
+        if callable(
+            value
+        ):
 
             return value
 
@@ -241,25 +327,36 @@ def call_supported(
         function
     )
 
-    kwargs: Dict[str, Any] = {}
+    parameters = (
+        signature.parameters
+    )
 
     accepts_kwargs = any(
+
         parameter.kind
         ==
         inspect.Parameter.VAR_KEYWORD
+
         for parameter
-        in signature.parameters.values()
+        in parameters.values()
     )
+
+    kwargs: Dict[
+        str,
+        Any
+    ] = {}
 
     for key, value in values.items():
 
         if (
             accepts_kwargs
             or
-            key in signature.parameters
+            key in parameters
         ):
 
-            kwargs[key] = value
+            kwargs[
+                key
+            ] = value
 
     return function(
         **kwargs
@@ -267,41 +364,59 @@ def call_supported(
 
 
 # ============================================================
-# FILE VERIFICATION
+# REQUIRED FILE VERIFICATION
 # ============================================================
 
 def verify_required_files() -> Dict[str, Any]:
 
-    files = {
+    required = {
 
-        "mastermind":
+        "01_mastermind":
             MASTERMIND_FILE,
 
-        "owner_command_center":
+        "02_owner_command_center":
             OWNER_COMMAND_CENTER_FILE,
 
-        "real_game_executor":
+        "03_real_game_executor":
             REAL_GAME_EXECUTOR_FILE,
 
-        "official_platform_bridge":
+        "04_official_platform_bridge":
             OFFICIAL_PLATFORM_BRIDGE_FILE
     }
 
-    status: Dict[str, Any] = {}
+    files: Dict[
+        str,
+        Any
+    ] = {}
 
     missing = []
 
-    for name, path in files.items():
+    for name, path in required.items():
 
-        exists = path.exists()
+        exists = (
+            path.exists()
+            and
+            path.is_file()
+            and
+            path.stat().st_size > 0
+        )
 
-        status[name] = {
+        files[
+            name
+        ] = {
 
             "file":
                 path.name,
 
             "exists":
-                exists
+                exists,
+
+            "size":
+                (
+                    path.stat().st_size
+                    if path.exists()
+                    else 0
+                )
         }
 
         if not exists:
@@ -316,7 +431,7 @@ def verify_required_files() -> Dict[str, Any]:
             not missing,
 
         "files":
-            status,
+            files,
 
         "missing":
             missing
@@ -324,141 +439,26 @@ def verify_required_files() -> Dict[str, Any]:
 
 
 # ============================================================
-# MASTERMIND RUNTIME
-# ============================================================
-
-class MastermindRuntime:
-
-    FUNCTION_NAMES = (
-
-        "process_game_request",
-
-        "execute_game_request",
-
-        "execute_request",
-
-        "process_request",
-
-        "run_request",
-
-        "run",
-
-        "execute"
-    )
-
-    def __init__(self):
-
-        self.module = load_module(
-            MASTERMIND_FILE,
-            "majd_ai_mastermind_01"
-        )
-
-    def execute(
-        self,
-        command: str,
-        request: Dict[str, Any],
-        job_id: str,
-        owner: str
-    ) -> Dict[str, Any]:
-
-        function = find_callable(
-            self.module,
-            self.FUNCTION_NAMES
-        )
-
-        if function is None:
-
-            return {
-
-                "success": False,
-
-                "status":
-                    "MASTERMIND_INTERFACE_NOT_FOUND",
-
-                "message":
-                    (
-                        "تم تحميل ملف العقل المدبر، "
-                        "لكن لم يتم العثور على واجهة تشغيل عامة متوافقة."
-                    ),
-
-                "file":
-                    MASTERMIND_FILE.name
-            }
-
-        result = call_supported(
-
-            function,
-
-            {
-                "command":
-                    command,
-
-                "request":
-                    request,
-
-                "payload":
-                    request,
-
-                "job_id":
-                    job_id,
-
-                "owner":
-                    owner,
-
-                "output_root":
-                    str(OUTPUT_DIR)
-            }
-        )
-
-        if result is None:
-
-            return {
-
-                "success": True,
-
-                "status":
-                    "MASTERMIND_EXECUTED",
-
-                "request":
-                    request
-            }
-
-        if isinstance(
-            result,
-            dict
-        ):
-
-            result.setdefault(
-                "success",
-                True
-            )
-
-            return result
-
-        return {
-
-            "success": True,
-
-            "status":
-                "MASTERMIND_EXECUTED",
-
-            "result":
-                result
-        }
-
-
-# ============================================================
-# OWNER COMMAND CENTER RUNTIME
+# OWNER COMMAND CENTER BRIDGE
 # ============================================================
 
 class OwnerCommandCenterRuntime:
 
-    def __init__(self):
+    def __init__(
+        self
+    ):
 
         self.module = load_module(
+
             OWNER_COMMAND_CENTER_FILE,
-            "majd_owner_command_center_02"
+
+            "majd_owner_command_center_02_runtime"
         )
+
+
+    # ========================================================
+    # PARSE
+    # ========================================================
 
     def parse(
         self,
@@ -466,37 +466,104 @@ class OwnerCommandCenterRuntime:
     ) -> Dict[str, Any]:
 
         parser_class = getattr(
+
             self.module,
+
             "OwnerCommandParser",
+
             None
         )
 
         if parser_class is None:
 
             return {
-                "type": "UNKNOWN",
-                "raw": command,
-                "error": "OWNER_COMMAND_PARSER_MISSING"
+
+                "type":
+                    "GENERAL_OWNER_COMMAND",
+
+                "raw":
+                    command,
+
+                "warning":
+                    "OWNER_COMMAND_PARSER_NOT_FOUND"
             }
 
-        parser = parser_class()
+        try:
 
-        result = parser.parse(
-            command
-        )
+            parser = (
+                parser_class()
+            )
 
-        if not isinstance(
-            result,
-            dict
-        ):
+            result = (
+                parser.parse(
+                    command
+                )
+            )
+
+            if not isinstance(
+                result,
+                dict
+            ):
+
+                return {
+
+                    "type":
+                        "GENERAL_OWNER_COMMAND",
+
+                    "raw":
+                        command,
+
+                    "warning":
+                        "INVALID_PARSE_RESULT"
+                }
+
+            result_type = str(
+                result.get(
+                    "type",
+                    ""
+                )
+            ).upper()
+
+            # -----------------------------------------------
+            # UNKNOWN لا يعني رفض الأمر.
+            # يتحول إلى هدف عام للعقل المدبر.
+            # -----------------------------------------------
+
+            if (
+                not result_type
+                or
+                result_type == "UNKNOWN"
+            ):
+
+                result[
+                    "type"
+                ] = (
+                    "GENERAL_OWNER_COMMAND"
+                )
+
+            return result
+
+        except Exception as error:
 
             return {
-                "type": "UNKNOWN",
-                "raw": command,
-                "error": "INVALID_OWNER_COMMAND_PARSE_RESULT"
+
+                "type":
+                    "GENERAL_OWNER_COMMAND",
+
+                "raw":
+                    command,
+
+                "parser_error":
+                    (
+                        f"{type(error).__name__}: "
+                        f"{error}"
+                    )
             }
 
-        return result
+
+    # ========================================================
+    # EXECUTE 02
+    # ========================================================
 
     def execute(
         self,
@@ -505,8 +572,11 @@ class OwnerCommandCenterRuntime:
     ) -> Dict[str, Any]:
 
         function = getattr(
+
             self.module,
+
             "execute_owner_command",
+
             None
         )
 
@@ -516,7 +586,8 @@ class OwnerCommandCenterRuntime:
 
             return {
 
-                "success": False,
+                "success":
+                    False,
 
                 "status":
                     "OWNER_COMMAND_INTERFACE_MISSING",
@@ -528,10 +599,41 @@ class OwnerCommandCenterRuntime:
                     )
             }
 
-        result = function(
-            command=command,
-            owner=owner
-        )
+        try:
+
+            result = call_supported(
+
+                function,
+
+                {
+
+                    "command":
+                        command,
+
+                    "owner":
+                        owner
+                }
+            )
+
+        except Exception as error:
+
+            return {
+
+                "success":
+                    False,
+
+                "status":
+                    "OWNER_COMMAND_EXECUTION_EXCEPTION",
+
+                "error":
+                    (
+                        f"{type(error).__name__}: "
+                        f"{error}"
+                    ),
+
+                "traceback":
+                    traceback.format_exc()
+            }
 
         if not isinstance(
             result,
@@ -540,71 +642,225 @@ class OwnerCommandCenterRuntime:
 
             return {
 
-                "success": False,
+                "success":
+                    False,
 
                 "status":
                     "INVALID_OWNER_COMMAND_RESULT",
 
-                "message":
-                    "Owner Command Center returned invalid result."
+                "result_type":
+                    type(
+                        result
+                    ).__name__
             }
 
         return result
 
 
 # ============================================================
-# REAL GAME EXECUTOR RUNTIME
+# MASTERMIND BRIDGE
 # ============================================================
 
-class RealGameExecutorRuntime:
+class MastermindRuntime:
 
-    def __init__(self):
+    """
+    06 يسلم المهمة إلى 01.
+
+    لا يشغل 03 أو 04 بنفسه.
+    01 مسؤول عن السلسلة الداخلية كاملة.
+    """
+
+    FUNCTION_NAMES = (
+
+        "execute_request",
+
+        "process_request",
+
+        "execute_game_request",
+
+        "run",
+
+        "run_request",
+
+        "execute",
+    )
+
+
+    def __init__(
+        self
+    ):
 
         self.module = load_module(
-            REAL_GAME_EXECUTOR_FILE,
-            "majd_real_game_executor_03_runtime"
+
+            MASTERMIND_FILE,
+
+            "majd_ai_mastermind_01_runtime"
         )
+
+
+    # ========================================================
+    # EXECUTE
+    # ========================================================
 
     def execute(
         self,
+        command: str,
         request: Dict[str, Any],
-        job_id: str
+        runtime_id: str,
+        owner: str
     ) -> Dict[str, Any]:
 
-        function = getattr(
+        function = find_callable(
+
             self.module,
-            "execute_game_request",
-            None
+
+            self.FUNCTION_NAMES
         )
 
-        if not callable(
-            function
-        ):
+        # ----------------------------------------------------
+        # FALLBACK:
+        # إذا لم توجد دالة عامة، نحاول class Mastermind
+        # ----------------------------------------------------
+
+        if function is None:
+
+            mastermind_class = getattr(
+
+                self.module,
+
+                "Mastermind",
+
+                None
+            )
+
+            if mastermind_class is None:
+
+                return {
+
+                    "success":
+                        False,
+
+                    "status":
+                        "MASTERMIND_INTERFACE_NOT_FOUND",
+
+                    "file":
+                        MASTERMIND_FILE.name,
+
+                    "message":
+                        (
+                            "لم يتم العثور على واجهة تشغيل "
+                            "في العقل المدبر."
+                        )
+                }
+
+            try:
+
+                instance = call_supported(
+
+                    mastermind_class,
+
+                    {
+
+                        "owner":
+                            owner
+                    }
+                )
+
+            except Exception as error:
+
+                return {
+
+                    "success":
+                        False,
+
+                    "status":
+                        "MASTERMIND_INITIALIZATION_FAILED",
+
+                    "error":
+                        (
+                            f"{type(error).__name__}: "
+                            f"{error}"
+                        ),
+
+                    "traceback":
+                        traceback.format_exc()
+                }
+
+            function = getattr(
+
+                instance,
+
+                "run",
+
+                None
+            )
+
+            if not callable(
+                function
+            ):
+
+                return {
+
+                    "success":
+                        False,
+
+                    "status":
+                        "MASTERMIND_RUN_INTERFACE_MISSING"
+                }
+
+        # ----------------------------------------------------
+        # EXECUTE MASTERMIND
+        # ----------------------------------------------------
+
+        try:
+
+            result = call_supported(
+
+                function,
+
+                {
+
+                    "command":
+                        command,
+
+                    "request":
+                        request,
+
+                    "payload":
+                        request,
+
+                    "job_id":
+                        runtime_id,
+
+                    "owner":
+                        owner,
+
+                    "output_root":
+                        str(
+                            OUTPUT_DIR
+                        )
+                }
+            )
+
+        except Exception as error:
 
             return {
 
-                "success": False,
+                "success":
+                    False,
 
                 "status":
-                    "REAL_EXECUTOR_INTERFACE_MISSING",
+                    "MASTERMIND_EXECUTION_EXCEPTION",
 
-                "message":
+                "error":
                     (
-                        "MAJD-REAL-GAME-EXECUTOR-03.py "
-                        "does not expose execute_game_request()."
-                    )
+                        f"{type(error).__name__}: "
+                        f"{error}"
+                    ),
+
+                "traceback":
+                    traceback.format_exc()
             }
-
-        result = function(
-
-            request=request,
-
-            job_id=job_id,
-
-            output_root=str(
-                OUTPUT_DIR
-            )
-        )
 
         if not isinstance(
             result,
@@ -613,249 +869,565 @@ class RealGameExecutorRuntime:
 
             return {
 
-                "success": False,
+                "success":
+                    False,
 
                 "status":
-                    "INVALID_EXECUTOR_RESULT",
+                    "INVALID_MASTERMIND_RESULT",
 
-                "message":
-                    "Real Game Executor returned invalid result."
+                "result_type":
+                    type(
+                        result
+                    ).__name__
             }
 
         return result
 
 
 # ============================================================
-# OFFICIAL PLATFORM BRIDGE RUNTIME
+# PLAYABLE ARTIFACT FINAL VERIFIER
 # ============================================================
 
-class OfficialPlatformRuntime:
-
-    FUNCTION_NAMES = (
-
-        "publish_game",
-
-        "send_game",
-
-        "send_to_majd",
-
-        "publish",
-
-        "execute"
-    )
-
-    def __init__(self):
-
-        self.module = load_module(
-            OFFICIAL_PLATFORM_BRIDGE_FILE,
-            "majd_official_platform_bridge_04"
-        )
-
-    def execute(
-        self,
-        artifact: str,
-        request: Dict[str, Any],
-        job_id: str
-    ) -> Dict[str, Any]:
-
-        function = find_callable(
-            self.module,
-            self.FUNCTION_NAMES
-        )
-
-        if function is None:
-
-            return {
-
-                "success": False,
-
-                "status":
-                    "PLATFORM_BRIDGE_INTERFACE_NOT_FOUND",
-
-                "platform":
-                    OFFICIAL_MAJD_PLATFORM,
-
-                "message":
-                    (
-                        "تم تحميل جسر منصة مجد، "
-                        "لكن لم يتم العثور على واجهة نشر عامة متوافقة."
-                    )
-            }
-
-        result = call_supported(
-
-            function,
-
-            {
-                "artifact":
-                    artifact,
-
-                "artifact_path":
-                    artifact,
-
-                "build_path":
-                    artifact,
-
-                "request":
-                    request,
-
-                "payload":
-                    request,
-
-                "job_id":
-                    job_id,
-
-                "platform_url":
-                    OFFICIAL_MAJD_PLATFORM
-            }
-        )
-
-        if result is None:
-
-            return {
-
-                "success": True,
-
-                "status":
-                    "PLATFORM_BRIDGE_EXECUTED",
-
-                "platform":
-                    OFFICIAL_MAJD_PLATFORM
-            }
-
-        if isinstance(
-            result,
-            dict
-        ):
-
-            result.setdefault(
-                "platform",
-                OFFICIAL_MAJD_PLATFORM
-            )
-
-            return result
-
-        return {
-
-            "success": True,
-
-            "status":
-                "PLATFORM_BRIDGE_EXECUTED",
-
-            "platform":
-                OFFICIAL_MAJD_PLATFORM,
-
-            "result":
-                result
-        }
-
-
-# ============================================================
-# ARTIFACT VERIFICATION
-# ============================================================
-
-def verify_artifact(
-    result: Dict[str, Any]
+def verify_playable_artifact(
+    artifact_value: Any
 ) -> Dict[str, Any]:
 
-    artifact = (
-        result.get("artifact")
-        or
-        result.get("build_path")
-        or
-        result.get("output_path")
-    )
-
-    if not artifact:
+    if not artifact_value:
 
         return {
 
-            "success": False,
+            "success":
+                False,
 
             "status":
-                "PLAYABLE_ARTIFACT_MISSING",
-
-            "message":
-                "Real executor returned success without an artifact."
+                "PLAYABLE_ARTIFACT_MISSING"
         }
 
-    artifact_path = Path(
-        str(artifact)
+    artifact = Path(
+        str(
+            artifact_value
+        )
     )
 
-    if not artifact_path.is_absolute():
+    if not artifact.is_absolute():
 
-        artifact_path = (
+        artifact = (
             ROOT_DIR
             /
-            artifact_path
+            artifact
         ).resolve()
 
-    if not artifact_path.exists():
+    else:
+
+        artifact = (
+            artifact.resolve()
+        )
+
+    if not artifact.exists():
 
         return {
 
-            "success": False,
+            "success":
+                False,
 
             "status":
                 "PLAYABLE_ARTIFACT_NOT_FOUND",
 
             "artifact":
-                str(artifact_path),
-
-            "message":
-                "Declared playable artifact does not exist."
+                str(
+                    artifact
+                )
         }
 
-    if artifact_path.is_file():
+    if not artifact.is_dir():
 
-        size = artifact_path.stat().st_size
+        return {
 
-        if size <= 0:
+            "success":
+                False,
 
-            return {
+            "status":
+                "PLAYABLE_ARTIFACT_NOT_DIRECTORY",
 
-                "success": False,
+            "artifact":
+                str(
+                    artifact
+                )
+        }
 
-                "status":
-                    "PLAYABLE_ARTIFACT_EMPTY",
+    index_file = (
+        artifact
+        /
+        "index.html"
+    )
 
-                "artifact":
-                    str(artifact_path)
-            }
+    if not index_file.exists():
 
-    elif artifact_path.is_dir():
+        return {
 
-        files = [
+            "success":
+                False,
 
-            path
-            for path
-            in artifact_path.rglob("*")
-            if path.is_file()
-        ]
+            "status":
+                "PLAYABLE_INDEX_NOT_FOUND",
 
-        if not files:
+            "artifact":
+                str(
+                    artifact
+                )
+        }
 
-            return {
+    if (
+        index_file.stat().st_size
+        <=
+        0
+    ):
 
-                "success": False,
+        return {
 
-                "status":
-                    "PLAYABLE_ARTIFACT_EMPTY",
+            "success":
+                False,
 
-                "artifact":
-                    str(artifact_path)
-            }
+            "status":
+                "PLAYABLE_INDEX_EMPTY",
+
+            "artifact":
+                str(
+                    artifact
+                )
+        }
+
+    files = [
+
+        path
+
+        for path
+        in artifact.rglob(
+            "*"
+        )
+
+        if path.is_file()
+    ]
+
+    javascript_files = [
+
+        path
+
+        for path
+        in files
+
+        if path.suffix.lower()
+        in (
+            ".js",
+            ".mjs"
+        )
+    ]
+
+    if not javascript_files:
+
+        return {
+
+            "success":
+                False,
+
+            "status":
+                "PLAYABLE_JAVASCRIPT_NOT_FOUND",
+
+            "artifact":
+                str(
+                    artifact
+                )
+        }
 
     return {
 
-        "success": True,
+        "success":
+            True,
 
         "status":
             "PLAYABLE_ARTIFACT_VERIFIED",
 
         "artifact":
-            str(artifact_path)
+            str(
+                artifact
+            ),
+
+        "index":
+            str(
+                index_file
+            ),
+
+        "file_count":
+            len(
+                files
+            )
+    }
+
+
+# ============================================================
+# PUBLISHED ARTIFACT FINAL VERIFIER
+# ============================================================
+
+def verify_published_result(
+    platform_result: Dict[str, Any]
+) -> Dict[str, Any]:
+
+    if not isinstance(
+        platform_result,
+        dict
+    ):
+
+        return {
+
+            "success":
+                False,
+
+            "status":
+                "PLATFORM_RESULT_INVALID"
+        }
+
+    if not platform_result.get(
+        "success"
+    ):
+
+        return {
+
+            "success":
+                False,
+
+            "status":
+                platform_result.get(
+                    "status",
+                    "PLATFORM_NOT_SUCCESSFUL"
+                ),
+
+            "platform":
+                platform_result
+        }
+
+    published_directory = (
+        platform_result.get(
+            "published_directory"
+        )
+    )
+
+    if not published_directory:
+
+        return {
+
+            "success":
+                False,
+
+            "status":
+                "PUBLISHED_DIRECTORY_MISSING",
+
+            "platform":
+                platform_result
+        }
+
+    published_path = Path(
+        str(
+            published_directory
+        )
+    )
+
+    if not published_path.is_absolute():
+
+        published_path = (
+            ROOT_DIR
+            /
+            published_path
+        ).resolve()
+
+    else:
+
+        published_path = (
+            published_path.resolve()
+        )
+
+    if not published_path.exists():
+
+        return {
+
+            "success":
+                False,
+
+            "status":
+                "PUBLISHED_DIRECTORY_NOT_FOUND",
+
+            "published_directory":
+                str(
+                    published_path
+                )
+        }
+
+    index_file = (
+        published_path
+        /
+        "index.html"
+    )
+
+    if not index_file.exists():
+
+        return {
+
+            "success":
+                False,
+
+            "status":
+                "PUBLISHED_INDEX_NOT_FOUND",
+
+            "published_directory":
+                str(
+                    published_path
+                )
+        }
+
+    public_url = (
+        platform_result.get(
+            "public_url"
+        )
+    )
+
+    game_path = (
+        platform_result.get(
+            "game_path"
+        )
+    )
+
+    if not public_url:
+
+        return {
+
+            "success":
+                False,
+
+            "status":
+                "PUBLIC_URL_MISSING",
+
+            "published_directory":
+                str(
+                    published_path
+                )
+        }
+
+    if not game_path:
+
+        return {
+
+            "success":
+                False,
+
+            "status":
+                "GAME_PATH_MISSING",
+
+            "published_directory":
+                str(
+                    published_path
+                )
+        }
+
+    return {
+
+        "success":
+            True,
+
+        "status":
+            "PUBLISHED_RESULT_VERIFIED",
+
+        "published_directory":
+            str(
+                published_path
+            ),
+
+        "index":
+            str(
+                index_file
+            ),
+
+        "game_path":
+            game_path,
+
+        "public_url":
+            public_url
+    }
+
+
+# ============================================================
+# FINAL MASTERMIND RESULT VERIFICATION
+# ============================================================
+
+def verify_mastermind_result(
+    command_type: str,
+    result: Dict[str, Any]
+) -> Dict[str, Any]:
+
+    if not isinstance(
+        result,
+        dict
+    ):
+
+        return {
+
+            "success":
+                False,
+
+            "status":
+                "INVALID_FINAL_RESULT"
+        }
+
+    if not result.get(
+        "success"
+    ):
+
+        return {
+
+            "success":
+                False,
+
+            "status":
+                result.get(
+                    "status",
+                    "MASTERMIND_FAILED"
+                ),
+
+            "result":
+                result
+        }
+
+    # --------------------------------------------------------
+    # GENERAL COMMAND
+    # --------------------------------------------------------
+
+    if (
+        command_type
+        !=
+        "CREATE_GAME"
+    ):
+
+        return {
+
+            "success":
+                True,
+
+            "status":
+                "MASTERMIND_RESULT_VERIFIED",
+
+            "result":
+                result
+        }
+
+    # --------------------------------------------------------
+    # CREATE GAME REQUIRES HARD PROOF
+    # --------------------------------------------------------
+
+    artifact = (
+        result.get(
+            "artifact"
+        )
+    )
+
+    artifact_verification = (
+        verify_playable_artifact(
+            artifact
+        )
+    )
+
+    if not artifact_verification.get(
+        "success"
+    ):
+
+        return {
+
+            "success":
+                False,
+
+            "status":
+                artifact_verification.get(
+                    "status",
+                    "ARTIFACT_FINAL_VERIFICATION_FAILED"
+                ),
+
+            "artifact_verification":
+                artifact_verification,
+
+            "mastermind_result":
+                result
+        }
+
+    platform_result = (
+        result.get(
+            "platform"
+        )
+    )
+
+    if not isinstance(
+        platform_result,
+        dict
+    ):
+
+        return {
+
+            "success":
+                False,
+
+            "status":
+                "PLATFORM_RESULT_MISSING",
+
+            "artifact_verification":
+                artifact_verification,
+
+            "mastermind_result":
+                result
+        }
+
+    publication_verification = (
+        verify_published_result(
+            platform_result
+        )
+    )
+
+    if not publication_verification.get(
+        "success"
+    ):
+
+        return {
+
+            "success":
+                False,
+
+            "status":
+                publication_verification.get(
+                    "status",
+                    "PUBLICATION_FINAL_VERIFICATION_FAILED"
+                ),
+
+            "artifact_verification":
+                artifact_verification,
+
+            "publication_verification":
+                publication_verification,
+
+            "mastermind_result":
+                result
+        }
+
+    return {
+
+        "success":
+            True,
+
+        "status":
+            "FULL_EXECUTION_VERIFIED",
+
+        "artifact":
+            artifact_verification,
+
+        "publication":
+            publication_verification,
+
+        "result":
+            result
     }
 
 
@@ -865,11 +1437,52 @@ def verify_artifact(
 
 class MajdFullExecutionRuntime:
 
-    def __init__(self):
+    def __init__(
+        self
+    ):
 
         self.runtime_id = str(
             uuid.uuid4()
         )
+
+
+    # ========================================================
+    # STATE PATH
+    # ========================================================
+
+    def state_path(
+        self
+    ) -> Path:
+
+        return (
+            RUNTIME_DIR
+            /
+            f"{self.runtime_id}.json"
+        )
+
+
+    # ========================================================
+    # SAVE
+    # ========================================================
+
+    def save(
+        self,
+        state: Dict[str, Any]
+    ) -> None:
+
+        state[
+            "updated_at"
+        ] = utc_now()
+
+        save_json(
+            self.state_path(),
+            state
+        )
+
+
+    # ========================================================
+    # EXECUTE
+    # ========================================================
 
     def execute(
         self,
@@ -877,9 +1490,16 @@ class MajdFullExecutionRuntime:
         owner: str = DEFAULT_OWNER
     ) -> Dict[str, Any]:
 
-        started_at = utc_now()
+        command = str(
+            command
+            or
+            ""
+        ).strip()
 
-        state: Dict[str, Any] = {
+        state: Dict[
+            str,
+            Any
+        ] = {
 
             "runtime_id":
                 self.runtime_id,
@@ -903,7 +1523,13 @@ class MajdFullExecutionRuntime:
                 OFFICIAL_MAJD_PLATFORM,
 
             "started_at":
-                started_at,
+                utc_now(),
+
+            "updated_at":
+                utc_now(),
+
+            "finished_at":
+                None,
 
             "success":
                 False,
@@ -915,59 +1541,114 @@ class MajdFullExecutionRuntime:
                 {}
         }
 
-        state_file = (
-            RUNTIME_DIR
-            /
-            f"{self.runtime_id}.json"
-        )
-
-        save_json(
-            state_file,
+        self.save(
             state
         )
 
         try:
 
             # =================================================
-            # VERIFY 01 - 04
+            # EMPTY COMMAND
             # =================================================
 
-            verification = (
-                verify_required_files()
-            )
+            if not command:
 
-            state["stages"]["files"] = (
-                verification
-            )
-
-            if not verification["success"]:
-
-                state["status"] = (
-                    "FAILED"
+                state[
+                    "status"
+                ] = (
+                    "EMPTY_OWNER_COMMAND"
                 )
 
-                state["error"] = (
-                    "REQUIRED_FILES_MISSING"
+                state[
+                    "error"
+                ] = (
+                    "Owner command cannot be empty."
                 )
 
-                state["finished_at"] = (
-                    utc_now()
-                )
+                state[
+                    "finished_at"
+                ] = utc_now()
 
-                save_json(
-                    state_file,
+                self.save(
                     state
                 )
 
                 return state
 
+
             # =================================================
-            # LOAD OWNER COMMAND CENTER 02
+            # VERIFY CORE FILES
             # =================================================
+
+            state[
+                "status"
+            ] = (
+                "VERIFYING_CORE"
+            )
+
+            self.save(
+                state
+            )
+
+            files_result = (
+                verify_required_files()
+            )
+
+            state[
+                "stages"
+            ][
+                "core_files"
+            ] = files_result
+
+            if not files_result.get(
+                "success"
+            ):
+
+                state[
+                    "status"
+                ] = (
+                    "REQUIRED_FILES_MISSING"
+                )
+
+                state[
+                    "error"
+                ] = (
+                    "REQUIRED_FILES_MISSING"
+                )
+
+                state[
+                    "finished_at"
+                ] = utc_now()
+
+                self.save(
+                    state
+                )
+
+                return state
+
+
+            # =================================================
+            # LOAD 02
+            # =================================================
+
+            state[
+                "status"
+            ] = (
+                "OWNER_COMMAND_CENTER"
+            )
+
+            self.save(
+                state
+            )
 
             owner_runtime = (
                 OwnerCommandCenterRuntime()
             )
+
+
+            # =================================================
+            # PARSE COMMAND
+            # =================================================
 
             parsed_request = (
                 owner_runtime.parse(
@@ -975,20 +1656,40 @@ class MajdFullExecutionRuntime:
                 )
             )
 
-            command_type = (
+            command_type = str(
                 parsed_request.get(
                     "type",
-                    "UNKNOWN"
+                    "GENERAL_OWNER_COMMAND"
                 )
-            )
+            ).upper()
 
-            state["stages"]["command"] = {
+            if (
+                not command_type
+                or
+                command_type == "UNKNOWN"
+            ):
+
+                command_type = (
+                    "GENERAL_OWNER_COMMAND"
+                )
+
+                parsed_request[
+                    "type"
+                ] = (
+                    command_type
+                )
+
+            state[
+                "stages"
+            ][
+                "command"
+            ] = {
 
                 "success":
                     True,
 
                 "status":
-                    "OWNER_COMMAND_RECEIVED",
+                    "OWNER_COMMAND_PARSED",
 
                 "type":
                     command_type,
@@ -997,116 +1698,118 @@ class MajdFullExecutionRuntime:
                     parsed_request
             }
 
-            save_json(
-                state_file,
+            self.save(
                 state
             )
 
+
             # =================================================
-            # ROUTE NON-GAME OWNER COMMANDS TO 02
+            # STATUS COMMANDS STAY IN 02
             # =================================================
 
-            if command_type != "CREATE_GAME":
+            if command_type in (
 
-                state["status"] = (
-                    "OWNER_COMMAND_EXECUTION"
+                "STATUS",
+
+                "SYSTEM_STATUS",
+
+            ):
+
+                state[
+                    "status"
+                ] = (
+                    "OWNER_STATUS_EXECUTION"
                 )
 
-                save_json(
-                    state_file,
+                self.save(
                     state
                 )
 
-                owner_result = (
+                result = (
                     owner_runtime.execute(
                         command=command,
                         owner=owner
                     )
                 )
 
-                state["stages"][
-                    "owner_command"
-                ] = owner_result
+                state[
+                    "stages"
+                ][
+                    "owner_status"
+                ] = result
 
-                state["result"] = (
-                    owner_result
-                )
+                state[
+                    "result"
+                ] = result
 
-                state["success"] = bool(
-                    owner_result.get(
+                state[
+                    "success"
+                ] = bool(
+                    result.get(
                         "success",
                         False
                     )
                 )
 
-                if state["success"]:
-
-                    state["status"] = (
-                        owner_result.get(
-                            "status"
-                        )
-                        or
-                        "COMPLETED"
+                state[
+                    "status"
+                ] = str(
+                    result.get(
+                        "status"
                     )
-
-                    state["error"] = None
-
-                else:
-
-                    state["status"] = (
-                        owner_result.get(
-                            "status"
-                        )
-                        or
+                    or
+                    (
+                        "COMPLETED"
+                        if state[
+                            "success"
+                        ]
+                        else
                         "FAILED"
                     )
+                )
 
-                    state["error"] = (
-                        owner_result.get(
+                if not state[
+                    "success"
+                ]:
+
+                    state[
+                        "error"
+                    ] = (
+                        result.get(
                             "error"
                         )
                         or
-                        owner_result.get(
+                        result.get(
                             "message"
                         )
                         or
-                        "OWNER_COMMAND_EXECUTION_FAILED"
+                        state[
+                            "status"
+                        ]
                     )
 
-                state["finished_at"] = (
-                    utc_now()
-                )
+                state[
+                    "finished_at"
+                ] = utc_now()
 
-                save_json(
-                    state_file,
+                self.save(
                     state
                 )
 
                 return state
 
+
             # =================================================
-            # CREATE_GAME CONTINUES THROUGH FULL PIPELINE
+            # EVERYTHING ELSE GOES TO 01
             # =================================================
 
-            state["status"] = (
-                "GAME_COMMAND_ACCEPTED"
+            state[
+                "status"
+            ] = (
+                "MASTERMIND_EXECUTION"
             )
 
-            save_json(
-                state_file,
-                state
-            )
-
-            # =================================================
-            # 01 - MASTERMIND
-            # =================================================
-
-            state["status"] = (
-                "MASTERMIND"
-            )
-
-            save_json(
-                state_file,
+            self.save(
                 state
             )
 
@@ -1117,278 +1820,305 @@ class MajdFullExecutionRuntime:
             mastermind_result = (
                 mastermind.execute(
 
-                    command=command,
+                    command=
+                        command,
 
-                    request=parsed_request,
+                    request=
+                        parsed_request,
 
-                    job_id=self.runtime_id,
+                    runtime_id=
+                        self.runtime_id,
 
-                    owner=owner
+                    owner=
+                        owner
                 )
             )
 
-            state["stages"]["mastermind"] = (
-                mastermind_result
+            state[
+                "stages"
+            ][
+                "mastermind"
+            ] = mastermind_result
+
+            self.save(
+                state
             )
+
+
+            # =================================================
+            # MASTER FAILURE
+            # =================================================
 
             if not mastermind_result.get(
                 "success"
             ):
 
-                state["status"] = (
-                    "FAILED"
-                )
+                state[
+                    "success"
+                ] = False
 
-                state["error"] = (
+                state[
+                    "status"
+                ] = str(
                     mastermind_result.get(
                         "status",
                         "MASTERMIND_FAILED"
                     )
                 )
 
-                state["finished_at"] = (
-                    utc_now()
+                state[
+                    "error"
+                ] = (
+                    mastermind_result.get(
+                        "error"
+                    )
+                    or
+                    mastermind_result.get(
+                        "message"
+                    )
+                    or
+                    state[
+                        "status"
+                    ]
                 )
 
-                save_json(
-                    state_file,
+                state[
+                    "result"
+                ] = (
+                    mastermind_result
+                )
+
+                state[
+                    "finished_at"
+                ] = utc_now()
+
+                self.save(
                     state
                 )
 
                 return state
 
-            prepared_request = (
-                mastermind_result.get(
-                    "request"
-                )
-                or
-                mastermind_result.get(
-                    "payload"
-                )
-                or
-                parsed_request
-            )
-
-            if not isinstance(
-                prepared_request,
-                dict
-            ):
-
-                prepared_request = (
-                    parsed_request
-                )
 
             # =================================================
-            # 03 - REAL GAME EXECUTOR
+            # FINAL VERIFICATION
             # =================================================
 
-            state["status"] = (
-                "REAL_GAME_EXECUTION"
+            state[
+                "status"
+            ] = (
+                "FINAL_VERIFICATION"
             )
 
-            save_json(
-                state_file,
+            self.save(
                 state
             )
 
-            executor = (
-                RealGameExecutorRuntime()
-            )
+            final_verification = (
+                verify_mastermind_result(
 
-            executor_result = (
-                executor.execute(
+                    command_type=
+                        command_type,
 
-                    request=prepared_request,
-
-                    job_id=self.runtime_id
+                    result=
+                        mastermind_result
                 )
             )
 
-            state["stages"]["executor"] = (
-                executor_result
+            state[
+                "stages"
+            ][
+                "final_verification"
+            ] = final_verification
+
+            self.save(
+                state
             )
 
-            if not executor_result.get(
+
+            # =================================================
+            # FINAL FAILURE
+            # =================================================
+
+            if not final_verification.get(
                 "success"
             ):
 
-                state["status"] = (
-                    "FAILED"
-                )
+                state[
+                    "success"
+                ] = False
 
-                state["error"] = (
-                    executor_result.get(
+                state[
+                    "status"
+                ] = str(
+                    final_verification.get(
                         "status",
-                        "REAL_GAME_EXECUTION_FAILED"
+                        "FINAL_VERIFICATION_FAILED"
                     )
                 )
 
-                state["finished_at"] = (
-                    utc_now()
+                state[
+                    "error"
+                ] = (
+                    state[
+                        "status"
+                    ]
                 )
 
-                save_json(
-                    state_file,
+                state[
+                    "result"
+                ] = (
+                    mastermind_result
+                )
+
+                state[
+                    "finished_at"
+                ] = utc_now()
+
+                self.save(
                     state
                 )
 
                 return state
 
+
             # =================================================
-            # VERIFY PLAYABLE ARTIFACT
+            # VERIFIED SUCCESS
             # =================================================
 
-            artifact_result = (
-                verify_artifact(
-                    executor_result
-                )
-            )
-
-            state["stages"]["artifact"] = (
-                artifact_result
-            )
-
-            if not artifact_result.get(
+            state[
                 "success"
+            ] = True
+
+            state[
+                "status"
+            ] = (
+                "COMPLETED"
+            )
+
+            state[
+                "result"
+            ] = (
+                mastermind_result
+            )
+
+            state[
+                "verification"
+            ] = (
+                final_verification
+            )
+
+
+            if (
+                command_type
+                ==
+                "CREATE_GAME"
             ):
 
-                state["status"] = (
-                    "FAILED"
-                )
-
-                state["error"] = (
-                    artifact_result.get(
-                        "status",
-                        "ARTIFACT_VERIFICATION_FAILED"
+                publication = (
+                    final_verification.get(
+                        "publication",
+                        {}
                     )
                 )
 
-                state["finished_at"] = (
-                    utc_now()
+                artifact = (
+                    final_verification.get(
+                        "artifact",
+                        {}
+                    )
                 )
 
-                save_json(
-                    state_file,
-                    state
-                )
-
-                return state
-
-            artifact = (
-                artifact_result[
+                state[
                     "artifact"
-                ]
-            )
-
-            # =================================================
-            # 04 - OFFICIAL MAJD PLATFORM
-            # =================================================
-
-            state["status"] = (
-                "PLATFORM_BRIDGE"
-            )
-
-            save_json(
-                state_file,
-                state
-            )
-
-            platform = (
-                OfficialPlatformRuntime()
-            )
-
-            platform_result = (
-                platform.execute(
-
-                    artifact=artifact,
-
-                    request=prepared_request,
-
-                    job_id=self.runtime_id
-                )
-            )
-
-            state["stages"]["platform"] = (
-                platform_result
-            )
-
-            # =================================================
-            # FINAL RESULT
-            # =================================================
-
-            if not platform_result.get(
-                "success"
-            ):
-
-                state["status"] = (
-                    "READY"
+                ] = (
+                    artifact.get(
+                        "artifact"
+                    )
                 )
 
-                state["success"] = True
-
-                state["published"] = False
-
-                state["artifact"] = (
-                    artifact
+                state[
+                    "game_path"
+                ] = (
+                    publication.get(
+                        "game_path"
+                    )
                 )
 
-                state["message"] = (
-                    "اللعبة جاهزة وقابلة للعب، "
-                    "لكن جسر النشر الرسمي لم يؤكد النشر."
+                state[
+                    "public_url"
+                ] = (
+                    publication.get(
+                        "public_url"
+                    )
+                )
+
+                state[
+                    "published"
+                ] = True
+
+                state[
+                    "message"
+                ] = (
+                    "تم تنفيذ أمر المالك عبر العقل المدبر، "
+                    "وبناء اللعبة والتحقق من Artifact "
+                    "والتحقق من النسخة المنشورة فعلياً."
                 )
 
             else:
 
-                state["status"] = (
-                    "COMPLETED"
+                state[
+                    "message"
+                ] = (
+                    "تم تنفيذ أمر المالك عبر العقل المدبر "
+                    "وتم التحقق من النتيجة."
                 )
 
-                state["success"] = True
 
-                state["published"] = True
+            state[
+                "finished_at"
+            ] = utc_now()
 
-                state["artifact"] = (
-                    artifact
-                )
-
-                state["message"] = (
-                    "تم تنفيذ سلسلة المصنع والتحقق "
-                    "من Playable Artifact وربط منصة مجد."
-                )
-
-            state["finished_at"] = (
-                utc_now()
-            )
-
-            save_json(
-                state_file,
+            self.save(
                 state
             )
 
             return state
 
+
+        # =====================================================
+        # UNEXPECTED ERROR
+        # =====================================================
+
         except Exception as error:
 
-            state["success"] = False
+            state[
+                "success"
+            ] = False
 
-            state["status"] = (
-                "FAILED"
+            state[
+                "status"
+            ] = (
+                "RUNTIME_EXCEPTION"
             )
 
-            state["error"] = (
-                f"{type(error).__name__}: {error}"
+            state[
+                "error"
+            ] = (
+                f"{type(error).__name__}: "
+                f"{error}"
             )
 
-            state["traceback"] = (
+            state[
+                "traceback"
+            ] = (
                 traceback.format_exc()
             )
 
-            state["finished_at"] = (
-                utc_now()
-            )
+            state[
+                "finished_at"
+            ] = utc_now()
 
-            save_json(
-                state_file,
+            self.save(
                 state
             )
 
@@ -1401,7 +2131,8 @@ class MajdFullExecutionRuntime:
 
 def execute_full_factory(
     command: str,
-    owner: str = DEFAULT_OWNER
+    owner: str = DEFAULT_OWNER,
+    **kwargs: Any
 ) -> Dict[str, Any]:
 
     runtime = (
@@ -1409,8 +2140,64 @@ def execute_full_factory(
     )
 
     return runtime.execute(
-        command=command,
-        owner=owner
+
+        command=
+            command,
+
+        owner=
+            owner
+    )
+
+
+# ============================================================
+# COMPATIBILITY API
+# ============================================================
+
+def execute_owner_runtime(
+    command: str,
+    owner: str = DEFAULT_OWNER,
+    **kwargs: Any
+) -> Dict[str, Any]:
+
+    return execute_full_factory(
+
+        command=
+            command,
+
+        owner=
+            owner
+    )
+
+
+def execute(
+    command: str,
+    owner: str = DEFAULT_OWNER,
+    **kwargs: Any
+) -> Dict[str, Any]:
+
+    return execute_full_factory(
+
+        command=
+            command,
+
+        owner=
+            owner
+    )
+
+
+def run(
+    command: str,
+    owner: str = DEFAULT_OWNER,
+    **kwargs: Any
+) -> Dict[str, Any]:
+
+    return execute_full_factory(
+
+        command=
+            command,
+
+        owner=
+            owner
     )
 
 
@@ -1423,10 +2210,15 @@ def print_result(
 ) -> None:
 
     print(
+
         json.dumps(
+
             result,
+
             ensure_ascii=False,
+
             indent=2,
+
             default=str
         )
     )
@@ -1441,9 +2233,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(
 
         description=(
-            "MAJD FULL EXECUTION RUNTIME 06"
+            "MAJD SOVEREIGN FULL EXECUTION RUNTIME 06"
         )
     )
+
 
     parser.add_argument(
 
@@ -1451,34 +2244,46 @@ def main() -> int:
 
         nargs="+",
 
-        help="Owner command"
+        help="Owner command in Arabic or English"
     )
+
 
     parser.add_argument(
 
         "--owner",
 
-        default=DEFAULT_OWNER,
+        default=
+            DEFAULT_OWNER,
 
-        help="Owner identity"
+        help=
+            "Owner identity"
     )
 
-    args = parser.parse_args()
+
+    args = (
+        parser.parse_args()
+    )
+
 
     command = " ".join(
         args.command
     ).strip()
 
+
     print(
-        "========================================"
+        "=============================================="
     )
 
     print(
-        "MAJD GAME FACTORY - FULL EXECUTION 06"
+        "MAJD GAME FACTORY"
     )
 
     print(
-        "========================================"
+        "SOVEREIGN FULL EXECUTION RUNTIME 06"
+    )
+
+    print(
+        "=============================================="
     )
 
     print(
@@ -1494,21 +2299,33 @@ def main() -> int:
     )
 
     print(
-        "========================================"
+        "=============================================="
     )
 
+
     result = execute_full_factory(
-        command=command,
-        owner=args.owner
+
+        command=
+            command,
+
+        owner=
+            args.owner
     )
+
 
     print_result(
         result
     )
 
+
     return (
+
         0
-        if result.get("success")
+
+        if result.get(
+            "success"
+        )
+
         else 1
     )
 
