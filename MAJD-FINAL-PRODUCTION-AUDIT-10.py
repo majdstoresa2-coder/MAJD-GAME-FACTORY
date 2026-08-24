@@ -6,32 +6,21 @@ MAJD GAME FACTORY
 MAJD-FINAL-PRODUCTION-AUDIT-10.py
 =================================
 
-FINAL REAL PRODUCTION AUDIT & CLOSURE GATE
+FINAL REAL PRODUCTION AUDIT / SECURITY / INTEGRATION / CLOSURE GATE
 
-Purpose:
-- Final production verification for MAJD-GAME-FACTORY.
-- Never modify files 07 / 08 / 09.
-- Detect frontend routing problems such as /login.
-- Detect favicon/static routing problems.
-- Verify backend/API availability.
-- Discover real API routes from OpenAPI when available.
-- Verify authentication and SUPREME_OWNER protection.
-- Verify Wallet / MAJD Coins endpoints.
-- Verify Challenges and Claim endpoints.
-- Verify Coin Packages.
-- Verify Moyasar/payment endpoints.
-- Verify Transactions Ledger.
-- Verify Rewarded Ads endpoints.
-- Verify Owner endpoints.
-- Inspect Nginx/frontend/backend connectivity.
-- Inspect environment readiness WITHOUT printing secret values.
-- Produce one final result:
+Rules:
+- NEVER modifies protected files 07 / 08 / 09.
+- NEVER creates fake production data.
+- NEVER performs a real charge.
+- NEVER grants coins/rewards merely to make an audit pass.
+- Read-only probes are preferred.
+- Mutating endpoints are inspected and security-probed without performing
+  successful authenticated mutations.
+- Secrets are never printed.
+- Route existence alone is NOT enough to prove business functionality.
+- Final result is only:
     READY FOR PRODUCTION
     NOT READY FOR PRODUCTION
-
-IMPORTANT:
-This file does NOT fake PASS results.
-Unavailable or unverified production functionality is NOT considered PASS.
 """
 
 from __future__ import annotations
@@ -39,6 +28,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -50,7 +40,7 @@ import urllib.request
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 
 # ============================================================
@@ -58,39 +48,29 @@ from typing import Any, Dict, List, Optional, Tuple
 # ============================================================
 
 ROOT_DIR = Path(__file__).resolve().parent
-
 REPORT_FILE = ROOT_DIR / "MAJD-FINAL-PRODUCTION-AUDIT-10.json"
 
 PROTECTED_NUMBERS = ("07", "08", "09")
 
-DEFAULT_FRONTEND_URL = os.getenv(
+FRONTEND_URL = os.getenv(
     "MAJD_FRONTEND_URL",
     "http://127.0.0.1:8080",
 ).rstrip("/")
 
-DEFAULT_BACKEND_URL = os.getenv(
+BACKEND_URL = os.getenv(
     "MAJD_BACKEND_URL",
     "http://127.0.0.1:8000",
 ).rstrip("/")
 
-REQUEST_TIMEOUT = float(
-    os.getenv("MAJD_AUDIT_TIMEOUT", "10")
-)
-
-OWNER_TOKEN = os.getenv(
-    "MAJD_OWNER_TOKEN",
+PUBLIC_URL = os.getenv(
+    "MAJD_PUBLIC_URL",
     "",
-).strip()
+).rstrip("/")
 
-TEST_USER_TOKEN = os.getenv(
-    "MAJD_TEST_USER_TOKEN",
-    "",
-).strip()
+TIMEOUT = float(os.getenv("MAJD_AUDIT_TIMEOUT", "10"))
 
-MOYASAR_SECRET_KEY = os.getenv(
-    "MOYASAR_SECRET_KEY",
-    "",
-).strip()
+OWNER_TOKEN = os.getenv("MAJD_OWNER_TOKEN", "").strip()
+TEST_USER_TOKEN = os.getenv("MAJD_TEST_USER_TOKEN", "").strip()
 
 DATABASE_URL = (
     os.getenv("DATABASE_URL", "").strip()
@@ -98,27 +78,53 @@ DATABASE_URL = (
     or os.getenv("MONGO_URI", "").strip()
 )
 
+MOYASAR_SECRET_KEY = os.getenv(
+    "MOYASAR_SECRET_KEY",
+    "",
+).strip()
+
 EXPECTED_OWNER_ROLE = os.getenv(
     "MAJD_OWNER_ROLE",
     "SUPREME_OWNER",
 ).strip()
 
-USER_AGENT = "MAJD-FINAL-PRODUCTION-AUDIT-10/1.0"
+USER_AGENT = "MAJD-FINAL-PRODUCTION-AUDIT-10/2.0"
 
-SENSITIVE_WORDS = (
-    "SECRET",
-    "PASSWORD",
-    "TOKEN",
-    "PRIVATE",
-    "API_KEY",
-    "DATABASE_URL",
-    "MONGO_URI",
-    "MONGODB_URI",
+HTTP_METHODS = {
+    "get",
+    "post",
+    "put",
+    "patch",
+    "delete",
+    "options",
+    "head",
+}
+
+SAFE_READ_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+SENSITIVE_MARKERS = (
+    "authorization",
+    "password",
+    "secret",
+    "token",
+    "api-key",
+    "apikey",
+    "database_url",
+    "mongodb_uri",
+    "mongo_uri",
+    "private_key",
+    "cookie",
+    "set-cookie",
+)
+
+PROTECTED_PREFIX_RE = re.compile(
+    r"^(07|08|09)(?:[-_.]|$)",
+    re.IGNORECASE,
 )
 
 
 # ============================================================
-# DATA STRUCTURES
+# DATA
 # ============================================================
 
 @dataclass
@@ -131,34 +137,55 @@ class AuditItem:
 
 
 # ============================================================
-# HELPERS
+# BASIC HELPERS
 # ============================================================
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def safe_text(value: Any, limit: int = 500) -> str:
+def text(value: Any, limit: int = 700) -> str:
     if value is None:
         return ""
 
-    text = str(value)
+    result = str(value).replace("\x00", "")
 
-    if len(text) > limit:
-        text = text[:limit] + "...[TRUNCATED]"
+    if len(result) > limit:
+        return result[:limit] + "...[TRUNCATED]"
 
-    return text
+    return result
 
 
-def run_command(
+def redact(value: Any) -> str:
+    raw = text(value, 2000)
+
+    for marker in SENSITIVE_MARKERS:
+        pattern = re.compile(
+            rf"({re.escape(marker)}\s*[:=]\s*)([^\s,;]+)",
+            re.IGNORECASE,
+        )
+        raw = pattern.sub(r"\1[REDACTED]", raw)
+
+    raw = re.sub(
+        r"Bearer\s+[A-Za-z0-9._~+/=-]+",
+        "Bearer [REDACTED]",
+        raw,
+        flags=re.IGNORECASE,
+    )
+
+    return text(raw)
+
+
+def run(
     command: List[str],
-    timeout: int = 20,
+    timeout: int = 30,
+    cwd: Optional[Path] = None,
 ) -> Tuple[int, str, str]:
 
     try:
-        result = subprocess.run(
+        process = subprocess.run(
             command,
-            cwd=str(ROOT_DIR),
+            cwd=str(cwd or ROOT_DIR),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -167,36 +194,51 @@ def run_command(
         )
 
         return (
-            result.returncode,
-            result.stdout.strip(),
-            result.stderr.strip(),
+            process.returncode,
+            process.stdout.strip(),
+            process.stderr.strip(),
         )
 
     except Exception as exc:
         return 999, "", str(exc)
 
 
+def command_exists(name: str) -> bool:
+    code, _, _ = run(
+        ["sh", "-c", f"command -v {name} >/dev/null 2>&1"]
+    )
+    return code == 0
+
+
 def sha256_file(path: Path) -> Optional[str]:
-
-    if not path.exists() or not path.is_file():
-        return None
-
-    digest = hashlib.sha256()
-
     try:
+        digest = hashlib.sha256()
+
         with path.open("rb") as handle:
             while True:
                 chunk = handle.read(1024 * 1024)
-
                 if not chunk:
                     break
-
                 digest.update(chunk)
 
         return digest.hexdigest()
 
     except Exception:
         return None
+
+
+def header_value(
+    headers: Dict[str, Any],
+    wanted: str,
+) -> Optional[str]:
+
+    wanted = wanted.lower()
+
+    for key, value in headers.items():
+        if str(key).lower() == wanted:
+            return str(value)
+
+    return None
 
 
 def http_request(
@@ -206,18 +248,18 @@ def http_request(
     body: Optional[bytes] = None,
 ) -> Dict[str, Any]:
 
-    final_headers = {
+    request_headers = {
         "User-Agent": USER_AGENT,
         "Accept": "application/json,text/html,*/*",
     }
 
     if headers:
-        final_headers.update(headers)
+        request_headers.update(headers)
 
     request = urllib.request.Request(
         url=url,
-        method=method,
-        headers=final_headers,
+        method=method.upper(),
+        headers=request_headers,
         data=body,
     )
 
@@ -226,45 +268,37 @@ def http_request(
     try:
         with urllib.request.urlopen(
             request,
-            timeout=REQUEST_TIMEOUT,
+            timeout=TIMEOUT,
         ) as response:
 
             raw = response.read(1024 * 1024)
-
-            elapsed = round(
-                (time.time() - started) * 1000,
-                2,
-            )
 
             return {
                 "ok": True,
                 "status": response.status,
                 "url": response.geturl(),
                 "headers": dict(response.headers),
-                "body": raw.decode(
-                    "utf-8",
-                    errors="replace",
+                "body": raw.decode("utf-8", errors="replace"),
+                "elapsed_ms": round(
+                    (time.time() - started) * 1000,
+                    2,
                 ),
-                "elapsed_ms": elapsed,
             }
 
     except urllib.error.HTTPError as exc:
 
         try:
             raw = exc.read(1024 * 1024)
-            body_text = raw.decode(
-                "utf-8",
-                errors="replace",
-            )
+            body = raw.decode("utf-8", errors="replace")
         except Exception:
-            body_text = ""
+            body = ""
 
         return {
             "ok": False,
             "status": exc.code,
             "url": url,
             "headers": dict(exc.headers or {}),
-            "body": body_text,
+            "body": body,
             "elapsed_ms": round(
                 (time.time() - started) * 1000,
                 2,
@@ -287,23 +321,14 @@ def http_request(
         }
 
 
-def json_body(response: Dict[str, Any]) -> Optional[Any]:
-
-    body = response.get("body", "")
-
-    if not body:
-        return None
-
+def parse_json(response: Dict[str, Any]) -> Optional[Any]:
     try:
-        return json.loads(body)
+        return json.loads(response.get("body") or "")
     except Exception:
         return None
 
 
-def authorization_headers(
-    token: str,
-) -> Dict[str, str]:
-
+def auth_headers(token: str) -> Dict[str, str]:
     if not token:
         return {}
 
@@ -312,668 +337,248 @@ def authorization_headers(
     }
 
 
+def item(
+    name: str,
+    ok: bool,
+    evidence: Optional[List[str]] = None,
+    missing: Optional[List[str]] = None,
+    critical: bool = True,
+) -> AuditItem:
+
+    return AuditItem(
+        name=name,
+        status="PASS" if ok else "FAIL",
+        evidence=evidence or [],
+        missing=missing or [],
+        critical=critical,
+    )
+
+
 # ============================================================
-# PROTECTED FILE VERIFICATION
+# PROTECTED 07 / 08 / 09
 # ============================================================
 
-def discover_protected_files() -> List[Path]:
+def protected_number(path: Path) -> Optional[str]:
 
-    files: List[Path] = []
+    match = PROTECTED_PREFIX_RE.match(path.name)
+
+    if match:
+        return match.group(1)
+
+    return None
+
+
+def discover_protected_files() -> Dict[str, List[Path]]:
+
+    found: Dict[str, List[Path]] = {
+        number: []
+        for number in PROTECTED_NUMBERS
+    }
 
     for path in ROOT_DIR.rglob("*"):
 
         if not path.is_file():
             continue
 
-        name = path.name
+        number = protected_number(path)
 
-        for number in PROTECTED_NUMBERS:
+        if number:
+            found[number].append(path)
 
-            patterns = (
-                f"-{number}.",
-                f"_{number}.",
-                f"-{number}-",
-                f"_{number}_",
-            )
-
-            if any(pattern in name for pattern in patterns):
-                files.append(path)
-                break
-
-    return sorted(set(files))
+    return found
 
 
 def audit_protected_files() -> AuditItem:
 
-    files = discover_protected_files()
+    found = discover_protected_files()
 
     evidence: List[str] = []
     missing: List[str] = []
-
-    found_numbers = set()
-
-    for path in files:
-
-        relative = path.relative_to(ROOT_DIR)
-
-        digest = sha256_file(path)
-
-        evidence.append(
-            f"{relative} SHA256={digest or 'UNAVAILABLE'}"
-        )
-
-        for number in PROTECTED_NUMBERS:
-            if number in path.name:
-                found_numbers.add(number)
 
     for number in PROTECTED_NUMBERS:
-        if number not in found_numbers:
+
+        files = found[number]
+
+        if not files:
             missing.append(
-                f"Could not discover protected file {number}"
+                f"Protected file prefix {number} was not found."
+            )
+            continue
+
+        for path in files:
+
+            try:
+                relative = path.relative_to(ROOT_DIR)
+            except Exception:
+                relative = path
+
+            digest = sha256_file(path)
+
+            evidence.append(
+                f"{number}: {relative} SHA256={digest or 'UNAVAILABLE'}"
             )
 
-    if missing:
-        return AuditItem(
-            name="Protected files 07/08/09",
-            status="FAIL",
-            evidence=evidence,
-            missing=missing,
-        )
-
-    return AuditItem(
-        name="Protected files 07/08/09",
-        status="PASS",
-        evidence=evidence,
-        missing=[],
-    )
-
-
-# ============================================================
-# FRONTEND
-# ============================================================
-
-def audit_frontend() -> AuditItem:
-
-    evidence: List[str] = []
-    missing: List[str] = []
-
-    root = http_request(
-        DEFAULT_FRONTEND_URL + "/"
-    )
-
-    evidence.append(
-        f"GET / => HTTP {root.get('status')} "
-        f"({root.get('elapsed_ms')} ms)"
-    )
-
-    if root.get("status") != 200:
-
-        missing.append(
-            "Published frontend root is not returning HTTP 200."
-        )
-
-        return AuditItem(
-            "Frontend deployment",
-            "FAIL",
-            evidence,
-            missing,
-        )
-
-    body = root.get("body", "")
-
-    if not body.strip():
-
-        missing.append(
-            "Frontend returned an empty response."
-        )
-
-    if "<html" not in body.lower():
-
-        missing.append(
-            "Frontend response does not appear to contain HTML."
-        )
-
-    status = "PASS" if not missing else "FAIL"
-
-    return AuditItem(
-        "Frontend deployment",
-        status,
+    return item(
+        "Protected files 07/08/09",
+        not missing,
         evidence,
         missing,
     )
 
 
-# ============================================================
-# LOGIN ROUTING
-# ============================================================
-
-def audit_login_route() -> AuditItem:
+def audit_protected_git_integrity() -> AuditItem:
 
     evidence: List[str] = []
     missing: List[str] = []
 
-    login = http_request(
-        DEFAULT_FRONTEND_URL + "/login"
+    code, stdout, stderr = run(
+        ["git", "status", "--porcelain"]
     )
 
-    status_code = login.get("status")
-
-    evidence.append(
-        f"GET /login => HTTP {status_code}"
-    )
-
-    if status_code == 404:
-
-        missing.append(
-            "Frontend /login route returns 404."
+    if code != 0:
+        return item(
+            "Protected Git integrity",
+            False,
+            [],
+            [
+                "git status failed: " + redact(stderr)
+            ],
         )
 
-        missing.append(
-            "SPA fallback/routing is not configured for /login."
-        )
-
-    elif status_code is None:
-
-        missing.append(
-            "Unable to reach frontend /login."
-        )
-
-    elif status_code >= 500:
-
-        missing.append(
-            f"/login returned server error HTTP {status_code}."
-        )
-
-    elif status_code in (200, 301, 302, 307, 308):
-
-        evidence.append(
-            "Login route is reachable."
-        )
-
-    else:
-
-        missing.append(
-            f"Unexpected /login status: HTTP {status_code}."
-        )
-
-    return AuditItem(
-        "Login frontend route",
-        "PASS" if not missing else "FAIL",
-        evidence,
-        missing,
-    )
-
-
-# ============================================================
-# FAVICON / STATIC
-# ============================================================
-
-def audit_favicon() -> AuditItem:
-
-    response = http_request(
-        DEFAULT_FRONTEND_URL + "/favicon.ico"
-    )
-
-    evidence = [
-        f"GET /favicon.ico => HTTP {response.get('status')}"
+    changed = [
+        line
+        for line in stdout.splitlines()
+        if line.strip()
     ]
 
-    if response.get("status") == 200:
+    protected_changes: List[str] = []
 
-        return AuditItem(
-            "Favicon/static asset",
-            "PASS",
-            evidence,
-            [],
-            critical=False,
-        )
+    for line in changed:
 
-    return AuditItem(
-        "Favicon/static asset",
-        "FAIL",
-        evidence,
-        [
-            "favicon.ico is missing or not served."
-        ],
-        critical=False,
-    )
+        filename = line[3:].strip() if len(line) > 3 else line
 
+        base = Path(filename).name
 
-# ============================================================
-# BACKEND ROOT / HEALTH
-# ============================================================
-
-def audit_backend_health() -> AuditItem:
-
-    evidence: List[str] = []
-    missing: List[str] = []
-
-    candidates = (
-        "/health",
-        "/api/health",
-        "/",
-    )
-
-    working = None
-
-    for route in candidates:
-
-        response = http_request(
-            DEFAULT_BACKEND_URL + route
-        )
-
-        evidence.append(
-            f"GET {route} => HTTP {response.get('status')}"
-        )
-
-        if response.get("status") == 200:
-            working = route
-            break
-
-    if working is None:
-
-        missing.append(
-            "No backend health/root endpoint returned HTTP 200."
-        )
-
-        return AuditItem(
-            "Backend Health",
-            "FAIL",
-            evidence,
-            missing,
-        )
+        if PROTECTED_PREFIX_RE.match(base):
+            protected_changes.append(line)
 
     evidence.append(
-        f"Backend reachable through {working}"
+        f"Working tree changes={len(changed)}"
     )
 
-    return AuditItem(
-        "Backend Health",
-        "PASS",
-        evidence,
-        [],
-    )
-
-
-# ============================================================
-# OPENAPI DISCOVERY
-# ============================================================
-
-def discover_openapi() -> Tuple[
-    Optional[Dict[str, Any]],
-    List[str]
-]:
-
-    evidence: List[str] = []
-
-    for route in (
-        "/openapi.json",
-        "/api/openapi.json",
-    ):
-
-        response = http_request(
-            DEFAULT_BACKEND_URL + route
+    if protected_changes:
+        evidence.extend(
+            f"Protected change: {redact(line)}"
+            for line in protected_changes
         )
-
-        evidence.append(
-            f"GET {route} => HTTP {response.get('status')}"
-        )
-
-        if response.get("status") == 200:
-
-            parsed = json_body(response)
-
-            if isinstance(parsed, dict):
-                return parsed, evidence
-
-    return None, evidence
-
-
-def get_routes(
-    schema: Optional[Dict[str, Any]]
-) -> Dict[str, List[str]]:
-
-    routes: Dict[str, List[str]] = {}
-
-    if not schema:
-        return routes
-
-    paths = schema.get("paths", {})
-
-    if not isinstance(paths, dict):
-        return routes
-
-    for path, methods in paths.items():
-
-        if not isinstance(methods, dict):
-            continue
-
-        routes[path] = [
-            method.upper()
-            for method in methods.keys()
-            if method.lower()
-            in (
-                "get",
-                "post",
-                "put",
-                "patch",
-                "delete",
-            )
-        ]
-
-    return routes
-
-
-def search_routes(
-    routes: Dict[str, List[str]],
-    keywords: Tuple[str, ...],
-) -> List[str]:
-
-    found: List[str] = []
-
-    for path, methods in routes.items():
-
-        lower = path.lower()
-
-        if any(
-            keyword.lower() in lower
-            for keyword in keywords
-        ):
-
-            found.append(
-                f"{','.join(methods)} {path}"
-            )
-
-    return sorted(found)
-
-
-# ============================================================
-# API FEATURE AUDIT
-# ============================================================
-
-def audit_route_group(
-    name: str,
-    routes: Dict[str, List[str]],
-    keywords: Tuple[str, ...],
-) -> AuditItem:
-
-    found = search_routes(
-        routes,
-        keywords,
-    )
-
-    if not found:
-
-        return AuditItem(
-            name,
-            "FAIL",
-            [],
-            [
-                "No matching real backend endpoint "
-                f"discovered for: {', '.join(keywords)}"
-            ],
-        )
-
-    return AuditItem(
-        name,
-        "PASS",
-        found,
-        [],
-    )
-
-
-# ============================================================
-# AUTHORIZATION PROTECTION
-# ============================================================
-
-def candidate_owner_routes(
-    routes: Dict[str, List[str]],
-) -> List[Tuple[str, str]]:
-
-    result: List[Tuple[str, str]] = []
-
-    for path, methods in routes.items():
-
-        lower = path.lower()
-
-        if "owner" not in lower and "admin" not in lower:
-            continue
-
-        for method in methods:
-
-            result.append(
-                (method, path)
-            )
-
-    return result
-
-
-def audit_owner_security(
-    routes: Dict[str, List[str]]
-) -> AuditItem:
-
-    evidence: List[str] = []
-    missing: List[str] = []
-
-    candidates = candidate_owner_routes(routes)
-
-    if not candidates:
-
-        return AuditItem(
-            "SUPREME_OWNER Backend Protection",
-            "FAIL",
-            [],
-            [
-                "No owner/admin backend endpoints discovered."
-            ],
-        )
-
-    tested = 0
-    protected = 0
-
-    for method, path in candidates[:10]:
-
-        if method not in (
-            "GET",
-            "POST",
-            "PUT",
-            "PATCH",
-            "DELETE",
-        ):
-            continue
-
-        response = http_request(
-            DEFAULT_BACKEND_URL + path,
-            method=method,
-            headers={
-                "Content-Type": "application/json",
-            },
-            body=(
-                b"{}"
-                if method in ("POST", "PUT", "PATCH")
-                else None
-            ),
-        )
-
-        code = response.get("status")
-
-        tested += 1
-
-        evidence.append(
-            f"Unauthenticated {method} {path} => HTTP {code}"
-        )
-
-        if code in (401, 403):
-            protected += 1
-
-    if tested == 0:
-
         missing.append(
-            "Owner endpoints exist but could not be tested."
+            "Protected 07/08/09 files contain uncommitted changes."
         )
 
-    elif protected == 0:
+    code, stdout, stderr = run(
+        ["git", "rev-parse", "HEAD"]
+    )
 
-        missing.append(
-            "No tested owner endpoint rejected unauthenticated access "
-            "with HTTP 401/403."
-        )
-
-    else:
-
+    if code == 0 and stdout:
         evidence.append(
-            f"{protected}/{tested} tested owner requests "
-            "were rejected without authentication."
+            f"HEAD={stdout.strip()}"
         )
 
-    return AuditItem(
-        "SUPREME_OWNER Backend Protection",
-        "PASS" if not missing else "FAIL",
+    return item(
+        "Protected Git integrity",
+        not missing,
         evidence,
         missing,
     )
 
 
 # ============================================================
-# OWNER TOKEN
+# SOURCE INVENTORY
 # ============================================================
 
-def audit_owner_token() -> AuditItem:
+def audit_source_inventory() -> AuditItem:
 
-    if not OWNER_TOKEN:
+    evidence: List[str] = []
+    missing: List[str] = []
 
-        return AuditItem(
-            "SUPREME_OWNER authenticated verification",
-            "FAIL",
-            [],
-            [
-                "MAJD_OWNER_TOKEN environment variable is missing. "
-                "Real authenticated SUPREME_OWNER verification cannot run."
-            ],
-        )
-
-    return AuditItem(
-        "SUPREME_OWNER authenticated verification",
-        "PASS",
-        [
-            "MAJD_OWNER_TOKEN is configured.",
-            "Secret value was not printed.",
-        ],
-        [],
+    expected = (
+        "MAJD-AI-MASTERMIND-01.py",
+        "MAJD-OWNER-COMMAND-CENTER-02.py",
+        "MAJD-REAL-GAME-EXECUTOR-03.py",
+        "MAJD-OFFICIAL-PLATFORM-BRIDGE-04.py",
+        "MAJD-FULL-EXECUTION-RUNTIME-05.py",
+        "MAJD-FULL-EXECUTION-RUNTIME-06.py",
+        "MAJD-FINAL-PRODUCTION-AUDIT-10.py",
     )
 
+    for filename in expected:
 
-# ============================================================
-# DATABASE
-# ============================================================
+        path = ROOT_DIR / filename
 
-def audit_database_configuration() -> AuditItem:
+        if path.exists():
+            evidence.append(
+                f"FOUND {filename}"
+            )
+        else:
+            missing.append(
+                f"Missing expected runtime file: {filename}"
+            )
 
-    if not DATABASE_URL:
-
-        return AuditItem(
-            "Database configuration",
-            "FAIL",
-            [],
-            [
-                "DATABASE_URL / MONGODB_URI / MONGO_URI "
-                "was not found in the audit environment."
-            ],
-        )
-
-    return AuditItem(
-        "Database configuration",
-        "PASS",
-        [
-            "Database connection variable is configured.",
-            "Secret connection value was not printed.",
-        ],
-        [],
-    )
-
-
-# ============================================================
-# MOYASAR
-# ============================================================
-
-def audit_moyasar_configuration() -> AuditItem:
-
-    if not MOYASAR_SECRET_KEY:
-
-        return AuditItem(
-            "Moyasar server verification configuration",
-            "FAIL",
-            [],
-            [
-                "MOYASAR_SECRET_KEY is missing. "
-                "Real server-side payment verification cannot be proven."
-            ],
-        )
-
-    return AuditItem(
-        "Moyasar server verification configuration",
-        "PASS",
-        [
-            "MOYASAR_SECRET_KEY is configured.",
-            "Secret value was not printed.",
-        ],
-        [],
-    )
-
-
-# ============================================================
-# CORS
-# ============================================================
-
-def audit_cors() -> AuditItem:
-
-    response = http_request(
-        DEFAULT_BACKEND_URL + "/",
-        method="OPTIONS",
-        headers={
-            "Origin": DEFAULT_FRONTEND_URL,
-            "Access-Control-Request-Method": "GET",
-        },
-    )
-
-    headers = {
-        str(k).lower(): str(v)
-        for k, v in response.get(
-            "headers",
-            {}
-        ).items()
-    }
-
-    evidence = [
-        f"OPTIONS backend / => HTTP {response.get('status')}",
-        "Access-Control-Allow-Origin="
-        + headers.get(
-            "access-control-allow-origin",
-            "MISSING",
-        ),
-    ]
-
-    allow_origin = headers.get(
-        "access-control-allow-origin"
-    )
-
-    if allow_origin:
-
-        return AuditItem(
-            "CORS",
-            "PASS",
-            evidence,
-            [],
-        )
-
-    return AuditItem(
-        "CORS",
-        "FAIL",
+    return item(
+        "Core source inventory",
+        not missing,
         evidence,
-        [
-            "No Access-Control-Allow-Origin header "
-            "was observed during CORS probe."
-        ],
+        missing,
+    )
+
+
+# ============================================================
+# PYTHON VALIDATION
+# ============================================================
+
+def audit_python_compile() -> AuditItem:
+
+    evidence: List[str] = []
+    missing: List[str] = []
+
+    python_files = sorted(
+        ROOT_DIR.glob("*.py")
+    )
+
+    if not python_files:
+        return item(
+            "Python syntax validation",
+            False,
+            [],
+            ["No root Python files discovered."],
+        )
+
+    for path in python_files:
+
+        code, _, stderr = run(
+            [
+                sys.executable,
+                "-m",
+                "py_compile",
+                str(path),
+            ],
+            timeout=20,
+        )
+
+        if code == 0:
+            evidence.append(
+                f"COMPILE PASS {path.name}"
+            )
+        else:
+            missing.append(
+                f"COMPILE FAIL {path.name}: {redact(stderr)}"
+            )
+
+    return item(
+        "Python syntax validation",
+        not missing,
+        evidence,
+        missing,
     )
 
 
@@ -981,104 +586,101 @@ def audit_cors() -> AuditItem:
 # DOCKER
 # ============================================================
 
-def audit_docker() -> AuditItem:
+def docker_rows() -> List[str]:
 
-    code, stdout, stderr = run_command(
+    code, stdout, _ = run(
         [
             "docker",
             "ps",
             "--format",
-            "{{.Names}}|{{.Status}}|{{.Ports}}",
+            "{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}",
         ]
     )
-
-    evidence: List[str] = []
-    missing: List[str] = []
 
     if code != 0:
+        return []
 
-        missing.append(
-            "docker ps failed: "
-            + safe_text(stderr)
-        )
-
-    else:
-
-        lines = [
-            line.strip()
-            for line in stdout.splitlines()
-            if line.strip()
-        ]
-
-        evidence.extend(lines)
-
-        required = (
-            "majd-ai-core",
-            "majd-web-ui",
-        )
-
-        for name in required:
-
-            if not any(
-                line.startswith(name + "|")
-                for line in lines
-            ):
-
-                missing.append(
-                    f"Required container not running: {name}"
-                )
-
-    return AuditItem(
-        "Production containers",
-        "PASS" if not missing else "FAIL",
-        evidence,
-        missing,
-    )
+    return [
+        line.strip()
+        for line in stdout.splitlines()
+        if line.strip()
+    ]
 
 
-# ============================================================
-# NGINX
-# ============================================================
-
-def audit_nginx() -> AuditItem:
+def audit_docker() -> AuditItem:
 
     evidence: List[str] = []
     missing: List[str] = []
 
-    code, stdout, stderr = run_command(
-        ["nginx", "-t"]
-    )
-
-    if code == 0:
-
-        evidence.append(
-            "nginx -t successful."
+    if not command_exists("docker"):
+        return item(
+            "Production containers",
+            False,
+            [],
+            ["Docker CLI is unavailable."],
         )
 
-    else:
+    rows = docker_rows()
 
-        missing.append(
-            "nginx -t failed or nginx CLI unavailable: "
-            + safe_text(stderr or stdout)
-        )
+    evidence.extend(rows)
 
-    return AuditItem(
-        "Nginx configuration",
-        "PASS" if not missing else "FAIL",
+    for required in (
+        "majd-ai-core",
+        "majd-web-ui",
+    ):
+
+        if not any(
+            row.startswith(required + "|")
+            for row in rows
+        ):
+            missing.append(
+                f"Required production container is not running: {required}"
+            )
+
+    return item(
+        "Production containers",
+        not missing,
         evidence,
         missing,
-        critical=False,
     )
 
 
+def inspect_container_env(
+    container: str,
+) -> Dict[str, bool]:
+
+    code, stdout, _ = run(
+        [
+            "docker",
+            "inspect",
+            container,
+            "--format",
+            "{{range .Config.Env}}{{println .}}{{end}}",
+        ]
+    )
+
+    result: Dict[str, bool] = {}
+
+    if code != 0:
+        return result
+
+    for line in stdout.splitlines():
+
+        if "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+
+        result[key.strip()] = bool(value.strip())
+
+    return result
+
+
 # ============================================================
-# LISTENING PORTS
+# PORTS
 # ============================================================
 
-def port_open(
-    host: str,
-    port: int,
-) -> bool:
+def port_open(host: str, port: int) -> bool:
 
     sock = socket.socket(
         socket.AF_INET,
@@ -1098,17 +700,17 @@ def port_open(
 
 def audit_ports() -> AuditItem:
 
-    expected = {
-        80: "HTTP/Nginx",
-        443: "HTTPS/Nginx",
-        8000: "MAJD backend",
-        8080: "MAJD frontend",
-    }
-
     evidence: List[str] = []
     missing: List[str] = []
 
-    for port, label in expected.items():
+    ports = {
+        80: ("HTTP/Nginx", False),
+        443: ("HTTPS/Nginx", False),
+        8000: ("MAJD backend", True),
+        8080: ("MAJD frontend", True),
+    }
+
+    for port, (label, required) in ports.items():
 
         opened = port_open(
             "127.0.0.1",
@@ -1120,79 +722,1245 @@ def audit_ports() -> AuditItem:
             + ("OPEN" if opened else "CLOSED")
         )
 
-        if port in (8000, 8080) and not opened:
-
+        if required and not opened:
             missing.append(
-                f"Required local port {port} is closed."
+                f"Required port {port} is closed."
             )
 
-    return AuditItem(
+    return item(
         "Listening production ports",
-        "PASS" if not missing else "FAIL",
+        not missing,
         evidence,
         missing,
     )
 
 
 # ============================================================
-# GIT / PROTECTED CHANGE DETECTION
+# NGINX
 # ============================================================
 
-def audit_git_state() -> AuditItem:
+def audit_nginx() -> AuditItem:
+
+    if not command_exists("nginx"):
+        return item(
+            "Nginx configuration",
+            False,
+            [],
+            ["nginx CLI unavailable."],
+            critical=False,
+        )
+
+    code, stdout, stderr = run(
+        ["nginx", "-t"]
+    )
+
+    evidence = [
+        redact(stderr or stdout)
+    ]
+
+    return item(
+        "Nginx configuration",
+        code == 0,
+        evidence,
+        [] if code == 0 else ["nginx -t failed."],
+        critical=False,
+    )
+
+
+# ============================================================
+# FRONTEND
+# ============================================================
+
+def audit_frontend() -> AuditItem:
+
+    response = http_request(
+        FRONTEND_URL + "/"
+    )
+
+    evidence = [
+        f"GET / => HTTP {response.get('status')} "
+        f"({response.get('elapsed_ms')} ms)"
+    ]
+
+    missing: List[str] = []
+
+    if response.get("status") != 200:
+        missing.append(
+            "Frontend root does not return HTTP 200."
+        )
+
+    body = response.get("body") or ""
+
+    if response.get("status") == 200:
+
+        if not body.strip():
+            missing.append(
+                "Frontend response body is empty."
+            )
+
+        if "<html" not in body.lower():
+            missing.append(
+                "Frontend root is not recognizable HTML."
+            )
+
+    return item(
+        "Frontend deployment",
+        not missing,
+        evidence,
+        missing,
+    )
+
+
+def audit_login_route() -> AuditItem:
+
+    response = http_request(
+        FRONTEND_URL + "/login"
+    )
+
+    code = response.get("status")
+
+    evidence = [
+        f"GET /login => HTTP {code}"
+    ]
+
+    missing: List[str] = []
+
+    if code not in (
+        200,
+        301,
+        302,
+        307,
+        308,
+        401,
+        403,
+    ):
+        missing.append(
+            f"Frontend login route is not production-routable; HTTP {code}."
+        )
+
+    return item(
+        "Frontend login routing",
+        not missing,
+        evidence,
+        missing,
+    )
+
+
+def audit_static_assets() -> AuditItem:
+
+    root = http_request(
+        FRONTEND_URL + "/"
+    )
 
     evidence: List[str] = []
     missing: List[str] = []
 
-    code, stdout, stderr = run_command(
-        ["git", "status", "--porcelain"]
-    )
+    body = root.get("body") or ""
 
-    if code != 0:
+    candidates: Set[str] = set()
 
-        return AuditItem(
-            "Git working tree",
-            "FAIL",
-            [],
-            [
-                "Unable to inspect git status: "
-                + safe_text(stderr)
-            ],
-            critical=False,
+    for match in re.findall(
+        r'''(?:src|href)=["']([^"']+)["']''',
+        body,
+        flags=re.IGNORECASE,
+    ):
+
+        if match.startswith(
+            ("data:", "mailto:", "javascript:")
+        ):
+            continue
+
+        candidates.add(match)
+
+    checked = 0
+
+    for asset in sorted(candidates):
+
+        if checked >= 20:
+            break
+
+        if asset.startswith(("http://", "https://")):
+            url = asset
+        else:
+            url = urllib.parse.urljoin(
+                FRONTEND_URL + "/",
+                asset,
+            )
+
+        response = http_request(url)
+
+        evidence.append(
+            f"ASSET {asset} => HTTP {response.get('status')}"
         )
 
-    changes = [
-        line
-        for line in stdout.splitlines()
-        if line.strip()
-    ]
+        checked += 1
 
-    protected_changes = []
+        if response.get("status") is None:
+            missing.append(
+                f"Asset unreachable: {asset}"
+            )
 
-    for line in changes:
+        elif int(response.get("status")) >= 400:
+            missing.append(
+                f"Asset failed: {asset} HTTP {response.get('status')}"
+            )
 
-        if any(
-            number in line
-            for number in PROTECTED_NUMBERS
-        ):
-            protected_changes.append(line)
+    favicon = http_request(
+        FRONTEND_URL + "/favicon.ico"
+    )
 
     evidence.append(
-        f"Working tree changes: {len(changes)}"
+        f"favicon.ico => HTTP {favicon.get('status')}"
     )
 
-    if protected_changes:
-
-        evidence.extend(
-            protected_changes
-        )
-
+    if favicon.get("status") != 200:
         missing.append(
-            "Protected 07/08/09 files have uncommitted changes."
+            "favicon.ico is missing or not served."
         )
 
-    return AuditItem(
-        "Git protected-file state",
-        "PASS" if not missing else "FAIL",
+    return item(
+        "Frontend static assets",
+        not missing,
+        evidence,
+        missing,
+        critical=False,
+    )
+
+
+# ============================================================
+# BACKEND / OPENAPI
+# ============================================================
+
+def audit_backend_health() -> AuditItem:
+
+    evidence: List[str] = []
+
+    for route in (
+        "/health",
+        "/api/health",
+        "/",
+    ):
+
+        response = http_request(
+            BACKEND_URL + route
+        )
+
+        evidence.append(
+            f"GET {route} => HTTP {response.get('status')}"
+        )
+
+        if response.get("status") == 200:
+
+            return item(
+                "Backend health",
+                True,
+                evidence + [
+                    f"Backend reachable through {route}"
+                ],
+                [],
+            )
+
+    return item(
+        "Backend health",
+        False,
+        evidence,
+        [
+            "No backend health/root route returned HTTP 200."
+        ],
+    )
+
+
+def discover_openapi() -> Tuple[
+    Optional[Dict[str, Any]],
+    List[str],
+]:
+
+    evidence: List[str] = []
+
+    for route in (
+        "/openapi.json",
+        "/api/openapi.json",
+    ):
+
+        response = http_request(
+            BACKEND_URL + route
+        )
+
+        evidence.append(
+            f"GET {route} => HTTP {response.get('status')}"
+        )
+
+        if response.get("status") != 200:
+            continue
+
+        parsed = parse_json(response)
+
+        if isinstance(parsed, dict):
+            return parsed, evidence
+
+    return None, evidence
+
+
+def routes_from_openapi(
+    schema: Optional[Dict[str, Any]],
+) -> Dict[str, Dict[str, Dict[str, Any]]]:
+
+    result: Dict[
+        str,
+        Dict[str, Dict[str, Any]]
+    ] = {}
+
+    if not schema:
+        return result
+
+    paths = schema.get("paths")
+
+    if not isinstance(paths, dict):
+        return result
+
+    for path, methods in paths.items():
+
+        if not isinstance(methods, dict):
+            continue
+
+        normalized: Dict[str, Dict[str, Any]] = {}
+
+        for method, definition in methods.items():
+
+            if method.lower() not in HTTP_METHODS:
+                continue
+
+            normalized[method.upper()] = (
+                definition
+                if isinstance(definition, dict)
+                else {}
+            )
+
+        if normalized:
+            result[str(path)] = normalized
+
+    return result
+
+
+def route_matches(
+    routes: Dict[str, Dict[str, Dict[str, Any]]],
+    keywords: Iterable[str],
+) -> List[Tuple[str, str, Dict[str, Any]]]:
+
+    keywords = tuple(
+        word.lower()
+        for word in keywords
+    )
+
+    matches: List[
+        Tuple[str, str, Dict[str, Any]]
+    ] = []
+
+    for path, methods in routes.items():
+
+        lower = path.lower()
+
+        if not any(
+            word in lower
+            for word in keywords
+        ):
+            continue
+
+        for method, definition in methods.items():
+            matches.append(
+                (method, path, definition)
+            )
+
+    return matches
+
+
+def audit_openapi(
+    schema: Optional[Dict[str, Any]],
+    evidence: List[str],
+    routes: Dict[str, Dict[str, Dict[str, Any]]],
+) -> AuditItem:
+
+    if not schema:
+
+        return item(
+            "OpenAPI discovery",
+            False,
+            evidence,
+            ["Backend OpenAPI schema unavailable."],
+        )
+
+    return item(
+        "OpenAPI discovery",
+        True,
+        evidence + [
+            f"Discovered {len(routes)} API paths."
+        ],
+        [],
+    )
+
+
+# ============================================================
+# ROUTE GROUPS
+# ============================================================
+
+FEATURES = {
+    "Authentication API": (
+        "login",
+        "auth",
+        "signin",
+        "session",
+        "token",
+        "me",
+    ),
+    "Wallet / MAJD Coins": (
+        "wallet",
+        "coin",
+        "balance",
+    ),
+    "Challenges / Claim": (
+        "challenge",
+        "claim",
+    ),
+    "Coin Packages": (
+        "package",
+        "coin-package",
+        "coin_package",
+    ),
+    "Moyasar / Checkout / Payment": (
+        "moyasar",
+        "checkout",
+        "payment",
+        "webhook",
+    ),
+    "Transactions Ledger": (
+        "transaction",
+        "ledger",
+    ),
+    "Rewarded Ads": (
+        "rewarded",
+        "reward",
+        "ad-session",
+        "ad_session",
+        "ads",
+    ),
+    "Owner / Admin / Audit": (
+        "owner",
+        "admin",
+        "audit",
+    ),
+}
+
+
+def audit_feature_routes(
+    name: str,
+    routes: Dict[str, Dict[str, Dict[str, Any]]],
+    keywords: Tuple[str, ...],
+) -> AuditItem:
+
+    matches = route_matches(
+        routes,
+        keywords,
+    )
+
+    evidence = [
+        f"{method} {path}"
+        for method, path, _ in matches
+    ]
+
+    if not matches:
+
+        return item(
+            name,
+            False,
+            [],
+            [
+                "No real backend route discovered for: "
+                + ", ".join(keywords)
+            ],
+        )
+
+    return item(
+        name,
+        True,
+        evidence,
+        [],
+    )
+
+
+# ============================================================
+# AUTH SECURITY
+# ============================================================
+
+def audit_protected_routes(
+    routes: Dict[str, Dict[str, Dict[str, Any]]],
+) -> AuditItem:
+
+    evidence: List[str] = []
+    missing: List[str] = []
+
+    protected_keywords = (
+        "wallet",
+        "balance",
+        "claim",
+        "transaction",
+        "ledger",
+        "reward",
+        "owner",
+        "admin",
+        "audit",
+    )
+
+    candidates = route_matches(
+        routes,
+        protected_keywords,
+    )
+
+    if not candidates:
+
+        return item(
+            "Backend authorization protection",
+            False,
+            [],
+            [
+                "No security-sensitive application endpoints exist to test."
+            ],
+        )
+
+    tested = 0
+    rejected = 0
+    exposed: List[str] = []
+
+    for method, path, _ in candidates[:30]:
+
+        # Do not execute destructive/mutating endpoint operations.
+        if method not in SAFE_READ_METHODS:
+            continue
+
+        response = http_request(
+            BACKEND_URL + path,
+            method=method,
+        )
+
+        code = response.get("status")
+
+        tested += 1
+
+        evidence.append(
+            f"Unauthenticated {method} {path} => HTTP {code}"
+        )
+
+        if code in (401, 403):
+            rejected += 1
+
+        elif code is not None and 200 <= int(code) < 300:
+            exposed.append(
+                f"{method} {path} returned HTTP {code} without auth"
+            )
+
+    if exposed:
+        missing.extend(
+            "Potentially unprotected endpoint: " + value
+            for value in exposed
+        )
+
+    if tested == 0:
+        missing.append(
+            "No safe read-only protected route could be security-probed."
+        )
+
+    elif rejected == 0:
+        missing.append(
+            "No tested protected route rejected unauthenticated access "
+            "with HTTP 401/403."
+        )
+
+    return item(
+        "Backend authorization protection",
+        not missing,
+        evidence,
+        missing,
+    )
+
+
+def audit_owner_protection(
+    routes: Dict[str, Dict[str, Dict[str, Any]]],
+) -> AuditItem:
+
+    matches = route_matches(
+        routes,
+        ("owner", "admin"),
+    )
+
+    evidence: List[str] = []
+    missing: List[str] = []
+
+    if not matches:
+
+        return item(
+            "SUPREME_OWNER backend protection",
+            False,
+            [],
+            ["No owner/admin backend routes discovered."],
+        )
+
+    safe_tested = 0
+    safe_rejected = 0
+
+    for method, path, _ in matches:
+
+        evidence.append(
+            f"DISCOVERED {method} {path}"
+        )
+
+        if method not in SAFE_READ_METHODS:
+            continue
+
+        response = http_request(
+            BACKEND_URL + path,
+            method=method,
+        )
+
+        code = response.get("status")
+
+        evidence.append(
+            f"UNAUTHENTICATED {method} {path} => HTTP {code}"
+        )
+
+        safe_tested += 1
+
+        if code in (401, 403):
+            safe_rejected += 1
+
+        elif code is not None and 200 <= int(code) < 300:
+            missing.append(
+                f"Owner endpoint accessible without authentication: "
+                f"{method} {path}"
+            )
+
+    if safe_tested and safe_rejected == 0:
+        missing.append(
+            "No read-only owner/admin endpoint proved 401/403 protection."
+        )
+
+    # Mutating owner routes must at least declare security in OpenAPI
+    for method, path, definition in matches:
+
+        if method in SAFE_READ_METHODS:
+            continue
+
+        security = definition.get("security")
+
+        if security:
+            evidence.append(
+                f"SECURITY DECLARED {method} {path}"
+            )
+        else:
+            missing.append(
+                f"Mutating owner/admin route has no OpenAPI security "
+                f"declaration: {method} {path}"
+            )
+
+    return item(
+        "SUPREME_OWNER backend protection",
+        not missing,
+        evidence,
+        missing,
+    )
+
+
+# ============================================================
+# OWNER AUTHENTICATED VERIFICATION
+# ============================================================
+
+def audit_owner_authenticated(
+    routes: Dict[str, Dict[str, Dict[str, Any]]],
+) -> AuditItem:
+
+    if not OWNER_TOKEN:
+
+        return item(
+            "SUPREME_OWNER authenticated verification",
+            False,
+            [],
+            [
+                "MAJD_OWNER_TOKEN is missing; authenticated owner "
+                "verification cannot run."
+            ],
+        )
+
+    matches = route_matches(
+        routes,
+        (
+            "owner",
+            "admin",
+            "profile",
+            "me",
+            "auth",
+        ),
+    )
+
+    evidence: List[str] = [
+        "MAJD_OWNER_TOKEN configured; value not printed."
+    ]
+
+    for method, path, _ in matches:
+
+        if method != "GET":
+            continue
+
+        response = http_request(
+            BACKEND_URL + path,
+            headers=auth_headers(OWNER_TOKEN),
+        )
+
+        code = response.get("status")
+
+        evidence.append(
+            f"Authenticated GET {path} => HTTP {code}"
+        )
+
+        if code != 200:
+            continue
+
+        parsed = parse_json(response)
+
+        searchable = json.dumps(
+            parsed,
+            ensure_ascii=False,
+        ) if parsed is not None else response.get("body", "")
+
+        if EXPECTED_OWNER_ROLE.lower() in searchable.lower():
+
+            evidence.append(
+                f"Backend response identifies role {EXPECTED_OWNER_ROLE}."
+            )
+
+            return item(
+                "SUPREME_OWNER authenticated verification",
+                True,
+                evidence,
+                [],
+            )
+
+    return item(
+        "SUPREME_OWNER authenticated verification",
+        False,
+        evidence,
+        [
+            f"Could not prove authenticated backend role "
+            f"{EXPECTED_OWNER_ROLE}."
+        ],
+    )
+
+
+# ============================================================
+# DATABASE
+# ============================================================
+
+def audit_database() -> AuditItem:
+
+    evidence: List[str] = []
+    missing: List[str] = []
+
+    configured = bool(DATABASE_URL)
+
+    if configured:
+        evidence.append(
+            "Database URI configured in audit process; value not printed."
+        )
+
+    container_env = inspect_container_env(
+        "majd-ai-core"
+    )
+
+    container_db_keys = [
+        key
+        for key in (
+            "DATABASE_URL",
+            "MONGODB_URI",
+            "MONGO_URI",
+        )
+        if container_env.get(key)
+    ]
+
+    if container_db_keys:
+        evidence.append(
+            "Backend container database configuration present via: "
+            + ", ".join(container_db_keys)
+        )
+        configured = True
+
+    if not configured:
+        missing.append(
+            "No DATABASE_URL/MONGODB_URI/MONGO_URI was detected "
+            "in audit process or backend container."
+        )
+
+    # Configuration alone does not prove live DB connectivity.
+    health_candidates = (
+        "/health",
+        "/api/health",
+    )
+
+    db_proven = False
+
+    for route in health_candidates:
+
+        response = http_request(
+            BACKEND_URL + route
+        )
+
+        if response.get("status") != 200:
+            continue
+
+        parsed = parse_json(response)
+
+        searchable = json.dumps(
+            parsed,
+            ensure_ascii=False,
+        ).lower() if parsed is not None else ""
+
+        if (
+            ("database" in searchable or "mongodb" in searchable or '"db"' in searchable)
+            and any(
+                word in searchable
+                for word in (
+                    "connected",
+                    "healthy",
+                    '"ok"',
+                    "ready",
+                )
+            )
+        ):
+            evidence.append(
+                f"Backend {route} reports database connectivity."
+            )
+            db_proven = True
+            break
+
+    if configured and not db_proven:
+        missing.append(
+            "Database configuration exists but live database connectivity "
+            "was not proven by a backend health/readiness response."
+        )
+
+    return item(
+        "Database connectivity",
+        configured and db_proven,
+        evidence,
+        missing,
+    )
+
+
+# ============================================================
+# WALLET / COINS REAL READ
+# ============================================================
+
+def audit_authenticated_read_feature(
+    name: str,
+    routes: Dict[str, Dict[str, Dict[str, Any]]],
+    keywords: Tuple[str, ...],
+    token: str,
+) -> AuditItem:
+
+    matches = route_matches(
+        routes,
+        keywords,
+    )
+
+    evidence: List[str] = []
+    missing: List[str] = []
+
+    if not matches:
+
+        return item(
+            name,
+            False,
+            [],
+            ["No matching backend routes discovered."],
+        )
+
+    get_routes = [
+        (method, path)
+        for method, path, _ in matches
+        if method == "GET"
+        and "{" not in path
+    ]
+
+    if not get_routes:
+
+        return item(
+            name,
+            False,
+            [
+                f"DISCOVERED {method} {path}"
+                for method, path, _ in matches
+            ],
+            [
+                "Feature routes exist, but no directly testable "
+                "read-only GET endpoint was discovered."
+            ],
+        )
+
+    if not token:
+
+        return item(
+            name,
+            False,
+            [
+                f"DISCOVERED {method} {path}"
+                for method, path, _ in matches
+            ],
+            [
+                "No authenticated test token available for real read verification."
+            ],
+        )
+
+    for _, path in get_routes:
+
+        response = http_request(
+            BACKEND_URL + path,
+            headers=auth_headers(token),
+        )
+
+        code = response.get("status")
+
+        evidence.append(
+            f"Authenticated GET {path} => HTTP {code}"
+        )
+
+        if code == 200:
+            return item(
+                name,
+                True,
+                evidence,
+                [],
+            )
+
+    missing.append(
+        "No discovered read endpoint returned HTTP 200 "
+        "with the configured authenticated token."
+    )
+
+    return item(
+        name,
+        False,
+        evidence,
+        missing,
+    )
+
+
+# ============================================================
+# CHALLENGE CLAIM SAFETY
+# ============================================================
+
+def audit_challenge_claim_design(
+    routes: Dict[str, Dict[str, Dict[str, Any]]],
+) -> AuditItem:
+
+    matches = route_matches(
+        routes,
+        ("challenge", "claim"),
+    )
+
+    evidence = [
+        f"{method} {path}"
+        for method, path, _ in matches
+    ]
+
+    missing: List[str] = []
+
+    claim_routes = [
+        (method, path, definition)
+        for method, path, definition in matches
+        if "claim" in path.lower()
+    ]
+
+    if not claim_routes:
+        missing.append(
+            "No challenge claim endpoint discovered."
+        )
+
+    for method, path, definition in claim_routes:
+
+        if method not in ("POST", "PUT", "PATCH"):
+            missing.append(
+                f"Claim route uses unexpected method {method}: {path}"
+            )
+
+        if not definition.get("security"):
+            missing.append(
+                f"Claim route has no OpenAPI security declaration: "
+                f"{method} {path}"
+            )
+
+    if claim_routes:
+        missing.append(
+            "Duplicate-claim prevention cannot be proven safely by this "
+            "production audit without a dedicated non-mutating verification "
+            "endpoint or isolated test transaction."
+        )
+
+    return item(
+        "Challenges claim and duplicate protection",
+        not missing,
+        evidence,
+        missing,
+    )
+
+
+# ============================================================
+# PAYMENT SAFETY
+# ============================================================
+
+def audit_payment_security(
+    routes: Dict[str, Dict[str, Dict[str, Any]]],
+) -> AuditItem:
+
+    matches = route_matches(
+        routes,
+        (
+            "moyasar",
+            "checkout",
+            "payment",
+            "webhook",
+        ),
+    )
+
+    evidence = [
+        f"{method} {path}"
+        for method, path, _ in matches
+    ]
+
+    missing: List[str] = []
+
+    if not matches:
+        missing.append(
+            "No payment/checkout/webhook backend endpoints discovered."
+        )
+
+    secret_present = bool(MOYASAR_SECRET_KEY)
+
+    container_env = inspect_container_env(
+        "majd-ai-core"
+    )
+
+    if container_env.get("MOYASAR_SECRET_KEY"):
+        secret_present = True
+
+    if secret_present:
+        evidence.append(
+            "Moyasar server secret configuration detected; value not printed."
+        )
+    else:
+        missing.append(
+            "MOYASAR_SECRET_KEY not detected in audit process "
+            "or backend container."
+        )
+
+    webhook_routes = [
+        (method, path, definition)
+        for method, path, definition in matches
+        if "webhook" in path.lower()
+        or "verify" in path.lower()
+    ]
+
+    if not webhook_routes:
+        missing.append(
+            "No payment verification/webhook route discovered."
+        )
+
+    # Never issue a real payment during production audit.
+    evidence.append(
+        "No real charge was created by the audit."
+    )
+
+    missing.append(
+        "Server-side rule 'no coins before confirmed payment' "
+        "requires a dedicated integration/test transaction or verifiable "
+        "backend implementation evidence; route discovery alone is insufficient."
+    )
+
+    return item(
+        "Moyasar server-side payment safety",
+        not missing,
+        evidence,
+        missing,
+    )
+
+
+# ============================================================
+# REWARDED ADS SAFETY
+# ============================================================
+
+def audit_rewarded_ads_security(
+    routes: Dict[str, Dict[str, Dict[str, Any]]],
+) -> AuditItem:
+
+    matches = route_matches(
+        routes,
+        (
+            "rewarded",
+            "reward",
+            "ad-session",
+            "ad_session",
+            "ads",
+        ),
+    )
+
+    evidence = [
+        f"{method} {path}"
+        for method, path, _ in matches
+    ]
+
+    missing: List[str] = []
+
+    if not matches:
+        missing.append(
+            "No rewarded-ad backend endpoints discovered."
+        )
+        return item(
+            "Rewarded Ads server verification",
+            False,
+            evidence,
+            missing,
+        )
+
+    verification = [
+        (method, path)
+        for method, path, _ in matches
+        if any(
+            word in path.lower()
+            for word in (
+                "verify",
+                "callback",
+                "complete",
+                "reward",
+            )
+        )
+    ]
+
+    if not verification:
+        missing.append(
+            "No server-side rewarded-ad verification/completion route discovered."
+        )
+
+    return item(
+        "Rewarded Ads server verification",
+        not missing,
+        evidence,
+        missing,
+    )
+
+
+# ============================================================
+# TRANSACTION LEDGER
+# ============================================================
+
+def audit_transaction_ledger(
+    routes: Dict[str, Dict[str, Dict[str, Any]]],
+) -> AuditItem:
+
+    matches = route_matches(
+        routes,
+        ("transaction", "ledger"),
+    )
+
+    evidence = [
+        f"{method} {path}"
+        for method, path, _ in matches
+    ]
+
+    missing: List[str] = []
+
+    if not matches:
+        missing.append(
+            "No transaction/ledger endpoint discovered."
+        )
+
+    read_route = any(
+        method == "GET"
+        for method, _, _ in matches
+    )
+
+    if matches and not read_route:
+        missing.append(
+            "Ledger exists but no read-only GET route was discovered "
+            "for audit verification."
+        )
+
+    return item(
+        "Transactions Ledger",
+        not missing,
+        evidence,
+        missing,
+    )
+
+
+# ============================================================
+# CORS
+# ============================================================
+
+def audit_cors() -> AuditItem:
+
+    origins = [
+        FRONTEND_URL,
+    ]
+
+    if PUBLIC_URL:
+        origins.append(PUBLIC_URL)
+
+    evidence: List[str] = []
+    missing: List[str] = []
+
+    for origin in origins:
+
+        response = http_request(
+            BACKEND_URL + "/",
+            method="OPTIONS",
+            headers={
+                "Origin": origin,
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Headers": "authorization,content-type",
+            },
+        )
+
+        allow_origin = header_value(
+            response.get("headers", {}),
+            "Access-Control-Allow-Origin",
+        )
+
+        allow_methods = header_value(
+            response.get("headers", {}),
+            "Access-Control-Allow-Methods",
+        )
+
+        evidence.append(
+            f"Origin={origin} OPTIONS / => HTTP {response.get('status')}"
+        )
+
+        evidence.append(
+            f"Access-Control-Allow-Origin={allow_origin or 'MISSING'}"
+        )
+
+        evidence.append(
+            f"Access-Control-Allow-Methods={allow_methods or 'MISSING'}"
+        )
+
+        if not allow_origin:
+            missing.append(
+                f"CORS allow-origin missing for {origin}."
+            )
+
+        elif allow_origin not in ("*", origin):
+            missing.append(
+                f"CORS returned unexpected origin {allow_origin} "
+                f"for requested origin {origin}."
+            )
+
+    return item(
+        "CORS",
+        not missing,
         evidence,
         missing,
     )
@@ -1204,7 +1972,43 @@ def audit_git_state() -> AuditItem:
 
 def audit_environment() -> AuditItem:
 
-    required_groups = {
+    evidence: List[str] = []
+    missing: List[str] = []
+
+    process_env = {
+        key: bool(os.getenv(key))
+        for key in (
+            "DATABASE_URL",
+            "MONGODB_URI",
+            "MONGO_URI",
+            "MAJD_OWNER_TOKEN",
+            "MAJD_TEST_USER_TOKEN",
+            "MOYASAR_SECRET_KEY",
+            "MAJD_FRONTEND_URL",
+            "MAJD_BACKEND_URL",
+            "MAJD_PUBLIC_URL",
+        )
+    }
+
+    container_env = inspect_container_env(
+        "majd-ai-core"
+    )
+
+    def present_any(names: Tuple[str, ...]) -> bool:
+
+        process = any(
+            process_env.get(name, False)
+            for name in names
+        )
+
+        container = any(
+            container_env.get(name, False)
+            for name in names
+        )
+
+        return process or container
+
+    groups = {
         "Database": (
             "DATABASE_URL",
             "MONGODB_URI",
@@ -1218,58 +2022,166 @@ def audit_environment() -> AuditItem:
         ),
     }
 
-    evidence: List[str] = []
-    missing: List[str] = []
+    for label, names in groups.items():
 
-    for group, names in required_groups.items():
-
-        present = [
-            name
-            for name in names
-            if os.getenv(name)
-        ]
-
-        if present:
-
+        if present_any(names):
             evidence.append(
-                f"{group}: configured via "
-                + ", ".join(present)
+                f"{label}: configured; secret value not printed."
             )
-
         else:
-
             missing.append(
-                f"{group}: missing one of "
-                + ", ".join(names)
+                f"{label}: missing {', '.join(names)}"
             )
 
-    return AuditItem(
+    return item(
         "Production environment",
-        "PASS" if not missing else "FAIL",
+        not missing,
         evidence,
         missing,
     )
 
 
 # ============================================================
-# MAIN AUDIT
+# HTTP ERROR / PUBLIC SURFACE
+# ============================================================
+
+def audit_http_surface() -> AuditItem:
+
+    evidence: List[str] = []
+    missing: List[str] = []
+
+    checks = (
+        ("Frontend /", FRONTEND_URL + "/"),
+        ("Frontend /login", FRONTEND_URL + "/login"),
+        ("Backend /", BACKEND_URL + "/"),
+        ("Backend OpenAPI", BACKEND_URL + "/openapi.json"),
+    )
+
+    for label, url in checks:
+
+        response = http_request(url)
+
+        code = response.get("status")
+
+        evidence.append(
+            f"{label} => HTTP {code}"
+        )
+
+        if code is None:
+            missing.append(
+                f"{label} unreachable."
+            )
+
+        elif int(code) >= 500:
+            missing.append(
+                f"{label} returned server error HTTP {code}."
+            )
+
+    return item(
+        "HTTP production surface",
+        not missing,
+        evidence,
+        missing,
+    )
+
+
+# ============================================================
+# BUILD / COMPOSE VALIDATION
+# ============================================================
+
+def audit_compose_configuration() -> AuditItem:
+
+    compose = ROOT_DIR.parent / "docker-compose.yml"
+
+    if not compose.exists():
+        compose = ROOT_DIR / "docker-compose.yml"
+
+    if not compose.exists():
+
+        return item(
+            "Docker Compose production configuration",
+            False,
+            [],
+            ["docker-compose.yml not found."],
+            critical=False,
+        )
+
+    evidence = [
+        f"Compose file={compose}"
+    ]
+
+    if not command_exists("docker"):
+
+        return item(
+            "Docker Compose production configuration",
+            False,
+            evidence,
+            ["Docker CLI unavailable."],
+            critical=False,
+        )
+
+    code, stdout, stderr = run(
+        [
+            "docker",
+            "compose",
+            "-f",
+            str(compose),
+            "config",
+            "--quiet",
+        ],
+        timeout=30,
+    )
+
+    if code == 0:
+
+        evidence.append(
+            "docker compose config validation passed."
+        )
+
+        return item(
+            "Docker Compose production configuration",
+            True,
+            evidence,
+            [],
+            critical=False,
+        )
+
+    return item(
+        "Docker Compose production configuration",
+        False,
+        evidence,
+        [
+            "docker compose config failed: "
+            + redact(stderr or stdout)
+        ],
+        critical=False,
+    )
+
+
+# ============================================================
+# MAIN
 # ============================================================
 
 def main() -> int:
 
-    print("=" * 72)
-    print("MAJD GAME FACTORY - FINAL PRODUCTION AUDIT 10")
-    print("=" * 72)
+    started = utc_now()
 
-    print(f"Started: {utc_now()}")
-    print(f"Frontend: {DEFAULT_FRONTEND_URL}")
-    print(f"Backend:  {DEFAULT_BACKEND_URL}")
-    print()
+    print("=" * 78)
+    print("MAJD GAME FACTORY - FINAL PRODUCTION AUDIT 10")
+    print("=" * 78)
+    print(f"Started:  {started}")
+    print(f"Frontend: {FRONTEND_URL}")
+    print(f"Backend:  {BACKEND_URL}")
+
+    if PUBLIC_URL:
+        print(f"Public:   {PUBLIC_URL}")
+
+    print("=" * 78)
 
     results: List[AuditItem] = []
 
     # --------------------------------------------------------
-    # Infrastructure
+    # Protected project state
     # --------------------------------------------------------
 
     results.append(
@@ -1277,8 +2189,20 @@ def main() -> int:
     )
 
     results.append(
-        audit_git_state()
+        audit_protected_git_integrity()
     )
+
+    results.append(
+        audit_source_inventory()
+    )
+
+    results.append(
+        audit_python_compile()
+    )
+
+    # --------------------------------------------------------
+    # Infrastructure
+    # --------------------------------------------------------
 
     results.append(
         audit_docker()
@@ -1290,6 +2214,10 @@ def main() -> int:
 
     results.append(
         audit_nginx()
+    )
+
+    results.append(
+        audit_compose_configuration()
     )
 
     # --------------------------------------------------------
@@ -1305,7 +2233,7 @@ def main() -> int:
     )
 
     results.append(
-        audit_favicon()
+        audit_static_assets()
     )
 
     # --------------------------------------------------------
@@ -1318,153 +2246,122 @@ def main() -> int:
 
     schema, openapi_evidence = discover_openapi()
 
-    routes = get_routes(schema)
-
-    if schema:
-
-        results.append(
-            AuditItem(
-                "OpenAPI discovery",
-                "PASS",
-                openapi_evidence
-                + [
-                    f"Discovered {len(routes)} API paths."
-                ],
-                [],
-            )
-        )
-
-    else:
-
-        results.append(
-            AuditItem(
-                "OpenAPI discovery",
-                "FAIL",
-                openapi_evidence,
-                [
-                    "Real backend OpenAPI schema unavailable."
-                ],
-            )
-        )
-
-    # --------------------------------------------------------
-    # Required real backend systems
-    # --------------------------------------------------------
+    routes = routes_from_openapi(schema)
 
     results.append(
-        audit_route_group(
-            "Authentication API",
+        audit_openapi(
+            schema,
+            openapi_evidence,
             routes,
-            (
-                "login",
-                "auth",
-                "session",
-                "signin",
-            ),
         )
     )
 
+    # --------------------------------------------------------
+    # Every required application subsystem
+    # --------------------------------------------------------
+
+    for feature_name, keywords in FEATURES.items():
+
+        results.append(
+            audit_feature_routes(
+                feature_name,
+                routes,
+                keywords,
+            )
+        )
+
+    # --------------------------------------------------------
+    # Real authenticated reads
+    # --------------------------------------------------------
+
+    usable_user_token = (
+        TEST_USER_TOKEN
+        or OWNER_TOKEN
+    )
+
     results.append(
-        audit_route_group(
-            "Wallet / MAJD Coins",
+        audit_authenticated_read_feature(
+            "Wallet / MAJD Coins real backend read",
             routes,
             (
                 "wallet",
-                "coin",
                 "balance",
+                "coin",
             ),
+            usable_user_token,
         )
     )
 
     results.append(
-        audit_route_group(
-            "Challenges",
-            routes,
-            (
-                "challenge",
-                "claim",
-            ),
-        )
-    )
-
-    results.append(
-        audit_route_group(
-            "Coin Packages",
+        audit_authenticated_read_feature(
+            "Coin Packages real backend read",
             routes,
             (
                 "package",
                 "coin-package",
+                "coin_package",
             ),
+            usable_user_token,
         )
     )
 
     results.append(
-        audit_route_group(
-            "Moyasar / Checkout",
+        audit_authenticated_read_feature(
+            "Challenges real backend read",
             routes,
             (
-                "moyasar",
-                "checkout",
-                "payment",
-                "webhook",
+                "challenge",
             ),
+            usable_user_token,
         )
     )
 
     results.append(
-        audit_route_group(
-            "Transactions Ledger",
+        audit_authenticated_read_feature(
+            "Transactions real backend read",
             routes,
             (
                 "transaction",
                 "ledger",
             ),
-        )
-    )
-
-    results.append(
-        audit_route_group(
-            "Rewarded Ads",
-            routes,
-            (
-                "rewarded",
-                "reward",
-                "ad-session",
-                "ads",
-            ),
-        )
-    )
-
-    results.append(
-        audit_route_group(
-            "Owner endpoints",
-            routes,
-            (
-                "owner",
-                "admin",
-                "audit",
-            ),
+            usable_user_token,
         )
     )
 
     # --------------------------------------------------------
-    # Security
+    # Security / business integrity
     # --------------------------------------------------------
 
     results.append(
-        audit_owner_security(routes)
+        audit_protected_routes(routes)
     )
 
     results.append(
-        audit_owner_token()
+        audit_owner_protection(routes)
     )
 
     results.append(
-        audit_database_configuration()
+        audit_owner_authenticated(routes)
     )
 
     results.append(
-        audit_moyasar_configuration()
+        audit_database()
+    )
+
+    results.append(
+        audit_challenge_claim_design(routes)
+    )
+
+    results.append(
+        audit_payment_security(routes)
+    )
+
+    results.append(
+        audit_transaction_ledger(routes)
+    )
+
+    results.append(
+        audit_rewarded_ads_security(routes)
     )
 
     results.append(
@@ -1475,15 +2372,26 @@ def main() -> int:
         audit_environment()
     )
 
+    results.append(
+        audit_http_surface()
+    )
+
     # --------------------------------------------------------
-    # FINAL EVALUATION
+    # Final result
     # --------------------------------------------------------
 
     critical_failures = [
-        item
-        for item in results
-        if item.critical
-        and item.status != "PASS"
+        result
+        for result in results
+        if result.critical
+        and result.status != "PASS"
+    ]
+
+    warnings = [
+        result
+        for result in results
+        if not result.critical
+        and result.status != "PASS"
     ]
 
     final_status = (
@@ -1492,27 +2400,47 @@ def main() -> int:
         else "NOT READY FOR PRODUCTION"
     )
 
+    finished = utc_now()
+
     report = {
         "system": "MAJD-GAME-FACTORY",
         "audit": "MAJD-FINAL-PRODUCTION-AUDIT-10",
-        "started_at": utc_now(),
-        "frontend_url": DEFAULT_FRONTEND_URL,
-        "backend_url": DEFAULT_BACKEND_URL,
+        "audit_version": "2.0",
+        "started_at": started,
+        "finished_at": finished,
+        "frontend_url": FRONTEND_URL,
+        "backend_url": BACKEND_URL,
+        "public_url": PUBLIC_URL or None,
         "protected_files": [
             "07",
             "08",
             "09",
         ],
+        "rules": {
+            "protected_files_modified": False,
+            "fake_data_allowed": False,
+            "real_charge_performed": False,
+            "successful_mutating_owner_command_performed": False,
+            "secret_values_printed": False,
+        },
+        "openapi_paths_discovered": len(routes),
         "results": [
-            asdict(item)
-            for item in results
+            asdict(result)
+            for result in results
         ],
+        "critical_failure_count": len(
+            critical_failures
+        ),
         "critical_failures": [
-            item.name
-            for item in critical_failures
+            result.name
+            for result in critical_failures
+        ],
+        "warning_count": len(warnings),
+        "warnings": [
+            result.name
+            for result in warnings
         ],
         "final_result": final_status,
-        "finished_at": utc_now(),
     }
 
     REPORT_FILE.write_text(
@@ -1525,40 +2453,67 @@ def main() -> int:
     )
 
     print()
-    print("=" * 72)
+    print("=" * 78)
     print("AUDIT RESULTS")
-    print("=" * 72)
+    print("=" * 78)
 
-    for item in results:
+    for result in results:
 
         print()
         print(
-            f"[{item.status}] {item.name}"
+            f"[{result.status}] {result.name}"
         )
 
-        for evidence in item.evidence:
+        for evidence in result.evidence:
             print(
-                f"  EVIDENCE: {evidence}"
+                "  EVIDENCE: "
+                + redact(evidence)
             )
 
-        for missing in item.missing:
+        for problem in result.missing:
             print(
-                f"  MISSING/ERROR: {missing}"
+                "  MISSING/ERROR: "
+                + redact(problem)
             )
 
     print()
-    print("=" * 72)
+    print("=" * 78)
+    print("CRITICAL FAILURES")
+    print("=" * 78)
+
+    if critical_failures:
+
+        for result in critical_failures:
+            print(
+                f"- {result.name}"
+            )
+
+    else:
+        print("NONE")
+
+    print()
+    print("=" * 78)
+    print("NON-CRITICAL WARNINGS")
+    print("=" * 78)
+
+    if warnings:
+
+        for result in warnings:
+            print(
+                f"- {result.name}"
+            )
+
+    else:
+        print("NONE")
+
+    print()
+    print("=" * 78)
     print("FINAL MAJD PRODUCTION RESULT")
-    print("=" * 72)
-
+    print("=" * 78)
     print(final_status)
-
     print()
-    print(
-        f"Report: {REPORT_FILE}"
-    )
-
-    print("=" * 72)
+    print(f"Report: {REPORT_FILE}")
+    print("=" * 78)
 
     return (
         0
