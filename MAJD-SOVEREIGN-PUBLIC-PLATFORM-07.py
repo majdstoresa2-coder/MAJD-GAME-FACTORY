@@ -5,7 +5,8 @@
 MAJD GAME FACTORY
 MAJD-SOVEREIGN-PUBLIC-PLATFORM-07.py
 ====================================
-OFFICIAL SOVEREIGN PUBLIC PLATFORM BUILDER
+OFFICIAL MAJD PUBLIC PLATFORM
+REFERENCE-LOCKED UI BUILD
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ INDEX_FILE = PUBLIC_ROOT / "index.html"
 CONFIG_FILE = PUBLIC_ROOT / "majd-public-config.json"
 
 PLATFORM_NAME = "MAJD"
-VERSION = "2.0.0"
+VERSION = "3.0.0"
 
 
 def utc_now() -> str:
@@ -54,13 +55,11 @@ def build_config() -> Dict[str, Any]:
             "status": "/api/status",
             "dashboard": "/api/dashboard",
         },
-        "features": {
-            "auth": False,
-            "feed": False,
-            "live": False,
-            "games": False,
-            "media": False,
-            "ai": False,
+        "ui": {
+            "reference_locked": True,
+            "direction": "rtl",
+            "desktop_columns": 3,
+            "theme": "majd-dark-gold",
         },
     }
 
@@ -70,103 +69,135 @@ def build_html() -> str:
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport"
-      content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#060b12">
-
-<title>MAJD — المنصة الرسمية السيادية</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#050a0f">
+<title>MAJD — منصة مجد</title>
 
 <style>
 :root{
-  --bg:#060b12;
-  --panel:#0b1520;
-  --panel2:#0f1b29;
-  --line:#1d2a38;
-  --text:#edf2f7;
-  --muted:#8896a8;
-  --gold:#c99a35;
-  --gold2:#e0ba63;
-  --gold3:#f1d58d;
-  --red:#ff365f;
-  --blue:#268cff;
+  --bg:#050a0f;
+  --surface:#08131d;
+  --surface2:#0a1722;
+  --surface3:#0d1b27;
+  --border:#182a39;
+  --border2:#203646;
+  --text:#eef3f7;
+  --soft:#b6c0cb;
+  --muted:#718090;
+  --gold:#d5a73f;
+  --gold2:#f0cb6c;
+  --red:#e72954;
+  --blue:#3a9cff;
+  --green:#2ecf91;
+  --purple:#ad50ff;
+  --cyan:#21c9c3;
 }
 
 *{box-sizing:border-box}
 
 html,body{
   margin:0;
+  padding:0;
   min-height:100%;
-  background:var(--bg);
+  background:
+    radial-gradient(circle at 50% -20%,#112331 0,transparent 28%),
+    var(--bg);
   color:var(--text);
   font-family:"Segoe UI",Tahoma,Arial,sans-serif;
 }
 
-body{overflow-x:hidden}
+body{
+  overflow-x:hidden;
+}
 
-button,input{font:inherit}
-button{cursor:pointer}
+button,input{
+  font:inherit;
+}
 
-.app{
-  min-height:100vh;
+button{
+  cursor:pointer;
+}
+
+a{
+  color:inherit;
+  text-decoration:none;
+}
+
+/* =========================================================
+   MAIN DESKTOP FRAME
+   ========================================================= */
+
+.majd{
+  width:min(100%,1540px);
+  margin:0 auto;
+  padding:12px 14px 76px;
   display:grid;
-  grid-template-columns:235px minmax(0,1fr) 265px;
-  gap:14px;
-  padding:14px;
+  grid-template-columns:252px minmax(560px,1fr) 272px;
+  gap:12px;
   direction:ltr;
 }
 
-.sidebar,.main,.rightbar{direction:rtl}
-
-.sidebar,.rightbar{
-  background:linear-gradient(180deg,#0a131e,#08111a);
-  border:1px solid var(--line);
-  border-radius:16px;
+.sidebar,
+.center,
+.rightbar{
+  direction:rtl;
 }
+
+.panel{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:13px;
+}
+
+/* =========================================================
+   LEFT SIDEBAR
+   ========================================================= */
 
 .sidebar{
-  position:sticky;
-  top:14px;
-  height:calc(100vh - 28px);
-  overflow:auto;
-  padding:12px;
+  min-width:0;
 }
 
-.rightbar{
+.sidebar-inner{
   position:sticky;
-  top:14px;
-  height:calc(100vh - 28px);
-  overflow:auto;
-  padding:12px;
+  top:12px;
 }
 
-.main{min-width:0}
+.sidebar-main{
+  padding:14px 12px 11px;
+}
 
-.brand{
+.logo{
+  height:55px;
   display:flex;
   align-items:center;
+  justify-content:center;
   gap:9px;
-  padding:4px 4px 12px;
-  border-bottom:1px solid var(--line);
+  border-bottom:1px solid var(--border);
+  margin-bottom:12px;
 }
 
-.crown{font-size:20px;color:var(--gold2)}
+.logo-crown{
+  color:var(--gold2);
+  font-size:25px;
+}
 
-.brand-name{
-  color:var(--gold3);
-  font-size:20px;
-  font-weight:900;
-  letter-spacing:1px;
+.logo-word{
+  color:#f1d078;
+  font-family:Georgia,serif;
+  font-weight:800;
+  font-size:25px;
+  letter-spacing:2px;
 }
 
 .profile{
-  margin-top:12px;
-  padding:10px;
-  border:1px solid var(--line);
-  border-radius:14px;
-  background:#0c1723;
+  padding:12px;
+  border:1px solid var(--border2);
+  border-radius:13px;
+  background:#091621;
+  margin-bottom:11px;
 }
 
-.profile-top{
+.profile-head{
   display:flex;
   align-items:center;
   gap:10px;
@@ -175,1086 +206,1813 @@ button{cursor:pointer}
 .avatar{
   width:44px;
   height:44px;
+  flex:0 0 44px;
   border-radius:50%;
   display:grid;
   place-items:center;
-  background:linear-gradient(135deg,#1d2b3a,#4a3512);
-  border:2px solid rgba(224,186,99,.55);
+  color:#fff;
+  background:linear-gradient(135deg,#172532,#493716);
+  border:2px solid #8d7033;
   font-weight:900;
 }
 
-.profile-info strong{
+.profile-copy{
+  min-width:0;
+  flex:1;
+}
+
+.profile-copy strong{
   display:block;
-  font-size:13px;
+  font-size:12px;
+  line-height:1.4;
 }
 
-.profile-info small{
-  color:var(--muted);
-  font-size:11px;
-}
-
-.level{
-  margin-top:9px;
-  height:7px;
-  border-radius:999px;
-  overflow:hidden;
-  background:#08111b;
-  border:1px solid #172331;
-}
-
-.level span{
+.profile-copy small{
   display:block;
-  width:78%;
-  height:100%;
-  background:linear-gradient(90deg,var(--gold),var(--gold3));
-}
-
-.level-info{
-  margin-top:5px;
-  display:flex;
-  justify-content:space-between;
+  margin-top:2px;
   color:var(--muted);
   font-size:10px;
 }
 
-.nav{
-  margin-top:12px;
-  display:grid;
-  gap:3px;
+.level-row{
+  margin-top:10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  font-size:9px;
+  color:var(--muted);
 }
 
-.nav button{
+.level-label{
+  color:var(--gold2);
+}
+
+.level-track{
+  height:6px;
+  background:#071018;
+  border:1px solid #1d2c39;
+  border-radius:99px;
+  margin-top:6px;
+  overflow:hidden;
+}
+
+.level-track span{
+  display:block;
+  width:78%;
+  height:100%;
+  background:linear-gradient(90deg,#b98320,#f0d17b);
+}
+
+.menu{
+  display:grid;
+  gap:2px;
+}
+
+.menu button{
+  position:relative;
   width:100%;
+  height:37px;
   border:0;
+  border-radius:8px;
+  padding:0 10px;
   background:transparent;
-  color:#c9d2dc;
-  padding:9px 10px;
-  border-radius:10px;
+  color:#c7d0da;
+  display:flex;
+  align-items:center;
+  gap:10px;
   text-align:right;
+  font-size:11px;
+}
+
+.menu button:hover,
+.menu button.active{
+  color:#f1d27d;
+  background:linear-gradient(90deg,rgba(211,165,61,.18),rgba(211,165,61,.06));
+}
+
+.menu-icon{
+  width:22px;
+  color:#a9b5c1;
+  text-align:center;
   font-size:13px;
 }
 
-.nav button:hover,.nav button.active{
-  background:linear-gradient(90deg,rgba(201,154,53,.19),rgba(201,154,53,.05));
-  color:var(--gold3);
+.menu button.active .menu-icon{
+  color:var(--gold2);
 }
 
-.icon{
-  display:inline-block;
-  width:25px;
-  text-align:center;
-}
-
-.badge{
-  float:left;
-  background:#ca1640;
+.menu-badge{
+  margin-right:auto;
+  padding:2px 6px;
+  min-width:23px;
+  border-radius:20px;
+  background:var(--red);
   color:white;
-  border-radius:999px;
-  padding:1px 6px;
-  font-size:8px;
+  text-align:center;
+  font-size:7px;
+  font-weight:800;
 }
 
-.owner{color:var(--gold2)!important}
+.owner-button{
+  color:var(--gold2)!important;
+}
+
+.community{
+  margin-top:10px;
+  padding:10px;
+}
+
+.community h3{
+  font-size:10px;
+  margin:0 0 8px;
+}
+
+.game-mini-row{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:5px;
+}
+
+.game-mini{
+  aspect-ratio:1.35;
+  border-radius:6px;
+  overflow:hidden;
+  display:grid;
+  place-items:center;
+  background:
+    radial-gradient(circle at 70% 25%,#ad7641,transparent 30%),
+    linear-gradient(135deg,#234d75,#1a2632);
+  font-size:22px;
+}
+
+.community a{
+  display:inline-block;
+  margin-top:7px;
+  color:#4d9ee9;
+  font-size:9px;
+}
+
+/* =========================================================
+   TOPBAR
+   ========================================================= */
+
+.center{
+  min-width:0;
+}
 
 .topbar{
   position:sticky;
-  top:14px;
-  z-index:30;
-  height:48px;
-  display:flex;
-  align-items:center;
-  gap:10px;
+  top:8px;
+  z-index:50;
+  height:52px;
   padding:7px 10px;
-  background:rgba(10,19,30,.94);
-  backdrop-filter:blur(14px);
-  border:1px solid var(--line);
-  border-radius:14px;
-}
-
-.search{
-  flex:1;
   display:flex;
   align-items:center;
   gap:8px;
-  background:#08111a;
-  border:1px solid var(--line);
-  border-radius:999px;
-  padding:0 12px;
+  background:rgba(7,16,24,.96);
+  backdrop-filter:blur(15px);
+  border:1px solid var(--border);
+  border-radius:13px;
+}
+
+.search{
+  min-width:0;
+  flex:1;
+  height:35px;
+  border:1px solid var(--border2);
+  background:#07111a;
+  border-radius:8px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:0 11px;
+}
+
+.search-icon{
+  color:#9aa7b5;
 }
 
 .search input{
-  width:100%;
-  background:transparent;
+  min-width:0;
+  flex:1;
   border:0;
   outline:0;
-  color:white;
-  padding:8px 0;
-  font-size:12px;
+  background:transparent;
+  color:#e8eef4;
+  font-size:10px;
 }
 
 .create{
+  height:36px;
+  min-width:79px;
   border:0;
-  border-radius:10px;
-  background:linear-gradient(135deg,#b68124,#e4bd63);
-  color:#0a0f15;
+  border-radius:7px;
+  color:#161109;
+  background:linear-gradient(135deg,#bd8a29,#efc966);
+  font-size:11px;
   font-weight:900;
-  padding:8px 13px;
 }
 
-.top-icon{
-  width:34px;
-  height:34px;
-  border-radius:9px;
-  border:1px solid var(--line);
-  background:#0c1723;
-  color:#cfd7e0;
+.top-button{
+  width:36px;
+  height:36px;
+  padding:0;
+  border:1px solid var(--border2);
+  border-radius:8px;
+  color:#d7e0e8;
+  background:#0a1722;
+  display:grid;
+  place-items:center;
 }
+
+/* =========================================================
+   STORIES
+   ========================================================= */
 
 .stories{
-  margin-top:12px;
+  margin-top:10px;
+  min-height:103px;
+  padding:11px 12px 8px;
+}
+
+.section-mini-head{
   display:flex;
-  gap:10px;
-  overflow:auto;
-  padding:10px;
-  background:var(--panel);
-  border:1px solid var(--line);
-  border-radius:14px;
+  justify-content:space-between;
+  margin-bottom:7px;
+  font-size:8px;
+}
+
+.section-mini-head a{
+  color:#489de9;
+}
+
+.story-list{
+  display:flex;
+  justify-content:space-around;
+  gap:8px;
+  overflow:hidden;
 }
 
 .story{
-  min-width:60px;
+  width:65px;
+  flex:0 0 65px;
   text-align:center;
 }
 
 .story-ring{
-  width:52px;
-  height:52px;
+  width:51px;
+  height:51px;
   margin:auto;
   padding:2px;
   border-radius:50%;
-  background:linear-gradient(135deg,#d5a338,#8047ff,#ff3768);
+  background:linear-gradient(145deg,#e79d3c,#a239e7,#168fff);
 }
 
 .story-inner{
   width:100%;
   height:100%;
-  border-radius:50%;
   display:grid;
   place-items:center;
-  background:#142333;
-  border:2px solid #08111a;
+  border-radius:50%;
+  background:#11202d;
+  border:2px solid #08131d;
+  font-size:20px;
 }
 
-.story small{
+.story-name{
   display:block;
-  margin-top:5px;
-  color:#c6d0da;
-  font-size:9px;
+  margin-top:4px;
+  overflow:hidden;
+  text-overflow:ellipsis;
   white-space:nowrap;
+  color:#b9c4ce;
+  font-size:8px;
 }
+
+/* =========================================================
+   COMPOSER
+   ========================================================= */
 
 .composer{
-  margin-top:12px;
-  padding:10px;
-  background:var(--panel);
-  border:1px solid var(--line);
-  border-radius:14px;
+  margin-top:10px;
+  padding:10px 12px 8px;
 }
 
-.composer-main{
+.composer-line{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.composer .avatar{
+  width:36px;
+  height:36px;
+  flex-basis:36px;
+}
+
+.composer-box{
+  flex:1;
+  height:35px;
+  padding:0 13px;
   display:flex;
   align-items:center;
-  gap:8px;
-}
-
-.composer-input{
-  flex:1;
-  padding:10px 13px;
-  background:#08111a;
-  border:1px solid var(--line);
-  border-radius:999px;
-  color:#77869a;
-  font-size:12px;
+  border-radius:18px;
+  background:#09141e;
+  border:1px solid #192b3a;
+  color:#738293;
+  font-size:10px;
 }
 
 .composer-actions{
+  margin-top:9px;
+  padding-top:8px;
+  border-top:1px solid var(--border);
   display:grid;
   grid-template-columns:repeat(5,1fr);
-  gap:5px;
-  margin-top:9px;
-  padding-top:9px;
-  border-top:1px solid var(--line);
 }
 
 .composer-actions button{
   border:0;
   background:transparent;
-  color:#aeb8c3;
-  font-size:10px;
+  color:#8d9ba8;
+  font-size:9px;
 }
 
-.tabs{
+.composer-actions button:nth-child(1){color:#4199e6}
+.composer-actions button:nth-child(2){color:#ef4662}
+.composer-actions button:nth-child(3){color:#39c493}
+.composer-actions button:nth-child(4){color:#28b7b1}
+.composer-actions button:nth-child(5){color:#bd62e4}
+
+/* =========================================================
+   FEED TABS
+   ========================================================= */
+
+.feed-tabs{
+  height:43px;
   display:flex;
-  gap:20px;
-  margin:12px 0 8px;
-  padding:0 6px;
-  color:#8897a8;
-  font-size:11px;
+  align-items:end;
+  gap:28px;
+  padding:0 18px;
+  color:#7d8b99;
+  font-size:9px;
 }
 
-.tabs .active{
-  color:var(--gold2);
-  padding-bottom:7px;
-  border-bottom:2px solid var(--gold2);
+.feed-tab{
+  height:31px;
+  display:flex;
+  align-items:center;
 }
+
+.feed-tab.active{
+  color:#e9c76b;
+  border-bottom:2px solid var(--gold);
+}
+
+/* =========================================================
+   POSTS
+   ========================================================= */
 
 .post{
-  margin-bottom:12px;
+  margin-bottom:10px;
   overflow:hidden;
-  background:var(--panel);
-  border:1px solid var(--line);
-  border-radius:14px;
 }
 
-.post-header{
+.post-head{
+  min-height:53px;
+  padding:9px 10px 6px;
   display:flex;
-  align-items:center;
-  gap:8px;
-  padding:10px;
-}
-
-.post-user{flex:1}
-
-.post-user strong{
-  display:block;
-  font-size:12px;
-}
-
-.post-user small{
-  color:var(--muted);
-  font-size:10px;
-}
-
-.post-text{
-  padding:0 10px 10px;
-  color:#d7dee7;
-  font-size:12px;
-  line-height:1.7;
-}
-
-.post-media{
-  min-height:300px;
-  display:grid;
-  place-items:center;
-  background:
-    radial-gradient(circle at 72% 48%,rgba(255,105,30,.48),transparent 19%),
-    linear-gradient(135deg,#07111b,#23140c 55%,#4a220f);
-}
-
-.post-media.ramadan{
-  background:
-    radial-gradient(circle,rgba(243,196,92,.35),transparent 30%),
-    linear-gradient(135deg,#07111b,#3a2b13);
-}
-
-.post-media.car{
-  background:
-    radial-gradient(circle at 50% 70%,rgba(39,133,222,.3),transparent 28%),
-    linear-gradient(180deg,#09131e,#131d27,#0c0f15);
-}
-
-.play{
-  width:58px;
-  height:58px;
-  border-radius:50%;
-  border:2px solid white;
-  background:rgba(0,0,0,.4);
-  color:white;
-  font-size:22px;
-}
-
-.media-title{
-  color:#f0d99b;
-  font-size:32px;
-  font-weight:900;
-}
-
-.post-actions{
-  display:flex;
-  gap:18px;
-  padding:9px 11px;
-  border-top:1px solid var(--line);
-  color:#8b98a8;
-  font-size:11px;
-}
-
-.shelf{
-  margin-top:12px;
-  padding:10px;
-  background:var(--panel);
-  border:1px solid var(--line);
-  border-radius:14px;
-}
-
-.shelf-title{
-  display:flex;
-  justify-content:space-between;
-  margin-bottom:8px;
-}
-
-.shelf-title strong{font-size:13px}
-
-.shelf-title span{
-  color:#5da8ff;
-  font-size:10px;
-}
-
-.media-row{
-  display:grid;
-  grid-template-columns:repeat(5,minmax(0,1fr));
+  align-items:flex-start;
   gap:8px;
 }
 
-.media-card{
-  overflow:hidden;
-  background:#0d1824;
-  border:1px solid var(--line);
-  border-radius:10px;
+.post-head .avatar{
+  width:35px;
+  height:35px;
+  flex-basis:35px;
+  font-size:14px;
 }
 
-.media-thumb{
-  aspect-ratio:16/9;
-  display:grid;
-  place-items:center;
-  font-size:28px;
-  background:linear-gradient(135deg,#15273a,#4a3014);
+.post-author{
+  flex:1;
+  min-width:0;
 }
 
-.media-info{padding:7px}
-
-.media-info strong{
-  display:block;
+.post-author strong{
   font-size:10px;
 }
 
-.media-info small{
-  color:var(--muted);
+.verified{
+  color:#269cff;
   font-size:9px;
 }
 
-.right-section{
-  padding-bottom:12px;
-  margin-bottom:12px;
-  border-bottom:1px solid var(--line);
-}
-
-.right-section h3{
-  margin:0 0 9px;
-  font-size:13px;
-}
-
-.live-item,.channel,.event{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  margin:8px 0;
-}
-
-.live-thumb{
-  width:72px;
-  height:44px;
-  border-radius:8px;
-  display:grid;
-  place-items:center;
-  background:linear-gradient(135deg,#3b1b15,#d05235);
-}
-
-.item-info{flex:1}
-
-.item-info strong{
+.post-author small{
   display:block;
-  font-size:10px;
-}
-
-.item-info small{
-  color:var(--muted);
-  font-size:9px;
-}
-
-.live-label{
-  background:#d9284d;
-  color:white;
-  border-radius:4px;
-  padding:2px 5px;
+  color:#6f7d8b;
+  margin-top:1px;
   font-size:8px;
 }
 
-.trend{
-  display:flex;
-  gap:8px;
-  margin:7px 0;
-  color:#b9c4cf;
-  font-size:10px;
+.more{
+  color:#81909f;
+  font-size:16px;
 }
 
-.trend b{color:var(--gold2)}
+.post-text{
+  padding:0 12px 8px;
+  font-size:10px;
+  line-height:1.65;
+  color:#d5dce3;
+}
+
+.tags{
+  color:#3f93d7;
+}
+
+.post-media{
+  position:relative;
+  width:calc(100% - 20px);
+  margin:0 10px;
+  min-height:285px;
+  overflow:hidden;
+  border-radius:7px;
+  border:1px solid #1b2a37;
+  display:grid;
+  place-items:center;
+}
+
+/* Dragon reference image-like surface */
+.dragon-media{
+  background:
+    radial-gradient(circle at 82% 50%,rgba(255,112,20,.95) 0,rgba(184,60,9,.48) 13%,transparent 30%),
+    radial-gradient(circle at 63% 40%,rgba(255,181,62,.28),transparent 20%),
+    linear-gradient(120deg,#071018 0%,#101014 45%,#3d180a 72%,#180b06 100%);
+}
+
+.dragon-media::before{
+  content:"⚔";
+  position:absolute;
+  left:25%;
+  bottom:18%;
+  font-size:115px;
+  color:#181a1d;
+  text-shadow:0 0 18px rgba(255,126,32,.3);
+  transform:rotate(-18deg);
+}
+
+.dragon-media::after{
+  content:"🐉";
+  position:absolute;
+  right:17%;
+  top:16%;
+  font-size:110px;
+  filter:saturate(.65) brightness(.75);
+  opacity:.8;
+}
+
+.play-button{
+  position:relative;
+  z-index:5;
+  width:57px;
+  height:57px;
+  padding:0 0 0 4px;
+  display:grid;
+  place-items:center;
+  border:2px solid white;
+  border-radius:50%;
+  background:rgba(0,0,0,.42);
+  color:#fff;
+  font-size:21px;
+}
+
+.duration{
+  position:absolute;
+  bottom:6px;
+  left:6px;
+  padding:2px 4px;
+  border-radius:3px;
+  background:rgba(0,0,0,.8);
+  color:#fff;
+  font-size:7px;
+}
+
+.ramadan-media{
+  min-height:268px;
+  border-color:#725820;
+  background:
+    radial-gradient(circle at 50% 48%,rgba(218,168,61,.42),transparent 25%),
+    radial-gradient(circle at 13% 50%,rgba(226,176,74,.14),transparent 22%),
+    linear-gradient(110deg,#06101a,#15202b 42%,#2c210e);
+}
+
+.ramadan-media::before,
+.ramadan-media::after{
+  content:"🏮";
+  position:absolute;
+  top:30px;
+  font-size:60px;
+  opacity:.7;
+}
+
+.ramadan-media::before{right:30px}
+.ramadan-media::after{left:30px}
+
+.ramadan-title{
+  position:relative;
+  z-index:2;
+  color:#f3cf6b;
+  text-align:center;
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:44px;
+  font-weight:900;
+  text-shadow:0 0 20px rgba(231,181,70,.35);
+}
+
+.ramadan-title small{
+  display:block;
+  font-size:17px;
+  margin-top:2px;
+}
+
+.car-media{
+  min-height:365px;
+  width:68%;
+  margin-left:auto;
+  margin-right:auto;
+  background:
+    radial-gradient(circle at 50% 55%,rgba(26,105,188,.35),transparent 23%),
+    linear-gradient(180deg,#08111a,#0b1824 52%,#050709);
+}
+
+.car-image{
+  font-size:88px;
+  filter:drop-shadow(0 0 24px rgba(44,139,234,.25));
+}
+
+.music-label{
+  position:absolute;
+  bottom:9px;
+  right:9px;
+  background:rgba(0,0,0,.76);
+  border:1px solid #414a53;
+  border-radius:5px;
+  padding:5px 7px;
+  font-size:8px;
+}
+
+.post-actions{
+  height:37px;
+  padding:0 13px;
+  display:flex;
+  align-items:center;
+  gap:28px;
+  border-top:1px solid var(--border);
+  color:#7c8a98;
+  font-size:9px;
+}
+
+.like-hot{
+  color:#e93057;
+}
+
+/* =========================================================
+   SHELVES
+   ========================================================= */
+
+.shelf{
+  margin-top:11px;
+  padding:11px;
+}
+
+.shelf-head{
+  height:27px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+}
+
+.shelf-head h3{
+  margin:0;
+  font-size:12px;
+}
+
+.shelf-head a{
+  color:#4d9ce0;
+  font-size:8px;
+}
+
+.category-tabs{
+  display:flex;
+  gap:17px;
+  color:#7f8c99;
+  font-size:8px;
+}
+
+.category-tabs .active{
+  color:#15110a;
+  background:#d8a941;
+  border-radius:12px;
+  padding:3px 10px;
+}
+
+.cards{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:7px;
+}
+
+.card{
+  min-width:0;
+  overflow:hidden;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:#0a1621;
+}
+
+.card-cover{
+  position:relative;
+  aspect-ratio:1.48;
+  display:grid;
+  place-items:center;
+  font-size:35px;
+  background:
+    radial-gradient(circle at 70% 25%,rgba(213,151,58,.45),transparent 30%),
+    linear-gradient(135deg,#18334a,#3d2b17);
+}
+
+.card-copy{
+  padding:6px;
+}
+
+.card-copy strong{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:8px;
+}
+
+.card-copy small{
+  display:block;
+  color:#71808e;
+  margin-top:3px;
+  font-size:7px;
+}
+
+.movie-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:11px;
+}
+
+.movie-panel{
+  padding:11px;
+}
+
+.movie-list{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:7px;
+}
+
+.poster{
+  overflow:hidden;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:#0b1722;
+}
+
+.poster-art{
+  aspect-ratio:.72;
+  display:grid;
+  place-items:center;
+  font-size:42px;
+  background:
+    radial-gradient(circle at 50% 28%,rgba(220,160,62,.32),transparent 25%),
+    linear-gradient(145deg,#142838,#402417);
+}
+
+.poster-info{
+  padding:6px;
+}
+
+.poster-info strong{
+  display:block;
+  font-size:8px;
+}
+
+.poster-info small{
+  display:block;
+  color:#748290;
+  font-size:7px;
+  margin-top:3px;
+}
+
+.rating{
+  color:#e3b443!important;
+}
+
+/* =========================================================
+   RIGHTBAR
+   ========================================================= */
+
+.rightbar-inner{
+  position:sticky;
+  top:12px;
+}
+
+.right-section{
+  padding:11px;
+  margin-bottom:9px;
+}
+
+.right-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:9px;
+}
+
+.right-head h3{
+  margin:0;
+  font-size:12px;
+}
+
+.right-head a{
+  color:#4c9ae0;
+  font-size:8px;
+}
+
+.live{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin-bottom:8px;
+}
+
+.live-thumb{
+  position:relative;
+  width:68px;
+  height:45px;
+  flex:0 0 68px;
+  overflow:hidden;
+  border-radius:6px;
+  display:grid;
+  place-items:center;
+  background:
+    radial-gradient(circle at 70% 30%,#e13d63,transparent 35%),
+    linear-gradient(135deg,#552119,#172b3b);
+  font-size:20px;
+}
+
+.live-badge{
+  position:absolute;
+  bottom:3px;
+  right:3px;
+  background:#e4264c;
+  color:#fff;
+  border-radius:3px;
+  padding:2px 4px;
+  font-size:6px;
+}
+
+.live-copy{
+  flex:1;
+  min-width:0;
+}
+
+.live-copy strong{
+  display:block;
+  font-size:8px;
+}
+
+.live-copy small{
+  display:block;
+  margin-top:3px;
+  color:#73818e;
+  font-size:7px;
+}
+
+.trending{
+  display:grid;
+  gap:9px;
+}
+
+.trend{
+  display:grid;
+  grid-template-columns:20px 1fr;
+  gap:6px;
+}
+
+.trend-number{
+  color:#c9d1da;
+  font-size:9px;
+  font-weight:900;
+}
+
+.trend strong{
+  display:block;
+  font-size:8px;
+}
+
+.trend small{
+  color:#657481;
+  font-size:7px;
+}
+
+.channel{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin-bottom:9px;
+}
 
 .channel-avatar{
   width:34px;
   height:34px;
-  border-radius:50%;
+  flex:0 0 34px;
   display:grid;
   place-items:center;
-  background:#162638;
-  border:1px solid #2b3d50;
-}
-
-.follow{
-  margin-right:auto;
-  border:1px solid #856523;
-  border-radius:7px;
-  background:transparent;
-  color:var(--gold2);
-  padding:4px 7px;
-  font-size:9px;
-}
-
-.ai{
-  padding:14px;
-  text-align:center;
-  background:
-    radial-gradient(circle at 50% 30%,rgba(73,143,255,.2),transparent 30%),
-    var(--panel);
-  border:1px solid var(--line);
-  border-radius:14px;
-}
-
-.ai-orb{
-  width:64px;
-  height:64px;
-  margin:0 auto 10px;
   border-radius:50%;
-  background:radial-gradient(circle,#7ed5ff 0 18%,#5b5cff 36%,#11193b 65%);
-  box-shadow:0 0 22px rgba(91,92,255,.45);
-}
-
-.ai button{
-  border:0;
-  border-radius:8px;
-  padding:8px 12px;
-  background:linear-gradient(135deg,#b68124,#e4bd63);
+  border:2px solid #3767c8;
+  background:#162434;
   font-weight:900;
 }
 
-.mobile-nav{display:none}
-
-@media(max-width:1150px){
-  .app{grid-template-columns:210px minmax(0,1fr)}
-  .rightbar{display:none}
+.channel-info{
+  flex:1;
+  min-width:0;
 }
 
-@media(max-width:760px){
-  body{padding-bottom:65px}
-  .app{display:block;padding:8px}
-  .sidebar{display:none}
-  .topbar{top:8px}
-  .media-row{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .post-media{min-height:240px}
+.channel-info strong{
+  display:block;
+  font-size:8px;
+}
 
-  .mobile-nav{
-    position:fixed;
-    left:0;
-    right:0;
-    bottom:0;
-    z-index:100;
-    display:grid;
-    grid-template-columns:repeat(5,1fr);
-    background:#08111a;
-    border-top:1px solid var(--line);
-    padding:7px 8px calc(7px + env(safe-area-inset-bottom));
+.channel-info small{
+  display:block;
+  color:#71808d;
+  font-size:7px;
+}
+
+.follow{
+  border:1px solid #9a7431;
+  border-radius:5px;
+  background:transparent;
+  color:#d7ac52;
+  padding:4px 8px;
+  font-size:7px;
+}
+
+.event{
+  position:relative;
+  height:75px;
+  margin-bottom:7px;
+  padding:9px;
+  overflow:hidden;
+  border-radius:7px;
+  display:flex;
+  align-items:flex-end;
+  background:
+    linear-gradient(90deg,rgba(5,10,15,.2),rgba(5,10,15,.9)),
+    radial-gradient(circle at 20% 50%,#b86e2c,transparent 32%),
+    #172535;
+}
+
+.event strong{
+  font-size:8px;
+}
+
+.event small{
+  display:block;
+  margin-top:3px;
+  color:#b9c2ca;
+  font-size:7px;
+}
+
+.ai-box{
+  padding:15px 12px;
+  text-align:center;
+  background:
+    radial-gradient(circle at 50% 42%,rgba(23,107,255,.2),transparent 30%),
+    #08131d;
+}
+
+.ai-title{
+  color:#e0b755;
+  font-size:11px;
+}
+
+.ai-robot{
+  width:110px;
+  height:110px;
+  margin:7px auto;
+  position:relative;
+  display:grid;
+  place-items:center;
+}
+
+.ai-orbit{
+  position:absolute;
+  width:105px;
+  height:48px;
+  border:2px solid #3174d7;
+  border-radius:50%;
+  transform:rotate(-15deg);
+  box-shadow:0 0 13px rgba(35,119,255,.4);
+}
+
+.ai-orbit.two{
+  transform:rotate(25deg);
+}
+
+.ai-face{
+  position:relative;
+  z-index:3;
+  width:62px;
+  height:52px;
+  border-radius:42% 42% 48% 48%;
+  border:3px solid #4d8fff;
+  background:#07152b;
+  box-shadow:
+    0 0 20px rgba(48,113,255,.6),
+    inset 0 0 14px rgba(45,108,255,.35);
+}
+
+.ai-face::before{
+  content:"•  •";
+  color:#72d9ff;
+  font-size:23px;
+  line-height:39px;
+}
+
+.ai-box p{
+  color:#8795a3;
+  font-size:8px;
+  line-height:1.6;
+}
+
+.ai-button{
+  width:100%;
+  border:0;
+  border-radius:6px;
+  padding:7px;
+  background:linear-gradient(90deg,#c6922d,#efc762);
+  color:#161109;
+  font-size:8px;
+  font-weight:900;
+}
+
+/* =========================================================
+   BOTTOM NAV
+   ========================================================= */
+
+.bottom-nav{
+  position:fixed;
+  left:0;
+  right:0;
+  bottom:0;
+  z-index:100;
+  height:61px;
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  background:rgba(7,16,24,.98);
+  border-top:1px solid #192b39;
+}
+
+.bottom-nav button{
+  border:0;
+  background:transparent;
+  color:#788694;
+  font-size:9px;
+}
+
+.bottom-nav .active{
+  color:#e0b44e;
+}
+
+.bottom-plus{
+  width:37px;
+  height:37px;
+  margin:auto;
+  display:grid;
+  place-items:center;
+  border:1px solid #87929d!important;
+  border-radius:50%;
+  color:#d8e0e7!important;
+  font-size:22px!important;
+}
+
+.copyright{
+  grid-column:1/-1;
+  text-align:center;
+  color:#73808d;
+  font-size:7px;
+  padding:7px;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media(max-width:1200px){
+  .majd{
+    grid-template-columns:235px minmax(500px,1fr);
   }
 
-  .mobile-nav button{
-    border:0;
-    background:transparent;
-    color:#9ba8b7;
-    font-size:10px;
+  .rightbar{
+    display:none;
+  }
+}
+
+@media(max-width:800px){
+  .majd{
+    width:100%;
+    display:block;
+    padding:8px 8px 70px;
   }
 
-  .mobile-nav button.active{color:var(--gold2)}
+  .sidebar{
+    display:none;
+  }
+
+  .topbar{
+    top:5px;
+  }
+
+  .stories{
+    overflow:hidden;
+  }
+
+  .story-list{
+    justify-content:flex-start;
+    overflow-x:auto;
+  }
+
+  .post-media{
+    min-height:230px;
+  }
+
+  .car-media{
+    width:75%;
+    min-height:330px;
+  }
+
+  .cards{
+    grid-template-columns:repeat(5,145px);
+    overflow-x:auto;
+  }
+
+  .movie-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+@media(max-width:500px){
+  .topbar{
+    height:49px;
+  }
+
+  .top-button{
+    display:none;
+  }
+
+  .create{
+    min-width:68px;
+  }
+
+  .composer-actions{
+    overflow-x:auto;
+  }
+
+  .post-media{
+    width:100%;
+    margin:0;
+    border-left:0;
+    border-right:0;
+    border-radius:0;
+  }
+
+  .car-media{
+    width:82%;
+    margin:auto;
+    border:1px solid #1b2a37;
+    border-radius:7px;
+  }
 }
 </style>
 </head>
 
 <body>
 
-<div class="app">
+<div class="majd">
+
+<!-- =========================================================
+     LEFT SIDEBAR
+     ========================================================= -->
 
 <aside class="sidebar">
+<div class="sidebar-inner">
 
-<div class="brand">
-<span class="crown">♛</span>
-<span class="brand-name">MAJD</span>
+<section class="panel sidebar-main">
+
+<div class="logo">
+  <span class="logo-crown">♛</span>
+  <span class="logo-word">MAJD</span>
 </div>
 
 <div class="profile">
-<div class="profile-top">
-<div class="avatar">م</div>
-<div class="profile-info">
-<strong>MAJD KING</strong>
-<small>@majd.king</small>
+  <div class="profile-head">
+    <div class="avatar">م</div>
+    <div class="profile-copy">
+      <strong>MAJD KING <span class="verified">●</span></strong>
+      <small>@majd.king</small>
+    </div>
+  </div>
+
+  <div class="level-row">
+    <span class="level-label">المستوى 99</span>
+    <span>78,540 / 100,000 XP</span>
+  </div>
+
+  <div class="level-track"><span></span></div>
 </div>
-</div>
 
-<div class="level"><span></span></div>
-
-<div class="level-info">
-<span>المستوى 99</span>
-<span>78,540 / 100,000 XP</span>
-</div>
-</div>
-
-<nav class="nav">
-
-<button class="active"><span class="icon">⌂</span>الرئيسية</button>
-<button><span class="icon">◌</span>For You</button>
-<button><span class="icon">♧</span>المتابعة</button>
-<button><span class="icon">◉</span>القصص <span class="badge">NEW</span></button>
-<button><span class="icon">S</span>Shorts</button>
-<button><span class="icon">▣</span>الفيديوهات</button>
-<button><span class="icon">●</span>البث المباشر <span class="badge">LIVE</span></button>
-<button><span class="icon">▤</span>القنوات</button>
-<button><span class="icon">◫</span>الأفلام <span class="badge">NEW</span></button>
-<button><span class="icon">▥</span>المسلسلات</button>
-<button><span class="icon">🏆</span>الفعاليات</button>
-<button><span class="icon">🎮</span>الألعاب</button>
-<button><span class="icon">✉</span>الرسائل</button>
-<button><span class="icon">👥</span>المجموعات</button>
-<button><span class="icon">🏅</span>الإنجازات</button>
-<button><span class="icon">♡</span>المحفوظات</button>
-<button><span class="icon">🔔</span>الإشعارات <span class="badge">12</span></button>
-<button><span class="icon">☻</span>المحفظة</button>
-<button><span class="icon">⚙</span>الإعدادات</button>
-
-<button class="owner" id="ownerCenter">
-<span class="icon">♛</span>
-مركز المالك
-</button>
-
+<nav class="menu">
+  <button class="active"><span class="menu-icon">⌂</span>الرئيسية</button>
+  <button><span class="menu-icon">◉</span>For You</button>
+  <button><span class="menu-icon">♧</span>المتابعة</button>
+  <button><span class="menu-icon">◉</span>القصص <span class="menu-badge">NEW</span></button>
+  <button><span class="menu-icon">S</span>Shorts</button>
+  <button><span class="menu-icon">▣</span>الفيديوهات</button>
+  <button><span class="menu-icon">●</span>البث المباشر <span class="menu-badge">LIVE</span></button>
+  <button><span class="menu-icon">▤</span>القنوات</button>
+  <button><span class="menu-icon">▣</span>الأفلام <span class="menu-badge">NEW</span></button>
+  <button><span class="menu-icon">▥</span>المسلسلات</button>
+  <button><span class="menu-icon">🏆</span>الفعاليات</button>
+  <button><span class="menu-icon">🎮</span>الألعاب</button>
+  <button><span class="menu-icon">▢</span>الرسائل</button>
+  <button><span class="menu-icon">♧</span>المجموعات</button>
+  <button><span class="menu-icon">🏆</span>الإنجازات</button>
+  <button><span class="menu-icon">◷</span>المحفوظات</button>
+  <button><span class="menu-icon">♧</span>الإشعارات <span class="menu-badge">12</span></button>
+  <button><span class="menu-icon">☆</span>المفضلة</button>
+  <button><span class="menu-icon">⚙</span>الإعدادات</button>
+  <button class="owner-button" id="ownerCenter"><span class="menu-icon">♛</span>مركز المالك</button>
 </nav>
+
+</section>
+
+<section class="panel community">
+  <h3>ربط الألعاب بالمجتمع</h3>
+  <div class="game-mini-row">
+    <div class="game-mini">✈️</div>
+    <div class="game-mini">⚔️</div>
+    <div class="game-mini">🐉</div>
+  </div>
+  <a href="#">عرض الكل</a>
+</section>
+
+</div>
 </aside>
 
-<main class="main">
+<!-- =========================================================
+     CENTER
+     ========================================================= -->
+
+<main class="center">
 
 <header class="topbar">
-<div class="search">
-<span>⌕</span>
-<input placeholder="ابحث عن محتوى، قنوات، مستخدمين...">
-</div>
 
-<button class="create">+ إنشاء</button>
-<button class="top-icon">🔔</button>
-<button class="top-icon">✉</button>
-<div class="avatar" style="width:34px;height:34px">م</div>
+  <div class="search">
+    <span class="search-icon">⌕</span>
+    <input placeholder="ابحث عن محتوى، قنوات، مستخدمين...">
+  </div>
+
+  <button class="create">+ إنشاء</button>
+  <button class="top-button">♧</button>
+  <button class="top-button">✉</button>
+  <div class="avatar" style="width:35px;height:35px;flex-basis:35px">م</div>
+
 </header>
 
-<section class="stories">
+<section class="panel stories">
 
-<div class="story">
-<div class="story-ring"><div class="story-inner">＋</div></div>
-<small>إنشاء قصة</small>
-</div>
+  <div class="section-mini-head">
+    <span></span>
+    <a href="#">عرض الكل</a>
+  </div>
 
-<div class="story">
-<div class="story-ring"><div class="story-inner">م</div></div>
-<small>أنت</small>
-</div>
+  <div class="story-list">
 
-<div class="story">
-<div class="story-ring"><div class="story-inner">♛</div></div>
-<small>MAJD Official</small>
-</div>
+    <div class="story">
+      <div class="story-ring"><div class="story-inner">＋</div></div>
+      <span class="story-name">إنشاء قصة</span>
+    </div>
 
-<div class="story">
-<div class="story-ring"><div class="story-inner">🐉</div></div>
-<small>Dragon Slayer</small>
-</div>
+    <div class="story">
+      <div class="story-ring"><div class="story-inner">م</div></div>
+      <span class="story-name">أنت</span>
+    </div>
 
-<div class="story">
-<div class="story-ring"><div class="story-inner">H</div></div>
-<small>HeroKSA</small>
-</div>
+    <div class="story">
+      <div class="story-ring"><div class="story-inner">♛</div></div>
+      <span class="story-name">MAJD Official</span>
+    </div>
 
-<div class="story">
-<div class="story-ring"><div class="story-inner">🎮</div></div>
-<small>MAJD Gamer</small>
-</div>
+    <div class="story">
+      <div class="story-ring"><div class="story-inner">🐉</div></div>
+      <span class="story-name">Dragon Slayer</span>
+    </div>
 
-<div class="story">
-<div class="story-ring"><div class="story-inner">م</div></div>
-<small>محمد</small>
-</div>
+    <div class="story">
+      <div class="story-ring"><div class="story-inner">H</div></div>
+      <span class="story-name">HeroKSA</span>
+    </div>
+
+    <div class="story">
+      <div class="story-ring"><div class="story-inner">🎮</div></div>
+      <span class="story-name">MAJD Gamer</span>
+    </div>
+
+    <div class="story">
+      <div class="story-ring"><div class="story-inner">م</div></div>
+      <span class="story-name">محمد</span>
+    </div>
+
+  </div>
 
 </section>
 
-<section class="composer">
-<div class="composer-main">
-<div class="avatar" style="width:38px;height:38px">م</div>
-<div class="composer-input">ما الذي تفكر فيه يا MAJD KING؟</div>
-</div>
+<section class="panel composer">
 
-<div class="composer-actions">
-<button>✎ منشور</button>
-<button>● بث مباشر</button>
-<button>▣ قصة</button>
-<button>▶ فيديو</button>
-<button>▧ صورة</button>
-</div>
+  <div class="composer-line">
+    <div class="avatar">م</div>
+    <div class="composer-box">بم تفكر يا MAJD KING؟</div>
+  </div>
+
+  <div class="composer-actions">
+    <button>▧ منشور</button>
+    <button>● بث مباشر</button>
+    <button>▣ قصة</button>
+    <button>▶ فيديو</button>
+    <button>▧ صورة</button>
+  </div>
+
 </section>
 
-<div class="tabs">
-<span class="active">لك</span>
-<span>المتابعة</span>
-<span>الألعاب</span>
-<span>مقترح</span>
+<div class="feed-tabs">
+  <div class="feed-tab active">لك</div>
+  <div class="feed-tab">المتابعة</div>
+  <div class="feed-tab">الألعاب</div>
+  <div class="feed-tab">مقترح</div>
 </div>
 
-<article class="post">
+<!-- DRAGON POST -->
 
-<div class="post-header">
-<div class="avatar">🐉</div>
-<div class="post-user">
-<strong>Dragon Slayer</strong>
-<small>@dragon.slayer · الآن</small>
-</div>
-</div>
+<article class="panel post">
 
-<div class="post-text">
-أقوى لحظة في المعركة العالمية اليوم 🔥
-</div>
+  <div class="post-head">
+    <div class="avatar">🐉</div>
 
-<div class="post-media">
-<button class="play">▶</button>
-</div>
+    <div class="post-author">
+      <strong>Dragon Slayer <span class="verified">●</span></strong>
+      <small>@dragon.slayer · الآن</small>
+    </div>
 
-<div class="post-actions">
-<span>♥ 2.4K</span>
-<span>💬 156</span>
-<span>↗ 278</span>
-<span>⇩ 24.5K</span>
-</div>
+    <span class="more">•••</span>
+  </div>
+
+  <div class="post-text">
+    أقوى لحظة في المعركة العالمية اليوم 🔥<br>
+    من قلب المعركة إلى النصر<br>
+    <span class="tags">#MAJD #Tournament #Victory</span>
+  </div>
+
+  <div class="post-media dragon-media">
+    <button class="play-button">▶</button>
+    <span class="duration">1:25</span>
+  </div>
+
+  <div class="post-actions">
+    <span class="like-hot">♥ 2.4K</span>
+    <span>◯ 156</span>
+    <span>↗ 278</span>
+    <span>⇩ 24.5K</span>
+  </div>
 
 </article>
 
-<article class="post">
+<!-- RAMADAN POST -->
 
-<div class="post-header">
-<div class="avatar">♛</div>
-<div class="post-user">
-<strong>MAJD Official</strong>
-<small>@majd.official · منذ ساعة</small>
-</div>
-</div>
+<article class="panel post">
 
-<div class="post-text">
-إعلان الموسم الرمضاني لمجد ✨
-فعاليات وبطولات وأفلام ومسلسلات حصرية.
-</div>
+  <div class="post-head">
+    <div class="avatar">♛</div>
 
-<div class="post-media ramadan">
-<div class="media-title">رمضان مجد</div>
-</div>
+    <div class="post-author">
+      <strong>MAJD Official <span class="verified">●</span></strong>
+      <small>@majd.official · منذ ساعة</small>
+    </div>
 
-<div class="post-actions">
-<span>♥ 5.8K</span>
-<span>💬 320</span>
-<span>↗ 610</span>
-<span>⇩ 58.1K</span>
-</div>
+    <span class="more">•••</span>
+  </div>
 
-</article>
+  <div class="post-text">
+    ✨ إعلان الموسم الرمضاني لمجد 2025 ✨<br>
+    مفاجآت، بطولات، أفلام ومسلسلات حصرية!<br>
+    🌙 كل عام وأنتم بخير
+  </div>
 
-<article class="post">
+  <div class="post-media ramadan-media">
+    <div class="ramadan-title">
+      رمضان مجد
+      <small>2025</small>
+    </div>
+  </div>
 
-<div class="post-header">
-<div class="avatar">🎮</div>
-<div class="post-user">
-<strong>MAJD Gamer</strong>
-<small>@majd.gamer · منذ ساعة</small>
-</div>
-</div>
-
-<div class="post-text">ليلة خرافية مع الشباب 🔥</div>
-
-<div class="post-media car">
-<div class="media-title">🏎️</div>
-</div>
-
-<div class="post-actions">
-<span>♥ 12.4K</span>
-<span>💬 312</span>
-<span>↗ 851</span>
-</div>
+  <div class="post-actions">
+    <span>♡ 5.8K</span>
+    <span>◯ 320</span>
+    <span>↗ 610</span>
+    <span>⇩ 58.1K</span>
+  </div>
 
 </article>
 
-<section class="shelf">
+<!-- CAR POST -->
 
-<div class="shelf-title">
-<strong>مقترح لك</strong>
-<span>عرض الكل</span>
-</div>
+<article class="panel post">
 
-<div class="media-row">
+  <div class="post-head">
+    <div class="avatar">🎮</div>
 
-<div class="media-card">
-<div class="media-thumb">🏙️</div>
-<div class="media-info">
-<strong>خريطة الهلال</strong>
-<small>MAJD Pro</small>
-</div>
-</div>
+    <div class="post-author">
+      <strong>MAJD Gamer <span class="verified">●</span></strong>
+      <small>@majd.gamer · منذ ساعة</small>
+    </div>
 
-<div class="media-card">
-<div class="media-thumb">⚔️</div>
-<div class="media-info">
-<strong>الأغنية الرسمية</strong>
-<small>MAJD Music</small>
-</div>
-</div>
+    <span class="more">•••</span>
+  </div>
 
-<div class="media-card">
-<div class="media-thumb">🐉</div>
-<div class="media-info">
-<strong>أقوى 10 لحظات</strong>
-<small>MAJD Top</small>
-</div>
-</div>
+  <div class="post-text">
+    ليلة خرافية مع الشباب 🔥😱
+  </div>
 
-<div class="media-card">
-<div class="media-thumb">🧙</div>
-<div class="media-info">
-<strong>مغامرة خيالية</strong>
-<small>Pro Player</small>
-</div>
-</div>
+  <div class="post-media car-media">
+    <div class="car-image">🏎️</div>
+    <span class="music-label">♫ الصوت - MAJD Gamer</span>
+  </div>
 
-<div class="media-card">
-<div class="media-thumb">🏹</div>
-<div class="media-info">
-<strong>أساطير مجد</strong>
-<small>الموسم 2</small>
-</div>
-</div>
+  <div class="post-actions">
+    <span>♥ 12.4K</span>
+    <span>● 312</span>
+    <span>↗ 851</span>
+  </div>
 
-</div>
+</article>
+
+<!-- RECOMMENDED -->
+
+<section class="panel shelf">
+
+  <div class="shelf-head">
+    <h3>مقترح لك</h3>
+
+    <div class="category-tabs">
+      <span class="active">الكل</span>
+      <span>ألعاب</span>
+      <span>موسيقى</span>
+      <span>ترفيه</span>
+      <span>تعليمي</span>
+      <span>أفلام</span>
+      <span>مسلسلات</span>
+    </div>
+  </div>
+
+  <div class="cards">
+
+    <div class="card">
+      <div class="card-cover">🏙️</div>
+      <div class="card-copy">
+        <strong>خريطة الهلال في كروك</strong>
+        <small>🔥 Builder Pro · 5.2K مشاهدة</small>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-cover">⚔️</div>
+      <div class="card-copy">
+        <strong>الأغنية الرسمية للموسم</strong>
+        <small>MAJD Music · 1.8M مشاهدة</small>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-cover">🐉</div>
+      <div class="card-copy">
+        <strong>أقوى 10 لحظات في تاريخ مجد</strong>
+        <small>MAJD Top · 950K مشاهدة</small>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-cover">🧙</div>
+      <div class="card-copy">
+        <strong>شرح احتراف يومياً</strong>
+        <small>Pro Player · 720K مشاهدة</small>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-cover">🏹</div>
+      <div class="card-copy">
+        <strong>مسلسل أساطير مجد</strong>
+        <small>الموسم 2 · 450K مشاهدة</small>
+      </div>
+    </div>
+
+  </div>
+
 </section>
 
-<section class="shelf">
+<div class="movie-grid">
 
-<div class="shelf-title">
-<strong>أحدث الأفلام</strong>
-<span>عرض الكل</span>
-</div>
+<section class="panel movie-panel">
 
-<div class="media-row">
+  <div class="shelf-head">
+    <h3>أحدث الأفلام</h3>
+  </div>
 
-<div class="media-card">
-<div class="media-thumb">⚔️</div>
-<div class="media-info">
-<strong>قلب الملك</strong>
-<small>أكشن</small>
-</div>
-</div>
+  <div class="movie-list">
 
-<div class="media-card">
-<div class="media-thumb">🦅</div>
-<div class="media-info">
-<strong>صقور الأبطال</strong>
-<small>مغامرات</small>
-</div>
-</div>
+    <div class="poster">
+      <div class="poster-art">⚔️</div>
+      <div class="poster-info">
+        <strong>قلب الملك</strong>
+        <small>أكشن · خيال</small>
+        <small class="rating">★ 8.6</small>
+      </div>
+    </div>
 
-<div class="media-card">
-<div class="media-thumb">🐲</div>
-<div class="media-info">
-<strong>مملكة التنين</strong>
-<small>خيال</small>
-</div>
-</div>
+    <div class="poster">
+      <div class="poster-art">🦅</div>
+      <div class="poster-info">
+        <strong>رحلة الأبطال</strong>
+        <small>مغامرات</small>
+        <small class="rating">★ 8.2</small>
+      </div>
+    </div>
 
-<div class="media-card">
-<div class="media-thumb">🛡️</div>
-<div class="media-info">
-<strong>أسطورة مجد</strong>
-<small>الموسم 2</small>
-</div>
-</div>
+    <div class="poster">
+      <div class="poster-art">🐲</div>
+      <div class="poster-info">
+        <strong>مملكة التنين</strong>
+        <small>أكشن · خيال</small>
+        <small class="rating">★ 9.1</small>
+      </div>
+    </div>
 
-<div class="media-card">
-<div class="media-thumb">🏜️</div>
-<div class="media-info">
-<strong>فرسان الصحراء</strong>
-<small>الموسم 1</small>
-</div>
-</div>
+  </div>
 
-</div>
 </section>
+
+<section class="panel movie-panel">
+
+  <div class="shelf-head">
+    <h3>المسلسلات الشائعة</h3>
+  </div>
+
+  <div class="movie-list">
+
+    <div class="poster">
+      <div class="poster-art">👑</div>
+      <div class="poster-info">
+        <strong>أساطير مجد</strong>
+        <small>الموسم 2</small>
+        <small class="rating">★ 9.0</small>
+      </div>
+    </div>
+
+    <div class="poster">
+      <div class="poster-art">🏍️</div>
+      <div class="poster-info">
+        <strong>فرسان الصحراء</strong>
+        <small>الموسم 1</small>
+        <small class="rating">★ 8.4</small>
+      </div>
+    </div>
+
+    <div class="poster">
+      <div class="poster-art">👩</div>
+      <div class="poster-info">
+        <strong>مدينة المستقبل</strong>
+        <small>الموسم 1</small>
+        <small class="rating">★ 7.8</small>
+      </div>
+    </div>
+
+  </div>
+
+</section>
+
+</div>
 
 </main>
 
+<!-- =========================================================
+     RIGHT SIDEBAR
+     ========================================================= -->
+
 <aside class="rightbar">
 
-<section class="right-section">
-<h3>مباشر الآن</h3>
+<div class="rightbar-inner">
 
-<div class="live-item">
-<div class="live-thumb">🏆</div>
-<div class="item-info">
-<strong>MAJD Official Live</strong>
-<small>8.4K مشاهد</small>
-</div>
-<span class="live-label">LIVE</span>
-</div>
+<section class="panel right-section">
 
-<div class="live-item">
-<div class="live-thumb">🎮</div>
-<div class="item-info">
-<strong>HeroKSA</strong>
-<small>3.1K مشاهد</small>
-</div>
-<span class="live-label">LIVE</span>
-</div>
+  <div class="right-head">
+    <h3>مباشر الآن</h3>
+    <a href="#">عرض الكل</a>
+  </div>
 
-<div class="live-item">
-<div class="live-thumb">🐉</div>
-<div class="item-info">
-<strong>Dragon Slayer</strong>
-<small>2.7K مشاهد</small>
-</div>
-<span class="live-label">LIVE</span>
-</div>
+  <div class="live">
+    <div class="live-thumb">🏆<span class="live-badge">مباشر</span></div>
+    <div class="live-copy">
+      <strong>MAJD Official Live <span class="verified">●</span></strong>
+      <small>👤 8.4K</small>
+      <small>تغطية بطولة مجد العالمية</small>
+    </div>
+  </div>
 
-<div class="live-item">
-<div class="live-thumb">🎧</div>
-<div class="item-info">
-<strong>MAJD Radio</strong>
-<small>1.2K مشاهد</small>
-</div>
-<span class="live-label">LIVE</span>
-</div>
+  <div class="live">
+    <div class="live-thumb">🎮<span class="live-badge">مباشر</span></div>
+    <div class="live-copy">
+      <strong>HeroKSA <span class="verified">●</span></strong>
+      <small>👤 3.1K</small>
+      <small>تحديات مع المتابعين</small>
+    </div>
+  </div>
 
-</section>
+  <div class="live">
+    <div class="live-thumb">🐉<span class="live-badge">مباشر</span></div>
+    <div class="live-copy">
+      <strong>Dragon Slayer <span class="verified">●</span></strong>
+      <small>👤 2.7K</small>
+      <small>جلد التنين الأسطوري</small>
+    </div>
+  </div>
 
-<section class="right-section">
-
-<h3>المتداول الآن</h3>
-
-<div class="trend"><b>1</b><span>#بطولة_مجد_العالمية</span></div>
-<div class="trend"><b>2</b><span>#رمضان_في_مجد</span></div>
-<div class="trend"><b>3</b><span>#Dragon_Slayer</span></div>
-<div class="trend"><b>4</b><span>#MAJD_Gamer</span></div>
-<div class="trend"><b>5</b><span>#فجر_الملوك</span></div>
+  <div class="live">
+    <div class="live-thumb">🎧<span class="live-badge">مباشر</span></div>
+    <div class="live-copy">
+      <strong>MAJD Radio <span class="verified">●</span></strong>
+      <small>👤 1.2K</small>
+      <small>إذاعة مجد 24/7</small>
+    </div>
+  </div>
 
 </section>
 
-<section class="right-section">
+<section class="panel right-section">
 
-<h3>قنوات مقترحة</h3>
+  <div class="right-head">
+    <h3>المتداول الآن</h3>
+  </div>
 
-<div class="channel">
-<div class="channel-avatar">M</div>
-<div class="item-info">
-<strong>MAJD TV</strong>
-<small>@majd.tv</small>
-</div>
-<button class="follow">متابعة</button>
-</div>
+  <div class="trending">
 
-<div class="channel">
-<div class="channel-avatar">T</div>
-<div class="item-info">
-<strong>Tech MAJD</strong>
-<small>@tech.majd</small>
-</div>
-<button class="follow">متابعة</button>
-</div>
+    <div class="trend">
+      <span class="trend-number">1</span>
+      <div><strong>#بطولة_مجد_العالمية</strong><small>24.5K منشور</small></div>
+    </div>
 
-<div class="channel">
-<div class="channel-avatar">S</div>
-<div class="item-info">
-<strong>MAJD Sports</strong>
-<small>@majd.sports</small>
-</div>
-<button class="follow">متابعة</button>
-</div>
+    <div class="trend">
+      <span class="trend-number">2</span>
+      <div><strong>#رمضان_في_مجد</strong><small>18.7K منشور</small></div>
+    </div>
 
-<div class="channel">
-<div class="channel-avatar">K</div>
-<div class="item-info">
-<strong>MAJD Kids</strong>
-<small>@majd.kids</small>
-</div>
-<button class="follow">متابعة</button>
-</div>
+    <div class="trend">
+      <span class="trend-number">3</span>
+      <div><strong>#Dragon_Slayer</strong><small>12.9K منشور</small></div>
+    </div>
+
+    <div class="trend">
+      <span class="trend-number">4</span>
+      <div><strong>#MAJD_Gamer</strong><small>9.8K منشور</small></div>
+    </div>
+
+    <div class="trend">
+      <span class="trend-number">5</span>
+      <div><strong>#مجد_الملوك</strong><small>7.3K منشور</small></div>
+    </div>
+
+  </div>
+
+  <a href="#" style="display:block;margin-top:10px;color:#4c9ae0;font-size:8px">عرض المزيد</a>
 
 </section>
 
-<section class="right-section">
+<section class="panel right-section">
 
-<h3>الفعاليات القادمة</h3>
+  <div class="right-head">
+    <h3>قنوات مقترحة</h3>
+    <a href="#">عرض الكل</a>
+  </div>
 
-<div class="event">
-<div class="live-thumb">🏆</div>
-<div class="item-info">
-<strong>بطولة مجد العالمية</strong>
-<small>قريباً</small>
-</div>
-</div>
+  <div class="channel">
+    <div class="channel-avatar">◉</div>
+    <div class="channel-info">
+      <strong>MAJD TV <span class="verified">●</span></strong>
+      <small>@majd.tv</small>
+      <small>1.2M مشترك</small>
+    </div>
+    <button class="follow">متابعة</button>
+  </div>
 
-<div class="event">
-<div class="live-thumb">🌙</div>
-<div class="item-info">
-<strong>حفل رمضان في مجد</strong>
-<small>قريباً</small>
-</div>
-</div>
+  <div class="channel">
+    <div class="channel-avatar">C</div>
+    <div class="channel-info">
+      <strong>Tech MAJD <span class="verified">●</span></strong>
+      <small>@tech.majd</small>
+      <small>890K مشترك</small>
+    </div>
+    <button class="follow">متابعة</button>
+  </div>
 
-<div class="event">
-<div class="live-thumb">🎬</div>
-<div class="item-info">
-<strong>عرض فيلم جديد</strong>
-<small>قريباً</small>
-</div>
-</div>
+  <div class="channel">
+    <div class="channel-avatar">🔥</div>
+    <div class="channel-info">
+      <strong>MAJD Sports <span class="verified">●</span></strong>
+      <small>@majd.sports</small>
+      <small>760K مشترك</small>
+    </div>
+    <button class="follow">متابعة</button>
+  </div>
+
+  <div class="channel">
+    <div class="channel-avatar">🌈</div>
+    <div class="channel-info">
+      <strong>MAJD Kids <span class="verified">●</span></strong>
+      <small>@majd.kids</small>
+      <small>650K مشترك</small>
+    </div>
+    <button class="follow">متابعة</button>
+  </div>
 
 </section>
 
-<section class="ai">
+<section class="panel right-section">
 
-<div class="ai-orb"></div>
+  <div class="right-head">
+    <h3>الفعاليات القادمة</h3>
+    <a href="#">عرض الكل</a>
+  </div>
 
-<strong>ذكاء مجد الإبداعي</strong>
+  <div class="event">
+    <div>
+      <strong>بطولة مجد العالمية FINALS</strong>
+      <small>10 أكتوبر 2025 · 20:00</small>
+    </div>
+  </div>
 
-<p style="color:var(--muted);font-size:10px;line-height:1.7;">
-مساعدك الذكي داخل منصة مجد
-</p>
+  <div class="event">
+    <div>
+      <strong>حفل رمضان في مجد</strong>
+      <small>10 مارس 2025 · 21:00</small>
+    </div>
+  </div>
 
-<button id="aiButton">
-اسأل ذكاء مجد
-</button>
+  <div class="event">
+    <div>
+      <strong>عرض فيلم جديد — الجندي الأسطوري</strong>
+      <small>15 مارس · 720K مهتم</small>
+    </div>
+  </div>
 
 </section>
+
+<section class="panel ai-box">
+
+  <div class="ai-title">ذكاء مجد الإبداعي ✨</div>
+
+  <div class="ai-robot">
+    <div class="ai-orbit"></div>
+    <div class="ai-orbit two"></div>
+    <div class="ai-face"></div>
+  </div>
+
+  <p>
+    اسألني عن المحتوى، ساعدني في إنشاء محتوى
+    وتحسين تجربتك وزيادة تفاعل جمهورك
+  </p>
+
+  <button class="ai-button" id="aiButton">اسأل ذكاء مجد</button>
+
+</section>
+
+</div>
 
 </aside>
 
 </div>
 
-<nav class="mobile-nav">
+<!-- =========================================================
+     BOTTOM NAVIGATION
+     ========================================================= -->
 
-<button class="active">
-⌂
-<br>
-الرئيسية
-</button>
+<nav class="bottom-nav">
 
-<button>Shorts</button>
-
-<button>＋</button>
-
-<button>
-▣
-<br>
-الاشتراكات
-</button>
-
-<button>
-☰
-<br>
-المكتبة
-</button>
+  <button class="active">⌂<br>الرئيسية</button>
+  <button>Shorts<br>◉</button>
+  <button><span class="bottom-plus">＋</span></button>
+  <button>▣<br>الاشتراكات</button>
+  <button>▤<br>المكتبة</button>
 
 </nav>
 
 <script>
-
 const API = {
-    health: "/api/health",
-    status: "/api/status",
-    dashboard: "/api/dashboard",
-    owner: "/owner"
+  health: "/api/health",
+  status: "/api/status",
+  dashboard: "/api/dashboard",
+  owner: "/owner"
 };
 
-async function api(url){
+async function api(url) {
+  const response = await fetch(url, {
+    credentials: "include"
+  });
 
-    const response = await fetch(
-        url,
-        {
-            credentials:"include"
-        }
+  let body = null;
+
+  try {
+    body = await response.json();
+  } catch (_) {}
+
+  if (!response.ok) {
+    throw new Error(
+      body?.message ||
+      body?.error ||
+      `HTTP ${response.status}`
     );
+  }
 
-    let body = null;
-
-    try{
-        body = await response.json();
-    }catch(_){}
-
-    if(!response.ok){
-        throw new Error(
-            body?.message ||
-            body?.error ||
-            `HTTP ${response.status}`
-        );
-    }
-
-    return body;
+  return body;
 }
 
 document
-.getElementById("ownerCenter")
-.addEventListener(
-    "click",
-    () => {
-        location.href = API.owner;
-    }
-);
+  .getElementById("ownerCenter")
+  .addEventListener("click", () => {
+    location.href = API.owner;
+  });
 
 document
-.getElementById("aiButton")
-.addEventListener(
-    "click",
-    () => {
-        alert(
-            "واجهة ذكاء مجد جاهزة للربط بالخدمة الخلفية."
-        );
-    }
-);
+  .getElementById("aiButton")
+  .addEventListener("click", () => {
+    alert("ذكاء مجد");
+  });
 
-async function boot(){
+document.querySelectorAll(".menu button").forEach(button => {
+  button.addEventListener("click", function () {
+    if (this.id === "ownerCenter") return;
 
-    try{
+    document.querySelectorAll(".menu button")
+      .forEach(item => item.classList.remove("active"));
 
-        await api(API.health);
+    this.classList.add("active");
+  });
+});
 
-        document
-        .documentElement
-        .dataset
-        .health = "online";
+document.querySelectorAll(".feed-tab").forEach(tab => {
+  tab.addEventListener("click", function () {
+    document.querySelectorAll(".feed-tab")
+      .forEach(item => item.classList.remove("active"));
 
-    }catch(_){
+    this.classList.add("active");
+  });
+});
 
-        document
-        .documentElement
-        .dataset
-        .health = "offline";
+document.querySelectorAll(".follow").forEach(button => {
+  button.addEventListener("click", function () {
+    const following = this.dataset.following === "true";
 
-    }
+    this.dataset.following = following ? "false" : "true";
+    this.textContent = following ? "متابعة" : "متابَع";
+  });
+});
+
+async function boot() {
+  try {
+    await api(API.health);
+    document.documentElement.dataset.health = "online";
+  } catch (_) {
+    document.documentElement.dataset.health = "offline";
+  }
 }
 
 boot();
-
 </script>
 
 </body>
@@ -1262,7 +2020,6 @@ boot();
 
 
 def build() -> Dict[str, Any]:
-
     PUBLIC_ROOT.mkdir(
         parents=True,
         exist_ok=True,
@@ -1284,7 +2041,7 @@ def build() -> Dict[str, Any]:
             and INDEX_FILE.stat().st_size > 0,
 
         "status":
-            "OFFICIAL_PUBLIC_PLATFORM_BUILT",
+            "OFFICIAL_MAJD_REFERENCE_UI_BUILT",
 
         "platform":
             PLATFORM_NAME,
@@ -1304,7 +2061,6 @@ def build() -> Dict[str, Any]:
 
 
 def main() -> int:
-
     result = build()
 
     print(
@@ -1315,15 +2071,8 @@ def main() -> int:
         )
     )
 
-    return (
-        0
-        if result.get("success")
-        else 1
-    )
+    return 0 if result.get("success") else 1
 
 
 if __name__ == "__main__":
-
-    raise SystemExit(
-        main()
-    )
+    raise SystemExit(main())
