@@ -3,25 +3,17 @@
 
 """
 MAJD GAME FACTORY
-MAJD-OFFICIAL-PLATFORM-BRIDGE-04.py
+majd_ai_agent.py
 ============================================================
 
-OFFICIAL MAJD PLATFORM BRIDGE
+MAJD AI AGENT — REAL EXECUTION ORCHESTRATOR
 
-المسؤوليات:
-- استقبال Playable Artifact الحقيقي من 03.
-- التحقق من أن الـArtifact موجود وصالح.
-- التحقق من وجود index.html.
-- نشر اللعبة داخل public/artifacts.
-- إنشاء Game ID ثابت للعملية.
-- التحقق من النسخة المنشورة بعد النسخ.
-- إنشاء metadata وmanifest للنشر.
-- منع النجاح الوهمي.
-- إعادة مسار اللعبة المنشورة الحقيقي.
-- التوافق مع العقل المدبر 01 و Runtime 06.
+السلسلة الحقيقية:
 
-السلسلة:
-
+USER / MAJD API
+      ↓
+MAJD AI AGENT
+      ↓
 01 MASTERMIND
       ↓
 03 REAL GAME EXECUTOR
@@ -30,25 +22,33 @@ PLAYABLE ARTIFACT
       ↓
 04 OFFICIAL PLATFORM BRIDGE
       ↓
-VERIFY SOURCE
+PUBLIC /artifacts/<game_id>/index.html
       ↓
-COPY TO PUBLIC
-      ↓
-VERIFY PUBLISHED COPY
-      ↓
-RETURN REAL GAME PATH
+https://majd.shop/artifacts/<game_id>/index.html
+
+القواعد:
+- لا نجاح وهمي.
+- لا ManifestBuilder غير موجود.
+- لا PackageBuilder غير موجود.
+- لا MajdPlatformClient غير موجود.
+- الربط مع 04 يتم فقط عبر الواجهة الحقيقية publish_game.
+- إذا فشل 01 أو 03 أو 04 تظهر حالة الفشل الحقيقية.
+- HTTP 200 لا يعني أن العملية نجحت؛ success داخل JSON هو الحكم.
 """
 
 from __future__ import annotations
 
-import hashlib
+import importlib.util
 import json
-import shutil
+import os
+import re
+import sys
+import traceback
 import uuid
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 
 # ============================================================
@@ -56,12 +56,13 @@ from typing import Any, Dict, List, Optional
 # ============================================================
 
 SYSTEM_NAME = "MAJD-GAME-FACTORY"
+AGENT_NAME = "MAJD-AI-AGENT"
+VERSION = "3.0.0"
 
-BRIDGE_NAME = "MAJD-OFFICIAL-PLATFORM-BRIDGE"
-
-VERSION = "2.0.0"
-
-OFFICIAL_PLATFORM_URL = "https://majd.shop"
+OFFICIAL_PLATFORM_URL = os.getenv(
+    "MAJD_OFFICIAL_PLATFORM_URL",
+    "https://majd.shop"
+).rstrip("/")
 
 
 # ============================================================
@@ -70,38 +71,19 @@ OFFICIAL_PLATFORM_URL = "https://majd.shop"
 
 ROOT_DIR = Path(__file__).resolve().parent
 
-PUBLIC_DIR = (
-    ROOT_DIR
-    /
-    "public"
-)
-
-ARTIFACTS_DIR = (
-    PUBLIC_DIR
-    /
-    "artifacts"
-)
-
-STATE_DIR = (
-    ROOT_DIR
-    /
-    "majd_factory_state"
-)
-
-PUBLISH_DIR = (
-    STATE_DIR
-    /
-    "published"
-)
-
+OUTPUT_DIR = ROOT_DIR / "majd_game_output"
+STATE_DIR = ROOT_DIR / "majd_factory_state"
+AGENT_STATE_DIR = STATE_DIR / "agent"
+PUBLIC_DIR = ROOT_DIR / "public"
+ARTIFACTS_DIR = PUBLIC_DIR / "artifacts"
 
 for directory in (
+    OUTPUT_DIR,
+    STATE_DIR,
+    AGENT_STATE_DIR,
     PUBLIC_DIR,
     ARTIFACTS_DIR,
-    STATE_DIR,
-    PUBLISH_DIR,
 ):
-
     directory.mkdir(
         parents=True,
         exist_ok=True
@@ -109,18 +91,36 @@ for directory in (
 
 
 # ============================================================
+# OFFICIAL COMPONENT FILES
+# ============================================================
+
+MASTERMIND_CANDIDATES = (
+    ROOT_DIR / "MAJD-AI-MASTERMIND-01.py",
+    ROOT_DIR / "MAJD-MASTERMIND-01.py",
+    ROOT_DIR / "majd_ai_mastermind.py",
+)
+
+REAL_GAME_EXECUTOR_FILE = (
+    ROOT_DIR / "MAJD-REAL-GAME-EXECUTOR-03.py"
+)
+
+OFFICIAL_PLATFORM_BRIDGE_FILE = (
+    ROOT_DIR / "MAJD-OFFICIAL-PLATFORM-BRIDGE-04.py"
+)
+
+
+# ============================================================
 # TIME
 # ============================================================
 
 def utc_now() -> str:
-
     return datetime.now(
         timezone.utc
     ).isoformat()
 
 
 # ============================================================
-# JSON
+# JSON HELPERS
 # ============================================================
 
 def write_json(
@@ -150,873 +150,1488 @@ def write_json(
             default=str
         )
 
-    temporary.replace(
-        path
+    temporary.replace(path)
+
+
+# ============================================================
+# SAFE JOB ID
+# ============================================================
+
+def build_job_id(
+    value: Optional[str] = None
+) -> str:
+
+    raw = str(
+        value or uuid.uuid4()
+    ).strip()
+
+    raw = raw.replace(
+        "/",
+        "-"
+    ).replace(
+        "\\",
+        "-"
+    )
+
+    raw = re.sub(
+        r"[^A-Za-z0-9._-]+",
+        "-",
+        raw
+    )
+
+    raw = raw.strip(
+        ".-_"
+    )
+
+    if not raw:
+        raw = str(
+            uuid.uuid4()
+        )
+
+    return raw[:120]
+
+
+# ============================================================
+# DYNAMIC PYTHON MODULE LOADER
+# ============================================================
+
+def load_python_module(
+    path: Path,
+    module_name: str
+) -> Any:
+
+    if not path.exists():
+
+        raise FileNotFoundError(
+            f"MODULE_FILE_NOT_FOUND: {path}"
+        )
+
+    specification = (
+        importlib.util.spec_from_file_location(
+            module_name,
+            str(path)
+        )
+    )
+
+    if (
+        specification is None
+        or
+        specification.loader is None
+    ):
+
+        raise ImportError(
+            f"MODULE_SPEC_FAILED: {path}"
+        )
+
+    module = (
+        importlib.util.module_from_spec(
+            specification
+        )
+    )
+
+    sys.modules[
+        module_name
+    ] = module
+
+    specification.loader.exec_module(
+        module
+    )
+
+    return module
+
+
+# ============================================================
+# MASTERMIND DISCOVERY
+# ============================================================
+
+def find_mastermind_file() -> Optional[Path]:
+
+    for candidate in MASTERMIND_CANDIDATES:
+
+        if candidate.exists():
+            return candidate
+
+    matches = sorted(
+        ROOT_DIR.glob(
+            "*MASTERMIND*01*.py"
+        )
+    )
+
+    if matches:
+        return matches[0]
+
+    return None
+
+
+# ============================================================
+# REQUEST PARSER
+# ============================================================
+
+def parse_command(
+    command: str
+) -> Dict[str, Any]:
+
+    command = str(
+        command or ""
+    ).strip()
+
+    if not command:
+
+        return {
+            "success": False,
+            "error": "EMPTY_COMMAND"
+        }
+
+    game_name = extract_game_name(
+        command
+    )
+
+    request = {
+        "success": True,
+        "command": command,
+        "name": game_name,
+        "type": detect_game_type(
+            command
+        ),
+        "requested_at": utc_now(),
+        "source": AGENT_NAME,
+    }
+
+    return request
+
+
+def extract_game_name(
+    command: str
+) -> str:
+
+    text = command.strip()
+
+    patterns = (
+        r"(?:اسمها|اسم اللعبة)\s*[:：]?\s*[\"']?([^\"'\n،,.]+)",
+        r"(?:أنشئ|انشئ|اصنع|ابن|سوي|سوِ)\s+(?:لي\s+)?(?:لعبة\s+)?[\"']?([^\"'\n،,.]+)",
+    )
+
+    for pattern in patterns:
+
+        match = re.search(
+            pattern,
+            text,
+            flags=re.IGNORECASE
+        )
+
+        if match:
+
+            value = (
+                match.group(1)
+                .strip()
+            )
+
+            if value:
+                return value[:100]
+
+    return (
+        "MAJD GENERATED GAME"
     )
 
 
-# ============================================================
-# HASH
-# ============================================================
-
-def sha256_file(
-    path: Path
+def detect_game_type(
+    command: str
 ) -> str:
 
-    digest = hashlib.sha256()
+    lowered = command.lower()
 
-    with path.open(
-        "rb"
-    ) as file:
+    if (
+        "3d" in lowered
+        or
+        "ثلاثية" in command
+        or
+        "ثلاثي" in command
+    ):
+        return "3D"
 
-        while True:
+    if (
+        "2d" in lowered
+        or
+        "ثنائية" in command
+        or
+        "ثنائي" in command
+    ):
+        return "2D"
 
-            chunk = file.read(
-                1024 * 1024
-            )
+    if (
+        "استراتيجية" in command
+        or
+        "strategy" in lowered
+    ):
+        return "STRATEGY"
 
-            if not chunk:
-                break
+    if (
+        "سباق" in command
+        or
+        "racing" in lowered
+        or
+        "race" in lowered
+    ):
+        return "RACING"
 
-            digest.update(
-                chunk
-            )
+    if (
+        "مغامرات" in command
+        or
+        "adventure" in lowered
+    ):
+        return "ADVENTURE"
 
-    return digest.hexdigest()
+    return "GAME"
 
 
 # ============================================================
-# PATH NORMALIZATION
+# RESULT NORMALIZATION
 # ============================================================
 
-def normalize_artifact_path(
+def normalize_result(
     value: Any
-) -> Path:
-
-    path = Path(
-        str(
-            value
-        )
-    )
-
-    if not path.is_absolute():
-
-        path = (
-            ROOT_DIR
-            /
-            path
-        ).resolve()
-
-    else:
-
-        path = path.resolve()
-
-    return path
-
-
-# ============================================================
-# VERIFY SOURCE ARTIFACT
-# ============================================================
-
-def verify_source_artifact(
-    artifact: Path
 ) -> Dict[str, Any]:
 
-    if not artifact.exists():
-
-        return {
-
-            "success":
-                False,
-
-            "status":
-                "SOURCE_ARTIFACT_NOT_FOUND",
-
-            "artifact":
-                str(
-                    artifact
-                )
-        }
-
-    if not artifact.is_dir():
-
-        return {
-
-            "success":
-                False,
-
-            "status":
-                "SOURCE_ARTIFACT_NOT_DIRECTORY",
-
-            "artifact":
-                str(
-                    artifact
-                )
-        }
-
-    index_file = (
-        artifact
-        /
-        "index.html"
-    )
-
-    if not index_file.exists():
-
-        return {
-
-            "success":
-                False,
-
-            "status":
-                "SOURCE_INDEX_NOT_FOUND",
-
-            "artifact":
-                str(
-                    artifact
-                )
-        }
-
-    if (
-        index_file.stat().st_size
-        <=
-        0
+    if isinstance(
+        value,
+        dict
     ):
+        return value
+
+    if value is None:
 
         return {
-
-            "success":
-                False,
-
-            "status":
-                "SOURCE_INDEX_EMPTY",
-
-            "artifact":
-                str(
-                    artifact
-                )
-        }
-
-    files = [
-
-        path
-
-        for path
-        in artifact.rglob(
-            "*"
-        )
-
-        if path.is_file()
-    ]
-
-    if len(
-        files
-    ) < 2:
-
-        return {
-
-            "success":
-                False,
-
-            "status":
-                "SOURCE_ARTIFACT_TOO_SMALL",
-
-            "artifact":
-                str(
-                    artifact
-                )
+            "success": False,
+            "error": "COMPONENT_RETURNED_NONE"
         }
 
     return {
-
-        "success":
-            True,
-
-        "status":
-            "SOURCE_ARTIFACT_VERIFIED",
-
-        "artifact":
-            str(
-                artifact
-            ),
-
-        "index":
-            str(
-                index_file
-            ),
-
-        "file_count":
-            len(
-                files
-            )
+        "success": True,
+        "result": value
     }
 
 
 # ============================================================
-# COPY ARTIFACT
+# MASTERMIND CALL
 # ============================================================
 
-def copy_artifact(
-    source: Path,
-    destination: Path
-) -> None:
-
-    if destination.exists():
-
-        shutil.rmtree(
-            destination
-        )
-
-    shutil.copytree(
-        source,
-        destination
-    )
-
-
-# ============================================================
-# VERIFY PUBLISHED ARTIFACT
-# ============================================================
-
-def verify_published_artifact(
-    source: Path,
-    destination: Path
-) -> Dict[str, Any]:
-
-    if not destination.exists():
-
-        return {
-
-            "success":
-                False,
-
-            "status":
-                "PUBLISHED_ARTIFACT_NOT_FOUND"
-        }
-
-    index_file = (
-        destination
-        /
-        "index.html"
-    )
-
-    if not index_file.exists():
-
-        return {
-
-            "success":
-                False,
-
-            "status":
-                "PUBLISHED_INDEX_NOT_FOUND"
-        }
-
-    source_files = {
-
-        str(
-            path.relative_to(
-                source
-            )
-        ):
-            path
-
-        for path
-        in source.rglob(
-            "*"
-        )
-
-        if path.is_file()
-    }
-
-    destination_files = {
-
-        str(
-            path.relative_to(
-                destination
-            )
-        ):
-            path
-
-        for path
-        in destination.rglob(
-            "*"
-        )
-
-        if path.is_file()
-    }
-
-    if (
-        set(
-            source_files.keys()
-        )
-        !=
-        set(
-            destination_files.keys()
-        )
-    ):
-
-        return {
-
-            "success":
-                False,
-
-            "status":
-                "PUBLISHED_FILE_SET_MISMATCH",
-
-            "source_count":
-                len(
-                    source_files
-                ),
-
-            "published_count":
-                len(
-                    destination_files
-                )
-        }
-
-    mismatches: List[
-        Dict[str, Any]
-    ] = []
-
-    manifest: List[
-        Dict[str, Any]
-    ] = []
-
-    for relative_path, source_file in source_files.items():
-
-        destination_file = (
-            destination_files[
-                relative_path
-            ]
-        )
-
-        source_hash = (
-            sha256_file(
-                source_file
-            )
-        )
-
-        destination_hash = (
-            sha256_file(
-                destination_file
-            )
-        )
-
-        manifest.append({
-
-            "path":
-                relative_path,
-
-            "size":
-                destination_file
-                .stat()
-                .st_size,
-
-            "sha256":
-                destination_hash
-        })
-
-        if (
-            source_hash
-            !=
-            destination_hash
-        ):
-
-            mismatches.append({
-
-                "path":
-                    relative_path,
-
-                "source_sha256":
-                    source_hash,
-
-                "published_sha256":
-                    destination_hash
-            })
-
-    if mismatches:
-
-        return {
-
-            "success":
-                False,
-
-            "status":
-                "PUBLISHED_HASH_MISMATCH",
-
-            "mismatches":
-                mismatches
-        }
-
-    return {
-
-        "success":
-            True,
-
-        "status":
-            "PUBLISHED_ARTIFACT_VERIFIED",
-
-        "index":
-            str(
-                index_file
-            ),
-
-        "manifest":
-            manifest
-    }
-
-
-# ============================================================
-# GAME ID
-# ============================================================
-
-def build_game_id(
+def call_mastermind(
+    command: str,
+    request: Dict[str, Any],
     job_id: str
-) -> str:
-
-    clean_job_id = (
-        str(
-            job_id
-        )
-        .strip()
-    )
-
-    if clean_job_id:
-
-        clean_job_id = (
-            clean_job_id
-            .replace(
-                "/",
-                "-"
-            )
-            .replace(
-                "\\",
-                "-"
-            )
-        )
-
-        return clean_job_id[:120]
-
-    return str(
-        uuid.uuid4()
-    )
-
-
-# ============================================================
-# PUBLICATION METADATA
-# ============================================================
-
-def create_publication_metadata(
-    game_id: str,
-    game_name: str,
-    job_id: str,
-    artifact: Path,
-    published_dir: Path,
-    verification: Dict[str, Any],
-    request: Optional[
-        Dict[str, Any]
-    ] = None
 ) -> Dict[str, Any]:
 
-    relative_game_path = (
-        f"/artifacts/{game_id}/index.html"
+    mastermind_file = (
+        find_mastermind_file()
     )
 
-    public_url = (
-        OFFICIAL_PLATFORM_URL.rstrip("/")
-        +
-        relative_game_path
-    )
-
-    metadata = {
-
-        "system":
-            SYSTEM_NAME,
-
-        "bridge":
-            BRIDGE_NAME,
-
-        "version":
-            VERSION,
-
-        "game_id":
-            game_id,
-
-        "game_name":
-            game_name,
-
-        "job_id":
-            job_id,
-
-        "source_artifact":
-            str(
-                artifact
-            ),
-
-        "published_directory":
-            str(
-                published_dir
-            ),
-
-        "game_path":
-            relative_game_path,
-
-        "public_url":
-            public_url,
-
-        "published_at":
-            utc_now(),
-
-        "verification":
-            verification,
-
-        "request":
-            request or {}
-    }
-
-    return metadata
-
-
-# ============================================================
-# MAIN PUBLISH FUNCTION
-# ============================================================
-
-def publish_game(
-    game_dir: Optional[
-        Path
-    ] = None,
-    game_name: str = "MAJD-GAME",
-    job_id: str = "",
-    artifact: Optional[Any] = None,
-    artifact_path: Optional[Any] = None,
-    build_path: Optional[Any] = None,
-    request: Optional[
-        Dict[str, Any]
-    ] = None,
-    payload: Optional[
-        Dict[str, Any]
-    ] = None,
-    **kwargs: Any
-) -> Dict[str, Any]:
-
-    started_at = (
-        utc_now()
-    )
-
-    source_value = (
-        game_dir
-        or
-        artifact
-        or
-        artifact_path
-        or
-        build_path
-    )
-
-    if source_value is None:
+    if mastermind_file is None:
 
         return {
-
-            "success":
-                False,
-
-            "status":
-                "ARTIFACT_ARGUMENT_MISSING",
-
-            "bridge":
-                BRIDGE_NAME
+            "success": True,
+            "status": "MASTERMIND_NOT_PRESENT_PASSTHROUGH",
+            "request": request
         }
 
     try:
 
-        source = (
-            normalize_artifact_path(
-                source_value
+        module = load_python_module(
+            mastermind_file,
+            "majd_mastermind_01"
+        )
+
+        function = (
+            getattr(
+                module,
+                "process_game_request",
+                None
+            )
+            or
+            getattr(
+                module,
+                "execute_request",
+                None
+            )
+            or
+            getattr(
+                module,
+                "process_request",
+                None
+            )
+            or
+            getattr(
+                module,
+                "execute",
+                None
+            )
+            or
+            getattr(
+                module,
+                "run",
+                None
             )
         )
 
-        source_verification = (
-            verify_source_artifact(
-                source
-            )
-        )
-
-        if not source_verification.get(
-            "success"
-        ):
+        if function is None:
 
             return {
-
-                "success":
-                    False,
-
-                "status":
-                    source_verification.get(
-                        "status",
-                        "SOURCE_VERIFICATION_FAILED"
-                    ),
-
-                "bridge":
-                    BRIDGE_NAME,
-
-                "source_verification":
-                    source_verification
-            }
-
-        actual_request = (
-            request
-            or
-            payload
-            or
-            {}
-        )
-
-        if (
-            (
-                not game_name
-                or
-                game_name
-                ==
-                "MAJD-GAME"
-            )
-            and
-            isinstance(
-                actual_request,
-                dict
-            )
-        ):
-
-            game_name = str(
-                actual_request.get(
-                    "name"
+                "success": False,
+                "status": "MASTERMIND_INTERFACE_MISSING",
+                "file": str(
+                    mastermind_file
                 )
-                or
-                game_name
-            )
-
-        game_id = (
-            build_game_id(
-                job_id
-            )
-        )
-
-        published_dir = (
-            ARTIFACTS_DIR
-            /
-            game_id
-        )
-
-        copy_artifact(
-            source,
-            published_dir
-        )
-
-        published_verification = (
-            verify_published_artifact(
-                source,
-                published_dir
-            )
-        )
-
-        if not published_verification.get(
-            "success"
-        ):
-
-            return {
-
-                "success":
-                    False,
-
-                "status":
-                    published_verification.get(
-                        "status",
-                        "PUBLISH_VERIFICATION_FAILED"
-                    ),
-
-                "bridge":
-                    BRIDGE_NAME,
-
-                "game_id":
-                    game_id,
-
-                "published_directory":
-                    str(
-                        published_dir
-                    ),
-
-                "verification":
-                    published_verification
             }
 
-        metadata = (
-            create_publication_metadata(
-
-                game_id=
-                    game_id,
-
-                game_name=
-                    game_name,
-
-                job_id=
-                    str(
-                        job_id
-                    ),
-
-                artifact=
-                    source,
-
-                published_dir=
-                    published_dir,
-
-                verification=
-                    published_verification,
-
-                request=
-                    actual_request
-            )
+        attempts = (
+            lambda: function(
+                command=command,
+                request=request,
+                job_id=job_id,
+                owner="MAJD",
+                output_root=str(
+                    OUTPUT_DIR
+                )
+            ),
+            lambda: function(
+                request=request,
+                job_id=job_id,
+                output_root=str(
+                    OUTPUT_DIR
+                )
+            ),
+            lambda: function(
+                command=command
+            ),
+            lambda: function(
+                request
+            ),
         )
 
-        metadata_file = (
-            PUBLISH_DIR
-            /
-            f"{game_id}.json"
-        )
+        last_type_error = None
 
-        write_json(
-            metadata_file,
-            metadata
-        )
+        for attempt in attempts:
+
+            try:
+
+                result = attempt()
+
+                normalized = normalize_result(
+                    result
+                )
+
+                if "success" not in normalized:
+                    normalized[
+                        "success"
+                    ] = True
+
+                return normalized
+
+            except TypeError as error:
+
+                last_type_error = error
+                continue
 
         return {
-
-            "success":
-                True,
-
-            "status":
-                "PUBLISHED",
-
-            "system":
-                SYSTEM_NAME,
-
-            "bridge":
-                BRIDGE_NAME,
-
-            "version":
-                VERSION,
-
-            "game_id":
-                game_id,
-
-            "game_name":
-                game_name,
-
-            "job_id":
-                str(
-                    job_id
-                ),
-
-            "artifact":
-                str(
-                    source
-                ),
-
-            "published_directory":
-                str(
-                    published_dir
-                ),
-
-            "game_path":
-                metadata[
-                    "game_path"
-                ],
-
-            "public_url":
-                metadata[
-                    "public_url"
-                ],
-
-            "metadata":
-                str(
-                    metadata_file
-                ),
-
-            "source_verification":
-                source_verification,
-
-            "published_verification":
-                published_verification,
-
-            "started_at":
-                started_at,
-
-            "finished_at":
-                utc_now()
+            "success": False,
+            "status": "MASTERMIND_SIGNATURE_MISMATCH",
+            "error": str(
+                last_type_error
+            )
         }
 
     except Exception as error:
 
         return {
-
-            "success":
-                False,
-
-            "status":
-                "PLATFORM_BRIDGE_EXCEPTION",
-
-            "bridge":
-                BRIDGE_NAME,
-
-            "error":
-                (
-                    f"{type(error).__name__}: "
-                    f"{error}"
-                ),
-
-            "finished_at":
-                utc_now()
+            "success": False,
+            "status": "MASTERMIND_FAILED",
+            "error": (
+                f"{type(error).__name__}: "
+                f"{error}"
+            ),
+            "traceback": traceback.format_exc()
         }
 
 
 # ============================================================
-# COMPATIBILITY ALIASES
+# PREPARED REQUEST
 # ============================================================
 
-def publish(
+def build_prepared_request(
+    parsed_request: Dict[str, Any],
+    mastermind_result: Dict[str, Any]
+) -> Dict[str, Any]:
+
+    if mastermind_result.get(
+        "success"
+    ) is False:
+
+        return parsed_request
+
+    candidates = (
+        mastermind_result.get(
+            "request"
+        ),
+        mastermind_result.get(
+            "prepared_request"
+        ),
+        mastermind_result.get(
+            "game_request"
+        ),
+        mastermind_result.get(
+            "result"
+        ),
+    )
+
+    for candidate in candidates:
+
+        if isinstance(
+            candidate,
+            dict
+        ):
+
+            prepared = dict(
+                parsed_request
+            )
+
+            prepared.update(
+                candidate
+            )
+
+            prepared[
+                "success"
+            ] = True
+
+            return prepared
+
+    return parsed_request
+
+
+# ============================================================
+# REAL EXECUTOR
+# ============================================================
+
+def call_real_executor(
+    request: Dict[str, Any],
+    job_id: str
+) -> Dict[str, Any]:
+
+    if not REAL_GAME_EXECUTOR_FILE.exists():
+
+        return {
+            "success": False,
+            "status": "REAL_GAME_EXECUTOR_NOT_FOUND",
+            "file": str(
+                REAL_GAME_EXECUTOR_FILE
+            )
+        }
+
+    try:
+
+        module = load_python_module(
+            REAL_GAME_EXECUTOR_FILE,
+            "majd_real_game_executor_03"
+        )
+
+        function = (
+            getattr(
+                module,
+                "execute_game_request",
+                None
+            )
+            or
+            getattr(
+                module,
+                "execute",
+                None
+            )
+            or
+            getattr(
+                module,
+                "run",
+                None
+            )
+        )
+
+        if function is None:
+
+            return {
+                "success": False,
+                "status": "EXECUTOR_INTERFACE_MISSING",
+                "file": str(
+                    REAL_GAME_EXECUTOR_FILE
+                )
+            }
+
+        attempts = (
+            lambda: function(
+                request=request,
+                job_id=job_id,
+                output_root=str(
+                    OUTPUT_DIR
+                )
+            ),
+            lambda: function(
+                request=request,
+                job_id=job_id
+            ),
+            lambda: function(
+                request
+            ),
+        )
+
+        last_type_error = None
+
+        for attempt in attempts:
+
+            try:
+
+                result = attempt()
+
+                normalized = normalize_result(
+                    result
+                )
+
+                if "success" not in normalized:
+                    normalized[
+                        "success"
+                    ] = True
+
+                return normalized
+
+            except TypeError as error:
+
+                last_type_error = error
+                continue
+
+        return {
+            "success": False,
+            "status": "EXECUTOR_SIGNATURE_MISMATCH",
+            "error": str(
+                last_type_error
+            )
+        }
+
+    except Exception as error:
+
+        return {
+            "success": False,
+            "status": "EXECUTOR_FAILED",
+            "error": (
+                f"{type(error).__name__}: "
+                f"{error}"
+            ),
+            "traceback": traceback.format_exc()
+        }
+
+
+# ============================================================
+# ARTIFACT EXTRACTION
+# ============================================================
+
+def extract_artifact(
+    executor_result: Dict[str, Any]
+) -> Optional[Path]:
+
+    keys = (
+        "artifact",
+        "artifact_path",
+        "build_path",
+        "game_dir",
+        "output_path",
+        "playable_artifact",
+    )
+
+    for key in keys:
+
+        value = executor_result.get(
+            key
+        )
+
+        if value:
+
+            path = Path(
+                str(value)
+            )
+
+            if not path.is_absolute():
+
+                path = (
+                    ROOT_DIR
+                    /
+                    path
+                ).resolve()
+
+            else:
+
+                path = path.resolve()
+
+            if path.exists():
+                return path
+
+    nested_keys = (
+        "result",
+        "build",
+        "output",
+        "game",
+    )
+
+    for nested_key in nested_keys:
+
+        nested = executor_result.get(
+            nested_key
+        )
+
+        if not isinstance(
+            nested,
+            dict
+        ):
+            continue
+
+        for key in keys:
+
+            value = nested.get(
+                key
+            )
+
+            if not value:
+                continue
+
+            path = Path(
+                str(value)
+            )
+
+            if not path.is_absolute():
+
+                path = (
+                    ROOT_DIR
+                    /
+                    path
+                ).resolve()
+
+            else:
+
+                path = path.resolve()
+
+            if path.exists():
+                return path
+
+    return None
+
+
+# ============================================================
+# PLATFORM BRIDGE
+# ============================================================
+
+def call_platform_bridge(
+    artifact: Path,
+    request: Dict[str, Any],
+    job_id: str
+) -> Dict[str, Any]:
+
+    if not OFFICIAL_PLATFORM_BRIDGE_FILE.exists():
+
+        return {
+            "success": False,
+            "status": "OFFICIAL_PLATFORM_BRIDGE_NOT_FOUND",
+            "file": str(
+                OFFICIAL_PLATFORM_BRIDGE_FILE
+            )
+        }
+
+    try:
+
+        module = load_python_module(
+            OFFICIAL_PLATFORM_BRIDGE_FILE,
+            "majd_official_platform_bridge_04"
+        )
+
+        publish_function = getattr(
+            module,
+            "publish_game",
+            None
+        )
+
+        if publish_function is None:
+
+            return {
+                "success": False,
+                "status": "PLATFORM_BRIDGE_INTERFACE_MISSING",
+                "required_interface": "publish_game",
+                "file": str(
+                    OFFICIAL_PLATFORM_BRIDGE_FILE
+                )
+            }
+
+        result = publish_function(
+            game_dir=artifact,
+            game_name=str(
+                request.get(
+                    "name"
+                )
+                or
+                "MAJD GENERATED GAME"
+            ),
+            job_id=job_id,
+            request=request
+        )
+
+        normalized = normalize_result(
+            result
+        )
+
+        if "success" not in normalized:
+            normalized[
+                "success"
+            ] = False
+
+        return normalized
+
+    except Exception as error:
+
+        return {
+            "success": False,
+            "status": "PLATFORM_BRIDGE_FAILED",
+            "error": (
+                f"{type(error).__name__}: "
+                f"{error}"
+            ),
+            "traceback": traceback.format_exc()
+        }
+
+
+# ============================================================
+# FINAL PUBLICATION VALIDATION
+# ============================================================
+
+def validate_publication(
+    bridge_result: Dict[str, Any]
+) -> Dict[str, Any]:
+
+    if bridge_result.get(
+        "success"
+    ) is not True:
+
+        return {
+            "success": False,
+            "status": "BRIDGE_REPORTED_FAILURE",
+            "bridge_result": bridge_result
+        }
+
+    published_directory_value = (
+        bridge_result.get(
+            "published_directory"
+        )
+    )
+
+    game_path = bridge_result.get(
+        "game_path"
+    )
+
+    public_url = bridge_result.get(
+        "public_url"
+    )
+
+    if not published_directory_value:
+
+        return {
+            "success": False,
+            "status": "PUBLISHED_DIRECTORY_MISSING"
+        }
+
+    published_directory = Path(
+        str(
+            published_directory_value
+        )
+    )
+
+    if not published_directory.is_absolute():
+
+        published_directory = (
+            ROOT_DIR
+            /
+            published_directory
+        ).resolve()
+
+    if not published_directory.exists():
+
+        return {
+            "success": False,
+            "status": "PUBLISHED_DIRECTORY_NOT_FOUND",
+            "published_directory": str(
+                published_directory
+            )
+        }
+
+    index_file = (
+        published_directory
+        /
+        "index.html"
+    )
+
+    if not index_file.exists():
+
+        return {
+            "success": False,
+            "status": "PUBLISHED_INDEX_NOT_FOUND",
+            "index": str(
+                index_file
+            )
+        }
+
+    if index_file.stat().st_size <= 0:
+
+        return {
+            "success": False,
+            "status": "PUBLISHED_INDEX_EMPTY",
+            "index": str(
+                index_file
+            )
+        }
+
+    if not game_path:
+
+        return {
+            "success": False,
+            "status": "GAME_PATH_MISSING"
+        }
+
+    if not public_url:
+
+        public_url = (
+            OFFICIAL_PLATFORM_URL
+            +
+            "/"
+            +
+            str(
+                game_path
+            ).lstrip("/")
+        )
+
+    return {
+        "success": True,
+        "status": "REAL_PUBLICATION_VERIFIED",
+        "published_directory": str(
+            published_directory
+        ),
+        "index": str(
+            index_file
+        ),
+        "game_path": str(
+            game_path
+        ),
+        "public_url": str(
+            public_url
+        )
+    }
+
+
+# ============================================================
+# SAVE AGENT RECEIPT
+# ============================================================
+
+def save_agent_receipt(
+    job_id: str,
+    result: Dict[str, Any]
+) -> Path:
+
+    receipt_file = (
+        AGENT_STATE_DIR
+        /
+        f"{job_id}.json"
+    )
+
+    write_json(
+        receipt_file,
+        result
+    )
+
+    return receipt_file
+
+
+# ============================================================
+# MAIN EXECUTION PIPELINE
+# ============================================================
+
+def execute_command(
+    command: str,
+    job_id: Optional[str] = None
+) -> Dict[str, Any]:
+
+    started_at = utc_now()
+
+    actual_job_id = build_job_id(
+        job_id
+    )
+
+    try:
+
+        # ====================================================
+        # 1. PARSE USER COMMAND
+        # ====================================================
+
+        parsed_request = parse_command(
+            command
+        )
+
+        if parsed_request.get(
+            "success"
+        ) is not True:
+
+            result = {
+                "success": False,
+                "status": "COMMAND_PARSE_FAILED",
+                "system": SYSTEM_NAME,
+                "agent": AGENT_NAME,
+                "version": VERSION,
+                "job_id": actual_job_id,
+                "error": parsed_request.get(
+                    "error"
+                ),
+                "started_at": started_at,
+                "finished_at": utc_now()
+            }
+
+            save_agent_receipt(
+                actual_job_id,
+                result
+            )
+
+            return result
+
+        # ====================================================
+        # 2. MASTERMIND 01
+        # ====================================================
+
+        mastermind_result = call_mastermind(
+            command=command,
+            request=parsed_request,
+            job_id=actual_job_id
+        )
+
+        if mastermind_result.get(
+            "success"
+        ) is False:
+
+            result = {
+                "success": False,
+                "status": "MASTERMIND_STAGE_FAILED",
+                "system": SYSTEM_NAME,
+                "agent": AGENT_NAME,
+                "version": VERSION,
+                "job_id": actual_job_id,
+                "request": parsed_request,
+                "mastermind": mastermind_result,
+                "started_at": started_at,
+                "finished_at": utc_now()
+            }
+
+            save_agent_receipt(
+                actual_job_id,
+                result
+            )
+
+            return result
+
+        prepared_request = build_prepared_request(
+            parsed_request,
+            mastermind_result
+        )
+
+        # ====================================================
+        # 3. REAL GAME EXECUTOR 03
+        # ====================================================
+
+        executor_result = call_real_executor(
+            request=prepared_request,
+            job_id=actual_job_id
+        )
+
+        if executor_result.get(
+            "success"
+        ) is not True:
+
+            result = {
+                "success": False,
+                "status": "REAL_GAME_EXECUTION_FAILED",
+                "system": SYSTEM_NAME,
+                "agent": AGENT_NAME,
+                "version": VERSION,
+                "job_id": actual_job_id,
+                "request": prepared_request,
+                "mastermind": mastermind_result,
+                "executor": executor_result,
+                "started_at": started_at,
+                "finished_at": utc_now()
+            }
+
+            save_agent_receipt(
+                actual_job_id,
+                result
+            )
+
+            return result
+
+        # ====================================================
+        # 4. FIND REAL PLAYABLE ARTIFACT
+        # ====================================================
+
+        artifact = extract_artifact(
+            executor_result
+        )
+
+        if artifact is None:
+
+            result = {
+                "success": False,
+                "status": "REAL_ARTIFACT_NOT_FOUND",
+                "system": SYSTEM_NAME,
+                "agent": AGENT_NAME,
+                "version": VERSION,
+                "job_id": actual_job_id,
+                "request": prepared_request,
+                "mastermind": mastermind_result,
+                "executor": executor_result,
+                "started_at": started_at,
+                "finished_at": utc_now()
+            }
+
+            save_agent_receipt(
+                actual_job_id,
+                result
+            )
+
+            return result
+
+        if not artifact.is_dir():
+
+            result = {
+                "success": False,
+                "status": "REAL_ARTIFACT_NOT_DIRECTORY",
+                "system": SYSTEM_NAME,
+                "agent": AGENT_NAME,
+                "version": VERSION,
+                "job_id": actual_job_id,
+                "artifact": str(
+                    artifact
+                ),
+                "started_at": started_at,
+                "finished_at": utc_now()
+            }
+
+            save_agent_receipt(
+                actual_job_id,
+                result
+            )
+
+            return result
+
+        source_index = (
+            artifact
+            /
+            "index.html"
+        )
+
+        if (
+            not source_index.exists()
+            or
+            source_index.stat().st_size <= 0
+        ):
+
+            result = {
+                "success": False,
+                "status": "REAL_ARTIFACT_INDEX_INVALID",
+                "system": SYSTEM_NAME,
+                "agent": AGENT_NAME,
+                "version": VERSION,
+                "job_id": actual_job_id,
+                "artifact": str(
+                    artifact
+                ),
+                "index": str(
+                    source_index
+                ),
+                "started_at": started_at,
+                "finished_at": utc_now()
+            }
+
+            save_agent_receipt(
+                actual_job_id,
+                result
+            )
+
+            return result
+
+        # ====================================================
+        # 5. OFFICIAL PLATFORM BRIDGE 04
+        #
+        # IMPORTANT:
+        # لا ManifestBuilder
+        # لا PackageBuilder
+        # لا MajdPlatformClient
+        #
+        # الملف 04 الذي أرسلته يوفّر publish_game مباشرة.
+        # ====================================================
+
+        bridge_result = call_platform_bridge(
+            artifact=artifact,
+            request=prepared_request,
+            job_id=actual_job_id
+        )
+
+        if bridge_result.get(
+            "success"
+        ) is not True:
+
+            result = {
+                "success": False,
+                "status": "OFFICIAL_PLATFORM_PUBLISH_FAILED",
+                "system": SYSTEM_NAME,
+                "agent": AGENT_NAME,
+                "version": VERSION,
+                "job_id": actual_job_id,
+                "request": prepared_request,
+                "artifact": str(
+                    artifact
+                ),
+                "mastermind": mastermind_result,
+                "executor": executor_result,
+                "bridge": bridge_result,
+                "started_at": started_at,
+                "finished_at": utc_now()
+            }
+
+            save_agent_receipt(
+                actual_job_id,
+                result
+            )
+
+            return result
+
+        # ====================================================
+        # 6. VERIFY REAL PUBLICATION
+        # ====================================================
+
+        publication_validation = (
+            validate_publication(
+                bridge_result
+            )
+        )
+
+        if publication_validation.get(
+            "success"
+        ) is not True:
+
+            result = {
+                "success": False,
+                "status": "FINAL_PUBLICATION_VALIDATION_FAILED",
+                "system": SYSTEM_NAME,
+                "agent": AGENT_NAME,
+                "version": VERSION,
+                "job_id": actual_job_id,
+                "request": prepared_request,
+                "artifact": str(
+                    artifact
+                ),
+                "mastermind": mastermind_result,
+                "executor": executor_result,
+                "bridge": bridge_result,
+                "publication_validation":
+                    publication_validation,
+                "started_at": started_at,
+                "finished_at": utc_now()
+            }
+
+            save_agent_receipt(
+                actual_job_id,
+                result
+            )
+
+            return result
+
+        # ====================================================
+        # 7. FINAL REAL SUCCESS
+        # ====================================================
+
+        result = {
+            "success": True,
+            "status": "GAME_BUILT_AND_PUBLISHED",
+            "message": (
+                "Game built and published successfully "
+                "through MAJD Official Platform Bridge."
+            ),
+            "system": SYSTEM_NAME,
+            "agent": AGENT_NAME,
+            "version": VERSION,
+            "job_id": actual_job_id,
+            "game_id": bridge_result.get(
+                "game_id"
+            ),
+            "game_name": bridge_result.get(
+                "game_name"
+            )
+            or
+            prepared_request.get(
+                "name"
+            ),
+            "artifact": str(
+                artifact
+            ),
+            "published_directory":
+                publication_validation.get(
+                    "published_directory"
+                ),
+            "game_path":
+                publication_validation.get(
+                    "game_path"
+                ),
+            "public_url":
+                publication_validation.get(
+                    "public_url"
+                ),
+            "metadata":
+                bridge_result.get(
+                    "metadata"
+                ),
+            "request":
+                prepared_request,
+            "mastermind":
+                mastermind_result,
+            "executor":
+                executor_result,
+            "bridge":
+                bridge_result,
+            "publication_validation":
+                publication_validation,
+            "started_at":
+                started_at,
+            "finished_at":
+                utc_now()
+        }
+
+        receipt_file = save_agent_receipt(
+            actual_job_id,
+            result
+        )
+
+        result[
+            "agent_receipt"
+        ] = str(
+            receipt_file
+        )
+
+        return result
+
+    except Exception as error:
+
+        result = {
+            "success": False,
+            "status": "AGENT_SYSTEM_CRASH",
+            "system": SYSTEM_NAME,
+            "agent": AGENT_NAME,
+            "version": VERSION,
+            "job_id": actual_job_id,
+            "error": (
+                f"{type(error).__name__}: "
+                f"{error}"
+            ),
+            "traceback": traceback.format_exc(),
+            "started_at": started_at,
+            "finished_at": utc_now()
+        }
+
+        try:
+            save_agent_receipt(
+                actual_job_id,
+                result
+            )
+        except Exception:
+            pass
+
+        return result
+
+
+# ============================================================
+# COMPATIBILITY INTERFACES
+# ============================================================
+
+def run_command(
+    command: str,
+    job_id: Optional[str] = None,
     **kwargs: Any
 ) -> Dict[str, Any]:
 
-    return publish_game(
-        **kwargs
+    return execute_command(
+        command=command,
+        job_id=job_id
     )
 
 
-def send_game(
+def process_command(
+    command: str,
+    job_id: Optional[str] = None,
     **kwargs: Any
 ) -> Dict[str, Any]:
 
-    return publish_game(
-        **kwargs
-    )
-
-
-def send_to_majd(
-    **kwargs: Any
-) -> Dict[str, Any]:
-
-    return publish_game(
-        **kwargs
+    return execute_command(
+        command=command,
+        job_id=job_id
     )
 
 
 def execute(
+    command: str,
+    job_id: Optional[str] = None,
     **kwargs: Any
 ) -> Dict[str, Any]:
 
-    return publish_game(
-        **kwargs
+    return execute_command(
+        command=command,
+        job_id=job_id
+    )
+
+
+def run(
+    command: str,
+    job_id: Optional[str] = None,
+    **kwargs: Any
+) -> Dict[str, Any]:
+
+    return execute_command(
+        command=command,
+        job_id=job_id
     )
 
 
 # ============================================================
-# CLI TEST
+# OPTIONAL FASTAPI APPLICATION
+# ============================================================
+
+try:
+
+    from fastapi import FastAPI
+    from fastapi.responses import JSONResponse
+
+    FASTAPI_AVAILABLE = True
+
+except Exception:
+
+    FastAPI = None
+    JSONResponse = None
+    FASTAPI_AVAILABLE = False
+
+
+if FASTAPI_AVAILABLE:
+
+    app = FastAPI(
+        title="MAJD AI Agent",
+        version=VERSION
+    )
+
+    @app.get("/")
+    def root() -> Dict[str, Any]:
+
+        return {
+            "success": True,
+            "system": SYSTEM_NAME,
+            "agent": AGENT_NAME,
+            "version": VERSION,
+            "status": "ONLINE"
+        }
+
+    @app.get("/health")
+    def health() -> Dict[str, Any]:
+
+        mastermind_file = (
+            find_mastermind_file()
+        )
+
+        return {
+            "success": True,
+            "system": SYSTEM_NAME,
+            "agent": AGENT_NAME,
+            "version": VERSION,
+            "status": "ONLINE",
+            "components": {
+                "mastermind": {
+                    "present":
+                        mastermind_file is not None,
+                    "file":
+                        str(
+                            mastermind_file
+                        )
+                        if mastermind_file
+                        else None
+                },
+                "real_game_executor": {
+                    "present":
+                        REAL_GAME_EXECUTOR_FILE.exists(),
+                    "file":
+                        str(
+                            REAL_GAME_EXECUTOR_FILE
+                        )
+                },
+                "official_platform_bridge": {
+                    "present":
+                        OFFICIAL_PLATFORM_BRIDGE_FILE.exists(),
+                    "file":
+                        str(
+                            OFFICIAL_PLATFORM_BRIDGE_FILE
+                        )
+                }
+            },
+            "time": utc_now()
+        }
+
+    @app.post("/api/run")
+    def api_run(
+        payload: Dict[str, Any]
+    ) -> Any:
+
+        command = str(
+            payload.get(
+                "command"
+            )
+            or
+            payload.get(
+                "prompt"
+            )
+            or
+            ""
+        ).strip()
+
+        supplied_job_id = (
+            payload.get(
+                "job_id"
+            )
+        )
+
+        result = execute_command(
+            command=command,
+            job_id=(
+                str(
+                    supplied_job_id
+                )
+                if supplied_job_id
+                else None
+            )
+        )
+
+        status_code = (
+            200
+            if result.get(
+                "success"
+            )
+            else 500
+        )
+
+        return JSONResponse(
+            content=result,
+            status_code=status_code
+        )
+
+
+# ============================================================
+# CLI
 # ============================================================
 
 def main() -> int:
@@ -1024,51 +1639,97 @@ def main() -> int:
     import argparse
 
     parser = argparse.ArgumentParser(
-
         description=(
-            "MAJD OFFICIAL PLATFORM BRIDGE 04"
+            "MAJD AI AGENT — REAL GAME "
+            "BUILD AND PUBLICATION PIPELINE"
         )
     )
 
     parser.add_argument(
-
-        "artifact",
-
-        help="Playable artifact directory"
+        "command",
+        nargs="?",
+        default="",
+        help="MAJD AI command"
     )
 
     parser.add_argument(
-
-        "--name",
-
-        default=
-            "MAJD TEST GAME"
-    )
-
-    parser.add_argument(
-
         "--job-id",
+        default=None
+    )
 
-        default=
-            str(
-                uuid.uuid4()
-            )
+    parser.add_argument(
+        "--health",
+        action="store_true"
     )
 
     args = parser.parse_args()
 
-    result = publish_game(
+    if args.health:
 
-        game_dir=
-            Path(
-                args.artifact
-            ),
+        mastermind_file = (
+            find_mastermind_file()
+        )
 
-        game_name=
-            args.name,
+        health_result = {
+            "success": True,
+            "system": SYSTEM_NAME,
+            "agent": AGENT_NAME,
+            "version": VERSION,
+            "components": {
+                "mastermind": (
+                    str(
+                        mastermind_file
+                    )
+                    if mastermind_file
+                    else None
+                ),
+                "executor": {
+                    "file":
+                        str(
+                            REAL_GAME_EXECUTOR_FILE
+                        ),
+                    "exists":
+                        REAL_GAME_EXECUTOR_FILE.exists()
+                },
+                "bridge": {
+                    "file":
+                        str(
+                            OFFICIAL_PLATFORM_BRIDGE_FILE
+                        ),
+                    "exists":
+                        OFFICIAL_PLATFORM_BRIDGE_FILE.exists()
+                }
+            }
+        }
 
-        job_id=
-            args.job_id
+        print(
+            json.dumps(
+                health_result,
+                ensure_ascii=False,
+                indent=2,
+                default=str
+            )
+        )
+
+        return 0
+
+    command = str(
+        args.command
+        or ""
+    ).strip()
+
+    if not command:
+
+        try:
+            command = input(
+                "MAJD COMMAND: "
+            ).strip()
+        except EOFError:
+            command = ""
+
+    result = execute_command(
+        command=command,
+        job_id=args.job_id
     )
 
     print(
