@@ -955,4 +955,1289 @@ class MajdAIContentMediaFactory:
     # FFMPEG REAL LOCAL PROCESSING
     # ========================================================
 
-    def ffmpeg_available
+        def ffmpeg_available(self) -> bool:
+        """Return True only when a real local FFmpeg executable exists."""
+        return command_exists("ffmpeg")
+
+    def ffprobe_available(self) -> bool:
+        """Return True only when a real local FFprobe executable exists."""
+        return command_exists("ffprobe")
+
+    def probe_media(
+        self,
+        source: str,
+    ) -> FactoryResult:
+        """
+        Inspect a real local media file using FFprobe.
+        No fake metadata is returned.
+        """
+
+        if not self.ffprobe_available():
+            return FactoryResult(
+                success=False,
+                status="FFPROBE_NOT_AVAILABLE",
+                message="FFprobe is not installed or not available in PATH.",
+                data={
+                    "source": source,
+                    "real_execution": False,
+                },
+                generated_at=utc_now(),
+            )
+
+        source_path = Path(source).expanduser().resolve()
+
+        if not source_path.exists() or not source_path.is_file():
+            return FactoryResult(
+                success=False,
+                status="SOURCE_NOT_FOUND",
+                message=f"Media source does not exist: {source_path}",
+                data={
+                    "source": str(source_path),
+                    "real_execution": False,
+                },
+                generated_at=utc_now(),
+            )
+
+        result = run_command(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_format",
+                "-show_streams",
+                "-of",
+                "json",
+                str(source_path),
+            ]
+        )
+
+        if not result.success:
+            return FactoryResult(
+                success=False,
+                status="FFPROBE_FAILED",
+                message="Unable to inspect media source.",
+                data=result.data,
+                errors=result.errors,
+                generated_at=utc_now(),
+            )
+
+        try:
+            metadata = json.loads(
+                result.data.get("stdout", "{}")
+            )
+        except json.JSONDecodeError as exc:
+            return FactoryResult(
+                success=False,
+                status="FFPROBE_INVALID_OUTPUT",
+                errors=[str(exc)],
+                generated_at=utc_now(),
+            )
+
+        return FactoryResult(
+            success=True,
+            status="MEDIA_PROBED",
+            message="Media source inspected successfully.",
+            data={
+                "source": str(source_path),
+                "metadata": metadata,
+                "sha256": sha256_file(source_path),
+                "real_execution": True,
+            },
+            generated_at=utc_now(),
+        )
+
+    def transcode_media(
+        self,
+        source: str,
+        output: str,
+        video_codec: str = "libx264",
+        audio_codec: str = "aac",
+        overwrite: bool = False,
+    ) -> FactoryResult:
+        """
+        Perform real local media transcoding using FFmpeg.
+        """
+
+        if not self.ffmpeg_available():
+            return FactoryResult(
+                success=False,
+                status="FFMPEG_NOT_AVAILABLE",
+                message="FFmpeg is not installed or not available in PATH.",
+                data={
+                    "real_execution": False,
+                },
+                generated_at=utc_now(),
+            )
+
+        source_path = Path(source).expanduser().resolve()
+        output_path = Path(output).expanduser().resolve()
+
+        if not source_path.exists() or not source_path.is_file():
+            return FactoryResult(
+                success=False,
+                status="SOURCE_NOT_FOUND",
+                message=f"Source file does not exist: {source_path}",
+                generated_at=utc_now(),
+            )
+
+        if output_path.exists() and not overwrite:
+            return FactoryResult(
+                success=False,
+                status="OUTPUT_ALREADY_EXISTS",
+                message=f"Output already exists: {output_path}",
+                generated_at=utc_now(),
+            )
+
+        output_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        command = [
+            "ffmpeg",
+            "-y" if overwrite else "-n",
+            "-i",
+            str(source_path),
+            "-c:v",
+            video_codec,
+            "-c:a",
+            audio_codec,
+            str(output_path),
+        ]
+
+        result = run_command(command)
+
+        if not result.success:
+            return FactoryResult(
+                success=False,
+                status="TRANSCODE_FAILED",
+                message="FFmpeg transcoding failed.",
+                data=result.data,
+                errors=result.errors,
+                generated_at=utc_now(),
+            )
+
+        if not output_path.exists():
+            return FactoryResult(
+                success=False,
+                status="TRANSCODE_OUTPUT_MISSING",
+                message="FFmpeg completed but output file was not found.",
+                generated_at=utc_now(),
+            )
+
+        return FactoryResult(
+            success=True,
+            status="TRANSCODE_COMPLETED",
+            message="Media transcoded successfully.",
+            data={
+                "source": str(source_path),
+                "output": str(output_path),
+                "sha256": sha256_file(output_path),
+                "size": output_path.stat().st_size,
+                "real_execution": True,
+            },
+            generated_at=utc_now(),
+        )
+
+    def extract_audio(
+        self,
+        source: str,
+        output: str,
+        codec: str = "aac",
+        overwrite: bool = False,
+    ) -> FactoryResult:
+
+        if not self.ffmpeg_available():
+            return FactoryResult(
+                success=False,
+                status="FFMPEG_NOT_AVAILABLE",
+                generated_at=utc_now(),
+            )
+
+        source_path = Path(source).expanduser().resolve()
+        output_path = Path(output).expanduser().resolve()
+
+        if not source_path.exists():
+            return FactoryResult(
+                success=False,
+                status="SOURCE_NOT_FOUND",
+                message=str(source_path),
+                generated_at=utc_now(),
+            )
+
+        if output_path.exists() and not overwrite:
+            return FactoryResult(
+                success=False,
+                status="OUTPUT_ALREADY_EXISTS",
+                message=str(output_path),
+                generated_at=utc_now(),
+            )
+
+        output_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        result = run_command(
+            [
+                "ffmpeg",
+                "-y" if overwrite else "-n",
+                "-i",
+                str(source_path),
+                "-vn",
+                "-c:a",
+                codec,
+                str(output_path),
+            ]
+        )
+
+        if not result.success or not output_path.exists():
+            return FactoryResult(
+                success=False,
+                status="AUDIO_EXTRACTION_FAILED",
+                data=result.data,
+                errors=result.errors,
+                generated_at=utc_now(),
+            )
+
+        return FactoryResult(
+            success=True,
+            status="AUDIO_EXTRACTED",
+            data={
+                "output": str(output_path),
+                "sha256": sha256_file(output_path),
+                "size": output_path.stat().st_size,
+                "real_execution": True,
+            },
+            generated_at=utc_now(),
+        )
+
+    def create_thumbnail_from_video(
+        self,
+        source: str,
+        output: str,
+        timestamp: str = "00:00:01",
+        overwrite: bool = False,
+    ) -> FactoryResult:
+
+        if not self.ffmpeg_available():
+            return FactoryResult(
+                success=False,
+                status="FFMPEG_NOT_AVAILABLE",
+                generated_at=utc_now(),
+            )
+
+        source_path = Path(source).expanduser().resolve()
+        output_path = Path(output).expanduser().resolve()
+
+        if not source_path.exists():
+            return FactoryResult(
+                success=False,
+                status="SOURCE_NOT_FOUND",
+                message=str(source_path),
+                generated_at=utc_now(),
+            )
+
+        output_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        result = run_command(
+            [
+                "ffmpeg",
+                "-y" if overwrite else "-n",
+                "-ss",
+                timestamp,
+                "-i",
+                str(source_path),
+                "-frames:v",
+                "1",
+                str(output_path),
+            ]
+        )
+
+        if not result.success or not output_path.exists():
+            return FactoryResult(
+                success=False,
+                status="THUMBNAIL_EXTRACTION_FAILED",
+                data=result.data,
+                errors=result.errors,
+                generated_at=utc_now(),
+            )
+
+        return FactoryResult(
+            success=True,
+            status="THUMBNAIL_CREATED",
+            data={
+                "output": str(output_path),
+                "sha256": sha256_file(output_path),
+                "real_execution": True,
+            },
+            generated_at=utc_now(),
+        )
+
+    # ========================================================
+    # ASSET MANAGEMENT
+    # ========================================================
+
+    def register_asset(
+        self,
+        job: MediaJob,
+        path: str,
+        asset_type: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> FactoryResult:
+
+        asset_path = Path(path).expanduser().resolve()
+
+        if not asset_path.exists() or not asset_path.is_file():
+            return FactoryResult(
+                success=False,
+                status="ASSET_NOT_FOUND",
+                message=str(asset_path),
+                generated_at=utc_now(),
+            )
+
+        asset = {
+            "id": f"asset-{uuid.uuid4().hex[:16]}",
+            "type": asset_type,
+            "path": str(asset_path),
+            "size": asset_path.stat().st_size,
+            "sha256": sha256_file(asset_path),
+            "metadata": metadata or {},
+            "registered_at": utc_now(),
+            "verified": True,
+        }
+
+        job.assets.append(asset)
+        self._save_job(job)
+
+        return FactoryResult(
+            success=True,
+            status="ASSET_REGISTERED",
+            data=asset,
+            generated_at=utc_now(),
+        )
+
+    def register_output(
+        self,
+        job: MediaJob,
+        path: str,
+        output_type: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> FactoryResult:
+
+        output_path = Path(path).expanduser().resolve()
+
+        if not output_path.exists() or not output_path.is_file():
+            return FactoryResult(
+                success=False,
+                status="OUTPUT_NOT_FOUND",
+                message=str(output_path),
+                generated_at=utc_now(),
+            )
+
+        output = {
+            "id": f"output-{uuid.uuid4().hex[:16]}",
+            "type": output_type,
+            "path": str(output_path),
+            "size": output_path.stat().st_size,
+            "sha256": sha256_file(output_path),
+            "metadata": metadata or {},
+            "registered_at": utc_now(),
+            "verified": True,
+        }
+
+        job.outputs.append(output)
+        self._save_job(job)
+
+        return FactoryResult(
+            success=True,
+            status="OUTPUT_REGISTERED",
+            data=output,
+            generated_at=utc_now(),
+        )
+
+    # ========================================================
+    # QUALITY ASSURANCE
+    # ========================================================
+
+    def validate_job(
+        self,
+        job: MediaJob,
+    ) -> FactoryResult:
+
+        errors: List[str] = []
+        warnings: List[str] = []
+        verified_outputs: List[Dict[str, Any]] = []
+
+        if not job.title.strip():
+            errors.append("Job title is empty.")
+
+        if not job.content_type:
+            errors.append("Content type is missing.")
+
+        for output in job.outputs:
+            raw_path = output.get("path")
+
+            if not raw_path:
+                errors.append(
+                    "Output contains no path."
+                )
+                continue
+
+            output_path = Path(raw_path)
+
+            if not output_path.exists():
+                errors.append(
+                    f"Missing output: {output_path}"
+                )
+                continue
+
+            if not output_path.is_file():
+                errors.append(
+                    f"Output is not a file: {output_path}"
+                )
+                continue
+
+            actual_hash = sha256_file(output_path)
+
+            expected_hash = output.get("sha256")
+
+            if expected_hash and expected_hash != actual_hash:
+                errors.append(
+                    f"Checksum mismatch: {output_path}"
+                )
+                continue
+
+            verified_outputs.append(
+                {
+                    "path": str(output_path),
+                    "sha256": actual_hash,
+                    "size": output_path.stat().st_size,
+                    "verified": True,
+                }
+            )
+
+        if not job.outputs:
+            warnings.append(
+                "Job currently has no registered output files."
+            )
+
+        passed = len(errors) == 0
+
+        test = {
+            "id": f"test-{uuid.uuid4().hex[:12]}",
+            "passed": passed,
+            "errors": errors,
+            "warnings": warnings,
+            "verified_outputs": verified_outputs,
+            "tested_at": utc_now(),
+        }
+
+        job.tests.append(test)
+
+        if passed and job.outputs:
+            job.status = JobStatus.READY.value
+        elif not passed:
+            job.status = JobStatus.FAILED.value
+
+        self._save_job(job)
+
+        return FactoryResult(
+            success=passed,
+            status=(
+                "QA_PASSED"
+                if passed
+                else "QA_FAILED"
+            ),
+            data=test,
+            errors=errors,
+            warnings=warnings,
+            generated_at=utc_now(),
+        )
+
+    # ========================================================
+    # AUTOMATIC REPAIR
+    # ========================================================
+
+    def automatic_repair(
+        self,
+        job: MediaJob,
+    ) -> FactoryResult:
+
+        job.status = JobStatus.REPAIRING.value
+        self._save_job(job)
+
+        if not self.has_real_adapter(
+            "ai_planning"
+        ):
+            return FactoryResult(
+                success=False,
+                status="REPAIR_ENGINE_NOT_CONNECTED",
+                message=(
+                    "AI planning/repair adapter is not connected."
+                ),
+                generated_at=utc_now(),
+            )
+
+        result = self.execute_adapter(
+            "ai_planning",
+            {
+                "operation": "repair",
+                "job": asdict(job),
+                "tests": job.tests,
+                "instruction": (
+                    "Analyze the failed MAJD media production "
+                    "job and return a structured repair plan."
+                ),
+            },
+        )
+
+        if result.success:
+            job.plan.setdefault(
+                "repairs",
+                [],
+            ).append(result.data)
+
+            self._save_job(job)
+
+        return result
+
+    # ========================================================
+    # LIVE STREAMING
+    # ========================================================
+
+    def create_live_stream(
+        self,
+        job: MediaJob,
+        title: Optional[str] = None,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> FactoryResult:
+
+        return self.execute_adapter(
+            "live_streaming",
+            {
+                "operation": "create",
+                "job": asdict(job),
+                "title": title or job.title,
+                "options": options or {},
+            },
+        )
+
+    def start_live_stream(
+        self,
+        job: MediaJob,
+        stream_id: str,
+    ) -> FactoryResult:
+
+        result = self.execute_adapter(
+            "live_streaming",
+            {
+                "operation": "start",
+                "job": asdict(job),
+                "stream_id": stream_id,
+            },
+        )
+
+        if result.success:
+            job.status = JobStatus.LIVE.value
+            self._save_job(job)
+
+        return result
+
+    def stop_live_stream(
+        self,
+        job: MediaJob,
+        stream_id: str,
+    ) -> FactoryResult:
+
+        result = self.execute_adapter(
+            "live_streaming",
+            {
+                "operation": "stop",
+                "job": asdict(job),
+                "stream_id": stream_id,
+            },
+        )
+
+        if result.success:
+            job.status = JobStatus.READY.value
+            self._save_job(job)
+
+        return result
+
+    # ========================================================
+    # CHANNELS
+    # ========================================================
+
+    def create_channel(
+        self,
+        name: str,
+        description: str = "",
+        channel_type: str = "general",
+    ) -> FactoryResult:
+
+        channel_id = (
+            "channel-"
+            + uuid.uuid4().hex[:16]
+        )
+
+        channel = {
+            "id": channel_id,
+            "name": name,
+            "description": description,
+            "type": channel_type,
+            "created_at": utc_now(),
+            "verified": False,
+            "status": "CREATED",
+        }
+
+        channels = read_json(
+            CHANNELS_DIR / "channels.json",
+            {
+                "channels": {},
+            },
+        )
+
+        channels["channels"][channel_id] = channel
+
+        write_json(
+            CHANNELS_DIR / "channels.json",
+            channels,
+        )
+
+        return FactoryResult(
+            success=True,
+            status="CHANNEL_CREATED",
+            data=channel,
+            generated_at=utc_now(),
+        )
+
+    # ========================================================
+    # SOCIAL PUBLISHING
+    # ========================================================
+
+    def publish_social(
+        self,
+        job: MediaJob,
+        destinations: List[str],
+        text: str = "",
+    ) -> FactoryResult:
+
+        result = self.execute_adapter(
+            "social_publish",
+            {
+                "job": asdict(job),
+                "destinations": destinations,
+                "text": text,
+            },
+        )
+
+        if result.success:
+            self._record_publication(
+                job,
+                "social",
+                result,
+            )
+
+        return result
+
+    # ========================================================
+    # CINEMA / MOVIES / SERIES PUBLISHING
+    # ========================================================
+
+    def publish_cinema(
+        self,
+        job: MediaJob,
+        visibility: str = "public",
+        release_at: Optional[str] = None,
+    ) -> FactoryResult:
+
+        qa = self.validate_job(job)
+
+        if not qa.success:
+            return FactoryResult(
+                success=False,
+                status="PUBLISH_BLOCKED_QA",
+                errors=qa.errors,
+                warnings=qa.warnings,
+                generated_at=utc_now(),
+            )
+
+        if not job.outputs:
+            return FactoryResult(
+                success=False,
+                status="PUBLISH_BLOCKED_NO_OUTPUT",
+                message=(
+                    "No verified real output exists."
+                ),
+                generated_at=utc_now(),
+            )
+
+        job.status = JobStatus.PUBLISHING.value
+        self._save_job(job)
+
+        result = self.execute_adapter(
+            "cinema_publish",
+            {
+                "job": asdict(job),
+                "visibility": visibility,
+                "release_at": release_at,
+            },
+        )
+
+        if result.success:
+            job.status = JobStatus.PUBLISHED.value
+
+            self._record_publication(
+                job,
+                "cinema",
+                result,
+            )
+
+            self._save_job(job)
+
+        else:
+            job.status = JobStatus.FAILED.value
+            self._save_job(job)
+
+        return result
+
+    # ========================================================
+    # PUBLICATION RECORD
+    # ========================================================
+
+    def _record_publication(
+        self,
+        job: MediaJob,
+        publication_type: str,
+        result: FactoryResult,
+    ) -> None:
+
+        publication = {
+            "id": (
+                "publication-"
+                + uuid.uuid4().hex[:16]
+            ),
+            "job_id": job.id,
+            "type": publication_type,
+            "published_at": utc_now(),
+            "result": result.data,
+            "verified_real_execution": bool(
+                result.data.get(
+                    "real_execution"
+                )
+            ),
+        }
+
+        job.publication = publication
+
+        publications = read_json(
+            PUBLISHING_FILE,
+            {
+                "system": SYSTEM_ID,
+                "publications": [],
+            },
+        )
+
+        publications.setdefault(
+            "publications",
+            [],
+        ).append(publication)
+
+        write_json(
+            PUBLISHING_FILE,
+            publications,
+        )
+
+        self._save_job(job)
+
+    # ========================================================
+    # ANALYTICS
+    # ========================================================
+
+    def analytics(
+        self,
+        job: Optional[MediaJob] = None,
+    ) -> FactoryResult:
+
+        return self.execute_adapter(
+            "analytics",
+            {
+                "job": asdict(job)
+                if job
+                else None,
+                "platform": PLATFORM_NAME,
+            },
+        )
+
+    # ========================================================
+    # COMPLETE PRODUCTION PIPELINE
+    # ========================================================
+
+    def produce(
+        self,
+        job: MediaJob,
+    ) -> FactoryResult:
+
+        job.status = JobStatus.GENERATING.value
+        self._save_job(job)
+
+        production_log: List[Dict[str, Any]] = []
+
+        planning = self.plan_content(job)
+
+        production_log.append(
+            {
+                "stage": "planning",
+                "success": planning.success,
+                "status": planning.status,
+            }
+        )
+
+        if not planning.success:
+            job.status = JobStatus.BLOCKED.value
+            job.errors.extend(
+                planning.errors
+                or [planning.message]
+            )
+            self._save_job(job)
+
+            return FactoryResult(
+                success=False,
+                status="PRODUCTION_BLOCKED_PLANNING",
+                data={
+                    "job": asdict(job),
+                    "pipeline": production_log,
+                },
+                errors=planning.errors,
+                generated_at=utc_now(),
+            )
+
+        script = self.generate_script(job)
+
+        production_log.append(
+            {
+                "stage": "script",
+                "success": script.success,
+                "status": script.status,
+            }
+        )
+
+        if not script.success:
+            job.status = JobStatus.BLOCKED.value
+            self._save_job(job)
+
+            return FactoryResult(
+                success=False,
+                status="PRODUCTION_BLOCKED_SCRIPT",
+                data={
+                    "job": asdict(job),
+                    "pipeline": production_log,
+                },
+                errors=script.errors,
+                generated_at=utc_now(),
+            )
+
+        content_type = job.content_type
+
+        if content_type in {
+            ContentType.MOVIE.value,
+            ContentType.SERIES.value,
+            ContentType.EPISODE.value,
+            ContentType.VIDEO.value,
+            ContentType.SHORT.value,
+            ContentType.STORY.value,
+            ContentType.ANIMATION.value,
+            ContentType.GAME_MEDIA.value,
+        }:
+
+            scenes = (
+                job.plan.get("scenes")
+                or script.data.get("scenes")
+                or []
+            )
+
+            if not scenes:
+                return FactoryResult(
+                    success=False,
+                    status="NO_SCENES_PRODUCED",
+                    message=(
+                        "Planning/script adapters returned no scenes."
+                    ),
+                    data={
+                        "pipeline": production_log,
+                    },
+                    generated_at=utc_now(),
+                )
+
+            for index, scene in enumerate(
+                scenes,
+                start=1,
+            ):
+
+                if content_type == ContentType.ANIMATION.value:
+                    generated = self.generate_animation(
+                        job,
+                        scene,
+                    )
+                else:
+                    generated = self.generate_video(
+                        job,
+                        scene,
+                    )
+
+                production_log.append(
+                    {
+                        "stage": f"scene-{index}",
+                        "success": generated.success,
+                        "status": generated.status,
+                    }
+                )
+
+                if not generated.success:
+                    job.status = JobStatus.FAILED.value
+                    self._save_job(job)
+
+                    return FactoryResult(
+                        success=False,
+                        status="SCENE_GENERATION_FAILED",
+                        data={
+                            "scene": index,
+                            "pipeline": production_log,
+                        },
+                        errors=generated.errors,
+                        generated_at=utc_now(),
+                    )
+
+                output_path = generated.data.get(
+                    "output"
+                )
+
+                if output_path:
+                    registered = self.register_output(
+                        job,
+                        output_path,
+                        "video",
+                        {
+                            "scene": index,
+                        },
+                    )
+
+                    if not registered.success:
+                        return registered
+
+        elif content_type in {
+            ContentType.IMAGE.value,
+            ContentType.POSTER.value,
+            ContentType.THUMBNAIL.value,
+        }:
+
+            if content_type == ContentType.POSTER.value:
+                generated = self.generate_poster(job)
+
+            elif content_type == ContentType.THUMBNAIL.value:
+                generated = self.generate_thumbnail(job)
+
+            else:
+                generated = self.generate_image(
+                    job.description or job.title,
+                    job,
+                )
+
+            production_log.append(
+                {
+                    "stage": "visual",
+                    "success": generated.success,
+                    "status": generated.status,
+                }
+            )
+
+            if not generated.success:
+                return FactoryResult(
+                    success=False,
+                    status="VISUAL_GENERATION_FAILED",
+                    data={
+                        "pipeline": production_log,
+                    },
+                    errors=generated.errors,
+                    generated_at=utc_now(),
+                )
+
+            output_path = generated.data.get(
+                "output"
+            )
+
+            if output_path:
+                registered = self.register_output(
+                    job,
+                    output_path,
+                    content_type,
+                )
+
+                if not registered.success:
+                    return registered
+
+        elif content_type == ContentType.MUSIC.value:
+
+            generated = self.generate_music(
+                job.description or job.title,
+                job.request.get("duration"),
+            )
+
+            production_log.append(
+                {
+                    "stage": "music",
+                    "success": generated.success,
+                    "status": generated.status,
+                }
+            )
+
+            if not generated.success:
+                return generated
+
+            output_path = generated.data.get(
+                "output"
+            )
+
+            if output_path:
+                registered = self.register_output(
+                    job,
+                    output_path,
+                    "music",
+                )
+
+                if not registered.success:
+                    return registered
+
+        elif content_type == ContentType.VOICE.value:
+
+            generated = self.generate_voice(
+                job.description or job.title,
+                job.language,
+                job.request.get("voice"),
+            )
+
+            production_log.append(
+                {
+                    "stage": "voice",
+                    "success": generated.success,
+                    "status": generated.status,
+                }
+            )
+
+            if not generated.success:
+                return generated
+
+            output_path = generated.data.get(
+                "output"
+            )
+
+            if output_path:
+                registered = self.register_output(
+                    job,
+                    output_path,
+                    "voice",
+                )
+
+                if not registered.success:
+                    return registered
+
+        qa = self.validate_job(job)
+
+        production_log.append(
+            {
+                "stage": "qa",
+                "success": qa.success,
+                "status": qa.status,
+            }
+        )
+
+        if not qa.success:
+            repair = self.automatic_repair(job)
+
+            production_log.append(
+                {
+                    "stage": "repair",
+                    "success": repair.success,
+                    "status": repair.status,
+                }
+            )
+
+            return FactoryResult(
+                success=False,
+                status="PRODUCTION_REQUIRES_REPAIR",
+                data={
+                    "job": asdict(job),
+                    "pipeline": production_log,
+                    "repair": repair.data,
+                },
+                errors=qa.errors,
+                warnings=qa.warnings,
+                generated_at=utc_now(),
+            )
+
+        job.status = JobStatus.READY.value
+        self._save_job(job)
+
+        return FactoryResult(
+            success=True,
+            status="PRODUCTION_READY",
+            message=(
+                "Real production pipeline completed "
+                "and outputs passed QA."
+            ),
+            data={
+                "job": asdict(job),
+                "pipeline": production_log,
+            },
+            generated_at=utc_now(),
+        )
+
+    # ========================================================
+    # STATUS / HEALTH
+    # ========================================================
+
+    def health(self) -> Dict[str, Any]:
+
+        capabilities = self.capability_report()
+
+        connected = [
+            name
+            for name, data
+            in capabilities.get(
+                "capabilities",
+                {},
+            ).items()
+            if data.get("connected")
+            and data.get("real")
+        ]
+
+        disconnected = [
+            name
+            for name, data
+            in capabilities.get(
+                "capabilities",
+                {},
+            ).items()
+            if not data.get("connected")
+        ]
+
+        return {
+            "system": SYSTEM_ID,
+            "name": SYSTEM_NAME,
+            "version": VERSION,
+            "platform": PLATFORM_NAME,
+            "status": "ACTIVE",
+            "time": utc_now(),
+            "ffmpeg": self.ffmpeg_available(),
+            "ffprobe": self.ffprobe_available(),
+            "real_capabilities_connected": connected,
+            "capabilities_not_connected": disconnected,
+            "jobs": len(
+                self.jobs.get(
+                    "jobs",
+                    {},
+                )
+            ),
+        }
+
+
+# ============================================================
+# FACTORY SINGLETON
+# ============================================================
+
+_factory: Optional[
+    MajdAIContentMediaFactory
+] = None
+
+
+def get_factory() -> MajdAIContentMediaFactory:
+
+    global _factory
+
+    if _factory is None:
+        _factory = MajdAIContentMediaFactory()
+
+    return _factory
+
+
+# ============================================================
+# PUBLIC API
+# ============================================================
+
+def create_media_job(
+    content_type: str,
+    title: str,
+    description: str = "",
+    language: str = "ar",
+    request: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+
+    factory = get_factory()
+
+    job = factory.create_job(
+        content_type=content_type,
+        title=title,
+        description=description,
+        language=language,
+        request=request,
+    )
+
+    return asdict(job)
+
+
+def produce_media(
+    job_id: str,
+) -> Dict[str, Any]:
+
+    factory = get_factory()
+
+    job = factory.get_job(job_id)
+
+    if not job:
+        return asdict(
+            FactoryResult(
+                success=False,
+                status="JOB_NOT_FOUND",
+                message=job_id,
+                generated_at=utc_now(),
+            )
+        )
+
+    return asdict(
+        factory.produce(job)
+    )
+
+
+def factory_health() -> Dict[str, Any]:
+    return get_factory().health()
+
+
+def factory_capabilities() -> Dict[str, Any]:
+    return get_factory().capability_report()
+
+
+# ============================================================
+# CLI
+# ============================================================
+
+def main() -> int:
+
+    factory = get_factory()
+
+    print(
+        json.dumps(
+            factory.health(),
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
