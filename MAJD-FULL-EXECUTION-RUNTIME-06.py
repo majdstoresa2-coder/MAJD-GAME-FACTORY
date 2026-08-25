@@ -7,58 +7,29 @@ MAJD-FULL-EXECUTION-RUNTIME-06.py
 ============================================================
 
 MAJD SOVEREIGN AUTONOMOUS FULL EXECUTION RUNTIME
-المشغّل السيادي الذاتي الكامل لمنصة مجد
+المشغل السيادي الذاتي الكامل لمنصة مجد
 
-هذا الملف هو بوابة التشغيل المركزية والدائمة لمنصة MAJD-GAME-FACTORY.
+وظيفة الملف:
+- يحافظ على وضع أوامر المالك الحالي.
+- يدعم التشغيل الذاتي الدائم بدون أمر يدوي.
+- يربط 01 العقل المدبر.
+- يقرأ 02 الشركة السيادية ومركز أوامر المالك.
+- يتحقق من 03 منفذ الألعاب الحقيقي و04 جسر المنصة.
+- يفحص ملفات بايثون والخدمات وDocker والتخزين والموقع.
+- يكتشف الأعطال تلقائيا.
+- يرسل الإصلاحات الروتينية للعقل المدبر 01.
+- يعيد الفحص بعد الإصلاح.
+- يحفظ الحالة والتدقيق والتقارير.
+- لا يعتبر أي قدرة OPERATIONAL بدون دليل حقيقي.
+- يدعم العربية والإنجليزية في تقارير المالك.
 
-يدعم وضعين:
+تشغيل مباشر:
+  python3 MAJD-FULL-EXECUTION-RUNTIME-06.py --once
+  python3 MAJD-FULL-EXECUTION-RUNTIME-06.py --autonomous
+  python3 MAJD-FULL-EXECUTION-RUNTIME-06.py --autonomous-status
+  python3 MAJD-FULL-EXECUTION-RUNTIME-06.py "أمر المالك"
 
-1) OWNER COMMAND MODE
-   وضع أوامر المالك:
-   - يحافظ على السلوك الحالي.
-   - يستقبل أمر المالك بالعربية أو الإنجليزية.
-   - يستخدم مركز أوامر المالك.
-   - يمرر الأهداف التنفيذية إلى العقل المدبر 01.
-   - يتحقق من النتائج الحقيقية وArtifact والنشر.
-
-2) AUTONOMOUS PERSISTENT MODE
-   وضع التشغيل الذاتي الدائم:
-   - لا يحتاج أوامر يومية من المالك.
-   - يراقب المنصة والشركة والخدمات باستمرار.
-   - يكتشف الأعطال والنواقص تلقائياً.
-   - يرسل أهداف الإصلاح والتنفيذ تلقائياً إلى العقل المدبر 01.
-   - يعيد الفحص بعد الإصلاح.
-   - لا يعلن النجاح أو OPERATIONAL بدون دليل حقيقي.
-   - يحفظ الحالة والتدقيق والتقارير.
-   - يستمر بعد فشل أي دورة منفردة.
-   - يدعم الإغلاق الآمن.
-   - يمكن تشغيله كخدمة دائمة.
-
-السلسلة:
-06 AUTONOMOUS RUNTIME
-   ↓
-01 MASTERMIND
-   ↓
-02 SOVEREIGN COMPANY / CAPABILITIES
-   ↓
-03 REAL GAME EXECUTOR
-   ↓
-04 OFFICIAL PLATFORM BRIDGE
-   ↓
-06 VERIFICATION / MONITORING / REPORTING
-
-قاعدة أساسية:
-06 لا يكرر مسؤوليات 01 أو 02 أو 03.
-01 = العقل المدبر
-02 = الشركة السيادية وقدراتها
-03 = التنفيذ الحقيقي للألعاب
-04 = الجسر الرسمي للنشر
-06 = التشغيل الدائم والمراقبة والتحقق والتقارير
-
-لغة المالك:
-- العربية والإنجليزية مدعومتان.
-- كل رسالة إدارية مهمة يمكن أن تحتوي message_ar و message_en.
-- المعرفات التقنية الداخلية تبقى بالإنجليزية لثبات النظام.
+إذا شُغّل بدون أي arguments يبدأ التشغيل الذاتي الدائم تلقائيا.
 """
 
 from __future__ import annotations
@@ -100,8 +71,6 @@ RUNTIME_DIR = STATE_DIR / "runtime"
 AUTONOMOUS_DIR = STATE_DIR / "autonomous"
 AUDIT_DIR = STATE_DIR / "audit"
 REPORT_DIR = STATE_DIR / "reports"
-BACKUP_DIR = STATE_DIR / "backups"
-
 OUTPUT_DIR = ROOT_DIR / "majd_game_output"
 PUBLIC_DIR = ROOT_DIR / "public"
 ARTIFACTS_DIR = PUBLIC_DIR / "artifacts"
@@ -117,7 +86,6 @@ for directory in (
     AUTONOMOUS_DIR,
     AUDIT_DIR,
     REPORT_DIR,
-    BACKUP_DIR,
     OUTPUT_DIR,
     PUBLIC_DIR,
     ARTIFACTS_DIR,
@@ -126,12 +94,12 @@ for directory in (
 
 
 # ============================================================
-# IDENTITY
+# IDENTITY / CONFIG
 # ============================================================
 
 SYSTEM_NAME = "MAJD-GAME-FACTORY"
 RUNTIME_NAME = "MAJD-FULL-EXECUTION-RUNTIME"
-VERSION = "3.1.0-AUTONOMOUS-BILINGUAL"
+VERSION = "3.2.0-AUTONOMOUS-BILINGUAL"
 DEFAULT_OWNER = "MAJD"
 
 OFFICIAL_MAJD_PLATFORM = os.getenv(
@@ -159,27 +127,18 @@ MAX_AUTONOMOUS_REPAIR_ATTEMPTS = max(
     int(os.getenv("MAJD_AUTONOMOUS_REPAIR_ATTEMPTS", "3")),
 )
 
-AUTONOMOUS_ENABLED_BY_DEFAULT = (
-    os.getenv("MAJD_AUTONOMOUS_ENABLED", "true").strip().lower()
-    in ("1", "true", "yes", "on")
-)
-
 STOP_REQUESTED = False
 
 
 # ============================================================
-# TIME / LANGUAGE
+# LANGUAGE / TIME
 # ============================================================
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def bilingual(
-    ar: str,
-    en: str,
-    **extra: Any,
-) -> Dict[str, Any]:
+def bilingual(ar: str, en: str, **extra: Any) -> Dict[str, Any]:
     result: Dict[str, Any] = {
         "message_ar": ar,
         "message_en": en,
@@ -189,54 +148,54 @@ def bilingual(
 
 
 def status_message(status: str) -> Dict[str, str]:
-    mapping = {
+    messages = {
         "STARTING": (
-            "جارٍ بدء التشغيل.",
-            "Runtime is starting.",
+            "جارٍ بدء تشغيل مجد.",
+            "MAJD runtime is starting.",
         ),
-        "VERIFYING_CORE": (
-            "جارٍ التحقق من ملفات النظام الأساسية.",
-            "Verifying core system files.",
+        "RUNNING": (
+            "التشغيل الذاتي يعمل.",
+            "Autonomous runtime is running.",
         ),
-        "OWNER_COMMAND_CENTER": (
-            "جارٍ تشغيل مركز أوامر المالك.",
-            "Running owner command center.",
+        "RUNNING_HEALTHY": (
+            "التشغيل الذاتي يعمل والمنصة سليمة.",
+            "Autonomous runtime is running and the platform is healthy.",
         ),
-        "MASTERMIND_EXECUTION": (
-            "جارٍ تنفيذ المهمة عبر العقل المدبر.",
-            "Executing task through the mastermind.",
-        ),
-        "FINAL_VERIFICATION": (
-            "جارٍ التحقق النهائي من النتيجة.",
-            "Performing final result verification.",
-        ),
-        "COMPLETED": (
-            "اكتمل التنفيذ بنجاح.",
-            "Execution completed successfully.",
+        "RUNNING_DEGRADED": (
+            "التشغيل الذاتي يعمل مع وجود مشكلات قيد المعالجة.",
+            "Autonomous runtime is running with issues under repair.",
         ),
         "PLATFORM_HEALTHY": (
             "المنصة تعمل بصورة طبيعية.",
             "The platform is operating normally.",
+        ),
+        "ISSUES_DETECTED": (
+            "اكتشف النظام مشكلات وسيبدأ الإصلاح الذاتي.",
+            "The runtime detected issues and will start autonomous repair.",
         ),
         "REPAIRED_AND_VERIFIED": (
             "تم إصلاح المشكلات والتحقق من النتيجة.",
             "Issues were repaired and the result was verified.",
         ),
         "DEGRADED_AFTER_REPAIR": (
-            "بقيت مشكلات بعد محاولة الإصلاح.",
-            "Some issues remain after the repair attempt.",
+            "بقيت مشكلات بعد محاولة الإصلاح وسيواصل النظام المحاولة.",
+            "Some issues remain after repair and the runtime will continue trying.",
         ),
         "OWNER_ACTION_REQUIRED": (
             "يوجد إجراء خارجي أو حساس يحتاج المالك.",
             "An external or sensitive action requires the owner.",
         ),
-        "AUTONOMOUS_CYCLE_EXCEPTION": (
-            "حدث خطأ في دورة التشغيل الذاتي وسيستمر النظام في الدورة التالية.",
-            "An autonomous cycle error occurred; the runtime will continue with the next cycle.",
+        "COMPLETED": (
+            "اكتمل التنفيذ بنجاح.",
+            "Execution completed successfully.",
+        ),
+        "STOPPED": (
+            "تم إيقاف التشغيل الذاتي.",
+            "Autonomous runtime has stopped.",
         ),
     }
 
-    ar, en = mapping.get(
+    ar, en = messages.get(
         status,
         (f"الحالة: {status}", f"Status: {status}"),
     )
@@ -248,7 +207,7 @@ def status_message(status: str) -> Dict[str, str]:
 
 
 # ============================================================
-# SAFE HELPERS
+# BASIC HELPERS
 # ============================================================
 
 def safe_str(value: Any) -> str:
@@ -260,8 +219,10 @@ def safe_str(value: Any) -> str:
 
 def truncate_text(value: Any, limit: int = 12000) -> str:
     text = safe_str(value)
+
     if len(text) <= limit:
         return text
+
     return text[:limit] + "\n...[TRUNCATED]..."
 
 
@@ -272,7 +233,10 @@ def sha256_file(path: Path) -> Optional[str]:
     digest = hashlib.sha256()
 
     with path.open("rb") as file:
-        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+        for chunk in iter(
+            lambda: file.read(1024 * 1024),
+            b"",
+        ):
             digest.update(chunk)
 
     return digest.hexdigest()
@@ -282,12 +246,23 @@ def sha256_file(path: Path) -> Optional[str]:
 # JSON / AUDIT
 # ============================================================
 
-def save_json(path: Path, data: Dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+def save_json(
+    path: Path,
+    data: Dict[str, Any],
+) -> None:
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
-    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary = path.with_suffix(
+        path.suffix + ".tmp"
+    )
 
-    with temporary.open("w", encoding="utf-8") as file:
+    with temporary.open(
+        "w",
+        encoding="utf-8",
+    ) as file:
         json.dump(
             data,
             file,
@@ -310,21 +285,34 @@ def load_json(
         return dict(default)
 
     try:
-        with path.open("r", encoding="utf-8") as file:
+        with path.open(
+            "r",
+            encoding="utf-8",
+        ) as file:
             value = json.load(file)
 
         if isinstance(value, dict):
             return value
+
     except Exception:
         pass
 
     return dict(default)
 
 
-def append_jsonl(path: Path, data: Dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+def append_jsonl(
+    path: Path,
+    data: Dict[str, Any],
+) -> None:
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
-    with path.open("a", encoding="utf-8") as file:
+    with path.open(
+        "a",
+        encoding="utf-8",
+    ) as file:
         file.write(
             json.dumps(
                 data,
@@ -339,7 +327,10 @@ def append_jsonl(path: Path, data: Dict[str, Any]) -> None:
 # MODULE LOADER
 # ============================================================
 
-def load_module(path: Path, module_name: str) -> Any:
+def load_module(
+    path: Path,
+    module_name: str,
+) -> Any:
     if not path.exists():
         raise FileNotFoundError(
             f"Required file not found: {path.name}"
@@ -356,24 +347,28 @@ def load_module(path: Path, module_name: str) -> Any:
         )
 
     module = importlib.util.module_from_spec(spec)
+
     sys.modules[module_name] = module
+
     spec.loader.exec_module(module)
 
     return module
 
-
-# ============================================================
-# FUNCTION DISCOVERY / SAFE CALL
-# ============================================================
 
 def find_callable(
     module: Any,
     names: Iterable[str],
 ) -> Optional[Callable[..., Any]]:
     for name in names:
-        value = getattr(module, name, None)
+        value = getattr(
+            module,
+            name,
+            None,
+        )
+
         if callable(value):
             return value
+
     return None
 
 
@@ -420,37 +415,52 @@ def run_process(
         )
 
         return {
-            "success": completed.returncode == 0,
-            "command": command,
-            "returncode": completed.returncode,
-            "stdout": truncate_text(completed.stdout),
-            "stderr": truncate_text(completed.stderr),
-            "started_at": started,
-            "finished_at": utc_now(),
+            "success":
+                completed.returncode == 0,
+
+            "command":
+                command,
+
+            "returncode":
+                completed.returncode,
+
+            "stdout":
+                truncate_text(
+                    completed.stdout
+                ),
+
+            "stderr":
+                truncate_text(
+                    completed.stderr
+                ),
+
+            "started_at":
+                started,
+
+            "finished_at":
+                utc_now(),
         }
 
     except subprocess.TimeoutExpired as error:
         return {
             "success": False,
-            "command": command,
             "status": "PROCESS_TIMEOUT",
+            "command": command,
             "error": safe_str(error),
-            "started_at": started,
-            "finished_at": utc_now(),
             **bilingual(
                 "انتهت مهلة تنفيذ العملية.",
-                "The process execution timed out.",
+                "Process execution timed out.",
             ),
         }
 
     except Exception as error:
         return {
             "success": False,
-            "command": command,
             "status": "PROCESS_EXCEPTION",
-            "error": f"{type(error).__name__}: {error}",
-            "started_at": started,
-            "finished_at": utc_now(),
+            "command": command,
+            "error":
+                f"{type(error).__name__}: {error}",
+
             **bilingual(
                 "حدث خطأ أثناء تنفيذ العملية.",
                 "An error occurred while executing the process.",
@@ -459,19 +469,27 @@ def run_process(
 
 
 # ============================================================
-# REQUIRED FILE VERIFICATION
+# CORE FILES
 # ============================================================
 
 def verify_required_files() -> Dict[str, Any]:
     required = {
-        "01_mastermind": MASTERMIND_FILE,
-        "02_owner_command_center": OWNER_COMMAND_CENTER_FILE,
-        "03_real_game_executor": REAL_GAME_EXECUTOR_FILE,
-        "04_official_platform_bridge": OFFICIAL_PLATFORM_BRIDGE_FILE,
+        "01_mastermind":
+            MASTERMIND_FILE,
+
+        "02_owner_command_center":
+            OWNER_COMMAND_CENTER_FILE,
+
+        "03_real_game_executor":
+            REAL_GAME_EXECUTOR_FILE,
+
+        "04_official_platform_bridge":
+            OFFICIAL_PLATFORM_BRIDGE_FILE,
     }
 
-    optional_but_important = {
-        "02_sovereign_company": SOVEREIGN_COMPANY_FILE,
+    optional = {
+        "02_sovereign_company":
+            SOVEREIGN_COMPANY_FILE,
     }
 
     files: Dict[str, Any] = {}
@@ -486,16 +504,23 @@ def verify_required_files() -> Dict[str, Any]:
 
         files[name] = {
             "file": path.name,
-            "exists": exists,
             "required": True,
-            "size": path.stat().st_size if path.exists() else 0,
-            "sha256": sha256_file(path) if exists else None,
+            "exists": exists,
+            "size":
+                path.stat().st_size
+                if path.exists()
+                else 0,
+
+            "sha256":
+                sha256_file(path)
+                if exists
+                else None,
         }
 
         if not exists:
             missing.append(path.name)
 
-    for name, path in optional_but_important.items():
+    for name, path in optional.items():
         exists = (
             path.exists()
             and path.is_file()
@@ -504,19 +529,32 @@ def verify_required_files() -> Dict[str, Any]:
 
         files[name] = {
             "file": path.name,
-            "exists": exists,
             "required": False,
-            "size": path.stat().st_size if path.exists() else 0,
-            "sha256": sha256_file(path) if exists else None,
+            "exists": exists,
+            "size":
+                path.stat().st_size
+                if path.exists()
+                else 0,
+
+            "sha256":
+                sha256_file(path)
+                if exists
+                else None,
         }
 
     return {
-        "success": not missing,
-        "files": files,
-        "missing": missing,
+        "success":
+            not missing,
+
+        "files":
+            files,
+
+        "missing":
+            missing,
+
         **(
             bilingual(
-                "جميع الملفات الأساسية المطلوبة موجودة.",
+                "جميع الملفات الأساسية موجودة.",
                 "All required core files are present.",
             )
             if not missing
@@ -540,14 +578,16 @@ def discover_python_files() -> List[Path]:
         ".venv",
         "venv",
         "majd_game_output",
-        "public",
         "majd_factory_state",
     }
 
     discovered: List[Path] = []
 
     for path in ROOT_DIR.rglob("*.py"):
-        if any(part in ignored_parts for part in path.parts):
+        if any(
+            part in ignored_parts
+            for part in path.parts
+        ):
             continue
 
         if path.is_file():
@@ -562,8 +602,8 @@ def verify_python_syntax(
     if paths is None:
         paths = discover_python_files()
 
-    results: List[Dict[str, Any]] = []
     failed: List[str] = []
+    results: List[Dict[str, Any]] = []
 
     for path in paths:
         process = run_process(
@@ -577,13 +617,20 @@ def verify_python_syntax(
         )
 
         try:
-            display_path = str(path.relative_to(ROOT_DIR))
+            display = str(
+                path.relative_to(ROOT_DIR)
+            )
         except ValueError:
-            display_path = str(path)
+            display = str(path)
 
-        item: Dict[str, Any] = {
-            "file": display_path,
-            "success": bool(process.get("success")),
+        item = {
+            "file":
+                display,
+
+            "success":
+                bool(
+                    process.get("success")
+                ),
         }
 
         if not item["success"]:
@@ -592,26 +639,23 @@ def verify_python_syntax(
                 or process.get("error")
                 or "PYTHON_SYNTAX_FAILED"
             )
-            failed.append(item["file"])
+
+            failed.append(display)
 
         results.append(item)
 
     return {
-        "success": not failed,
-        "checked": len(results),
-        "failed": failed,
-        "results": results,
-        **(
-            bilingual(
-                "جميع ملفات بايثون التي تم فحصها سليمة نحويًا.",
-                "All checked Python files passed syntax validation.",
-            )
-            if not failed
-            else bilingual(
-                "توجد أخطاء Syntax في بعض ملفات بايثون.",
-                "Some Python files contain syntax errors.",
-            )
-        ),
+        "success":
+            not failed,
+
+        "checked":
+            len(results),
+
+        "failed":
+            failed,
+
+        "results":
+            results,
     }
 
 
@@ -626,7 +670,8 @@ def http_probe(
     request = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "MAJD-AUTONOMOUS-RUNTIME/3.1"
+            "User-Agent":
+                "MAJD-AUTONOMOUS-RUNTIME/3.2"
         },
     )
 
@@ -635,6 +680,14 @@ def http_probe(
             request,
             timeout=timeout,
         ) as response:
+            code = int(
+                getattr(
+                    response,
+                    "status",
+                    200,
+                )
+            )
+
             body = response.read(
                 1024 * 1024
             ).decode(
@@ -642,28 +695,25 @@ def http_probe(
                 errors="replace",
             )
 
-            code = int(
-                getattr(response, "status", 200)
+            success = (
+                200 <= code < 400
             )
 
-            success = 200 <= code < 400
-
             return {
-                "success": success,
-                "url": url,
-                "status_code": code,
-                "body": truncate_text(body, 4000),
-                **(
-                    bilingual(
-                        "خدمة الويب متاحة.",
-                        "Web service is reachable.",
-                    )
-                    if success
-                    else bilingual(
-                        "خدمة الويب أعادت حالة غير سليمة.",
-                        "Web service returned an unhealthy status.",
-                    )
-                ),
+                "success":
+                    success,
+
+                "url":
+                    url,
+
+                "status_code":
+                    code,
+
+                "body":
+                    truncate_text(
+                        body,
+                        4000,
+                    ),
             }
 
     except urllib.error.HTTPError as error:
@@ -672,10 +722,6 @@ def http_probe(
             "url": url,
             "status_code": error.code,
             "error": safe_str(error),
-            **bilingual(
-                "فشل فحص خدمة الويب.",
-                "Web service health probe failed.",
-            ),
         }
 
     except Exception as error:
@@ -683,16 +729,13 @@ def http_probe(
             "success": False,
             "url": url,
             "status": "HTTP_PROBE_FAILED",
-            "error": f"{type(error).__name__}: {error}",
-            **bilingual(
-                "تعذر الوصول إلى خدمة الويب.",
-                "Unable to reach the web service.",
-            ),
+            "error":
+                f"{type(error).__name__}: {error}",
         }
 
 
 # ============================================================
-# DOCKER / DISK
+# DOCKER
 # ============================================================
 
 def inspect_docker() -> Dict[str, Any]:
@@ -709,17 +752,23 @@ def inspect_docker() -> Dict[str, Any]:
     if not process.get("success"):
         return {
             "success": False,
-            "status": "DOCKER_UNAVAILABLE_OR_FAILED",
-            "details": process,
-            **bilingual(
-                "Docker غير متاح أو فشل فحصه.",
-                "Docker is unavailable or its inspection failed.",
-            ),
+            "status":
+                "DOCKER_UNAVAILABLE_OR_FAILED",
+
+            "details":
+                process,
         }
 
-    containers: List[Dict[str, Any]] = []
+    containers: List[
+        Dict[str, Any]
+    ] = []
 
-    for line in str(process.get("stdout", "")).splitlines():
+    for line in str(
+        process.get(
+            "stdout",
+            "",
+        )
+    ).splitlines():
         line = line.strip()
 
         if not line:
@@ -729,46 +778,47 @@ def inspect_docker() -> Dict[str, Any]:
 
         containers.append(
             {
-                "name": parts[0] if len(parts) > 0 else "",
-                "status": parts[1] if len(parts) > 1 else "",
-                "ports": parts[2] if len(parts) > 2 else "",
+                "name":
+                    parts[0]
+                    if len(parts) > 0
+                    else "",
+
+                "status":
+                    parts[1]
+                    if len(parts) > 1
+                    else "",
+
+                "ports":
+                    parts[2]
+                    if len(parts) > 2
+                    else "",
             }
         )
 
-    names = {item["name"] for item in containers}
-
-    expected = {
-        "majd-ai-core",
-        "majd-web-ui",
-    }
-
-    missing_expected = sorted(expected - names)
-    success = not missing_expected
-
     return {
-        "success": success,
+        "success": True,
         "containers": containers,
-        "missing_expected": missing_expected,
-        **(
-            bilingual(
-                "حاويات مجد الأساسية تعمل.",
-                "Core MAJD containers are running.",
-            )
-            if success
-            else bilingual(
-                "بعض حاويات مجد الأساسية غير ظاهرة.",
-                "Some core MAJD containers are missing.",
-            )
-        ),
     }
 
+
+# ============================================================
+# DISK
+# ============================================================
 
 def inspect_disk() -> Dict[str, Any]:
     try:
         stat = os.statvfs(ROOT_DIR)
 
-        total = stat.f_blocks * stat.f_frsize
-        available = stat.f_bavail * stat.f_frsize
+        total = (
+            stat.f_blocks
+            * stat.f_frsize
+        )
+
+        available = (
+            stat.f_bavail
+            * stat.f_frsize
+        )
+
         used = total - available
 
         used_percent = (
@@ -777,42 +827,42 @@ def inspect_disk() -> Dict[str, Any]:
             else 0.0
         )
 
-        healthy = used_percent < 90.0
-
         return {
-            "success": healthy,
-            "total_bytes": total,
-            "used_bytes": used,
-            "available_bytes": available,
-            "used_percent": round(used_percent, 2),
-            "threshold_percent": 90.0,
-            **(
-                bilingual(
-                    "مساحة التخزين ضمن الحد الآمن.",
-                    "Storage usage is within the safe threshold.",
-                )
-                if healthy
-                else bilingual(
-                    "استخدام مساحة التخزين تجاوز الحد الآمن.",
-                    "Storage usage exceeded the safe threshold.",
-                )
-            ),
+            "success":
+                used_percent < 90.0,
+
+            "total_bytes":
+                total,
+
+            "used_bytes":
+                used,
+
+            "available_bytes":
+                available,
+
+            "used_percent":
+                round(
+                    used_percent,
+                    2,
+                ),
+
+            "threshold_percent":
+                90.0,
         }
 
     except Exception as error:
         return {
             "success": False,
-            "status": "DISK_INSPECTION_FAILED",
-            "error": f"{type(error).__name__}: {error}",
-            **bilingual(
-                "فشل فحص مساحة التخزين.",
-                "Storage inspection failed.",
-            ),
+            "status":
+                "DISK_INSPECTION_FAILED",
+
+            "error":
+                f"{type(error).__name__}: {error}",
         }
 
 
 # ============================================================
-# OWNER COMMAND CENTER BRIDGE
+# OWNER COMMAND CENTER
 # ============================================================
 
 class OwnerCommandCenterRuntime:
@@ -822,7 +872,10 @@ class OwnerCommandCenterRuntime:
             "majd_owner_command_center_02_runtime",
         )
 
-    def parse(self, command: str) -> Dict[str, Any]:
+    def parse(
+        self,
+        command: str,
+    ) -> Dict[str, Any]:
         parser_class = getattr(
             self.module,
             "OwnerCommandParser",
@@ -831,50 +884,65 @@ class OwnerCommandCenterRuntime:
 
         if parser_class is None:
             return {
-                "type": "GENERAL_OWNER_COMMAND",
-                "raw": command,
-                "warning": "OWNER_COMMAND_PARSER_NOT_FOUND",
-                **bilingual(
-                    "لم يتم العثور على محلل أوامر المالك؛ سيتم تمرير الأمر كهدف عام.",
-                    "Owner command parser was not found; the command will be forwarded as a general objective.",
-                ),
+                "type":
+                    "GENERAL_OWNER_COMMAND",
+
+                "raw":
+                    command,
+
+                "warning":
+                    "OWNER_COMMAND_PARSER_NOT_FOUND",
             }
 
         try:
             parser = parser_class()
-            result = parser.parse(command)
 
-            if not isinstance(result, dict):
+            result = parser.parse(
+                command
+            )
+
+            if not isinstance(
+                result,
+                dict,
+            ):
                 return {
-                    "type": "GENERAL_OWNER_COMMAND",
-                    "raw": command,
-                    "warning": "INVALID_PARSE_RESULT",
-                    **bilingual(
-                        "نتيجة تحليل الأمر غير صالحة؛ سيتم تمرير الأمر كهدف عام.",
-                        "Command parsing result was invalid; the command will be forwarded as a general objective.",
-                    ),
+                    "type":
+                        "GENERAL_OWNER_COMMAND",
+
+                    "raw":
+                        command,
+
+                    "warning":
+                        "INVALID_PARSE_RESULT",
                 }
 
             result_type = str(
-                result.get("type", "")
+                result.get(
+                    "type",
+                    "",
+                )
             ).upper()
 
-            if not result_type or result_type == "UNKNOWN":
-                result["type"] = "GENERAL_OWNER_COMMAND"
+            if (
+                not result_type
+                or result_type == "UNKNOWN"
+            ):
+                result["type"] = (
+                    "GENERAL_OWNER_COMMAND"
+                )
 
             return result
 
         except Exception as error:
             return {
-                "type": "GENERAL_OWNER_COMMAND",
-                "raw": command,
-                "parser_error": (
-                    f"{type(error).__name__}: {error}"
-                ),
-                **bilingual(
-                    "حدث خطأ أثناء تحليل أمر المالك؛ سيتم تمريره كهدف عام.",
-                    "An error occurred while parsing the owner command; it will be forwarded as a general objective.",
-                ),
+                "type":
+                    "GENERAL_OWNER_COMMAND",
+
+                "raw":
+                    command,
+
+                "parser_error":
+                    f"{type(error).__name__}: {error}",
             }
 
     def execute(
@@ -891,11 +959,8 @@ class OwnerCommandCenterRuntime:
         if not callable(function):
             return {
                 "success": False,
-                "status": "OWNER_COMMAND_INTERFACE_MISSING",
-                **bilingual(
-                    "واجهة تنفيذ أوامر المالك غير موجودة.",
-                    "Owner command execution interface is missing.",
-                ),
+                "status":
+                    "OWNER_COMMAND_INTERFACE_MISSING",
             }
 
         try:
@@ -910,26 +975,27 @@ class OwnerCommandCenterRuntime:
         except Exception as error:
             return {
                 "success": False,
-                "status": "OWNER_COMMAND_EXECUTION_EXCEPTION",
-                "error": (
-                    f"{type(error).__name__}: {error}"
-                ),
-                "traceback": traceback.format_exc(),
-                **bilingual(
-                    "حدث خطأ أثناء تنفيذ أمر المالك.",
-                    "An error occurred while executing the owner command.",
-                ),
+                "status":
+                    "OWNER_COMMAND_EXECUTION_EXCEPTION",
+
+                "error":
+                    f"{type(error).__name__}: {error}",
+
+                "traceback":
+                    traceback.format_exc(),
             }
 
-        if not isinstance(result, dict):
+        if not isinstance(
+            result,
+            dict,
+        ):
             return {
                 "success": False,
-                "status": "INVALID_OWNER_COMMAND_RESULT",
-                "result_type": type(result).__name__,
-                **bilingual(
-                    "نتيجة مركز أوامر المالك غير صالحة.",
-                    "Owner command center returned an invalid result.",
-                ),
+                "status":
+                    "INVALID_OWNER_COMMAND_RESULT",
+
+                "result_type":
+                    type(result).__name__,
             }
 
         return result
@@ -977,32 +1043,26 @@ class MastermindRuntime:
             if mastermind_class is None:
                 return {
                     "success": False,
-                    "status": "MASTERMIND_INTERFACE_NOT_FOUND",
-                    "file": MASTERMIND_FILE.name,
-                    **bilingual(
-                        "لم يتم العثور على واجهة تشغيل للعقل المدبر.",
-                        "No execution interface was found for the mastermind.",
-                    ),
+                    "status":
+                        "MASTERMIND_INTERFACE_NOT_FOUND",
                 }
 
             try:
                 instance = call_supported(
                     mastermind_class,
-                    {"owner": owner},
+                    {
+                        "owner": owner,
+                    },
                 )
 
             except Exception as error:
                 return {
                     "success": False,
-                    "status": "MASTERMIND_INITIALIZATION_FAILED",
-                    "error": (
-                        f"{type(error).__name__}: {error}"
-                    ),
-                    "traceback": traceback.format_exc(),
-                    **bilingual(
-                        "فشل تشغيل العقل المدبر.",
-                        "Mastermind initialization failed.",
-                    ),
+                    "status":
+                        "MASTERMIND_INITIALIZATION_FAILED",
+
+                    "error":
+                        f"{type(error).__name__}: {error}",
                 }
 
             function = find_callable(
@@ -1019,50 +1079,61 @@ class MastermindRuntime:
             if function is None:
                 return {
                     "success": False,
-                    "status": "MASTERMIND_RUN_INTERFACE_MISSING",
-                    **bilingual(
-                        "لم يتم العثور على دالة تشغيل للعقل المدبر.",
-                        "Mastermind run interface is missing.",
-                    ),
+                    "status":
+                        "MASTERMIND_RUN_INTERFACE_MISSING",
                 }
 
         try:
             result = call_supported(
                 function,
                 {
-                    "command": command,
-                    "request": request,
-                    "payload": request,
-                    "job_id": runtime_id,
-                    "runtime_id": runtime_id,
-                    "owner": owner,
-                    "output_root": str(OUTPUT_DIR),
+                    "command":
+                        command,
+
+                    "request":
+                        request,
+
+                    "payload":
+                        request,
+
+                    "job_id":
+                        runtime_id,
+
+                    "runtime_id":
+                        runtime_id,
+
+                    "owner":
+                        owner,
+
+                    "output_root":
+                        str(OUTPUT_DIR),
                 },
             )
 
         except Exception as error:
             return {
                 "success": False,
-                "status": "MASTERMIND_EXECUTION_EXCEPTION",
-                "error": (
-                    f"{type(error).__name__}: {error}"
-                ),
-                "traceback": traceback.format_exc(),
-                **bilingual(
-                    "حدث خطأ أثناء تنفيذ مهمة العقل المدبر.",
-                    "An error occurred while executing the mastermind task.",
-                ),
+                "status":
+                    "MASTERMIND_EXECUTION_EXCEPTION",
+
+                "error":
+                    f"{type(error).__name__}: {error}",
+
+                "traceback":
+                    traceback.format_exc(),
             }
 
-        if not isinstance(result, dict):
+        if not isinstance(
+            result,
+            dict,
+        ):
             return {
                 "success": False,
-                "status": "INVALID_MASTERMIND_RESULT",
-                "result_type": type(result).__name__,
-                **bilingual(
-                    "أعاد العقل المدبر نتيجة غير صالحة.",
-                    "Mastermind returned an invalid result.",
-                ),
+                "status":
+                    "INVALID_MASTERMIND_RESULT",
+
+                "result_type":
+                    type(result).__name__,
             }
 
         return result
@@ -1100,16 +1171,14 @@ class SovereignCompanyRuntime:
                 "majd_ai_sovereign_company_02_runtime",
             )
 
-    def inspect(self) -> Dict[str, Any]:
+    def inspect(
+        self,
+    ) -> Dict[str, Any]:
         if not self.available:
             return {
                 "success": False,
-                "status": "SOVEREIGN_COMPANY_FILE_MISSING",
-                "file": SOVEREIGN_COMPANY_FILE.name,
-                **bilingual(
-                    "ملف الشركة السيادية غير موجود.",
-                    "Sovereign company file is missing.",
-                ),
+                "status":
+                    "SOVEREIGN_COMPANY_FILE_MISSING",
             }
 
         assert self.module is not None
@@ -1124,61 +1193,56 @@ class SovereignCompanyRuntime:
                 result = call_supported(
                     function,
                     {
-                        "owner": DEFAULT_OWNER,
-                        "root_dir": str(ROOT_DIR),
+                        "owner":
+                            DEFAULT_OWNER,
+
+                        "root_dir":
+                            str(ROOT_DIR),
                     },
                 )
 
-                if isinstance(result, dict):
+                if isinstance(
+                    result,
+                    dict,
+                ):
                     return {
                         "success": True,
-                        "status": "SOVEREIGN_COMPANY_INSPECTED",
-                        "source": getattr(
-                            function,
-                            "__name__",
-                            "unknown",
-                        ),
-                        "company": result,
-                        **bilingual(
-                            "تم فحص الشركة السيادية.",
-                            "Sovereign company was inspected.",
-                        ),
+                        "status":
+                            "SOVEREIGN_COMPANY_INSPECTED",
+
+                        "source":
+                            getattr(
+                                function,
+                                "__name__",
+                                "unknown",
+                            ),
+
+                        "company":
+                            result,
                     }
 
             except Exception as error:
                 return {
                     "success": False,
-                    "status": "SOVEREIGN_COMPANY_INSPECTION_FAILED",
-                    "error": (
-                        f"{type(error).__name__}: {error}"
-                    ),
-                    **bilingual(
-                        "فشل فحص الشركة السيادية.",
-                        "Sovereign company inspection failed.",
-                    ),
-                }
+                    "status":
+                        "SOVEREIGN_COMPANY_INSPECTION_FAILED",
 
-        public_names = [
-            name
-            for name in dir(self.module)
-            if not name.startswith("_")
-        ]
+                    "error":
+                        f"{type(error).__name__}: {error}",
+                }
 
         return {
             "success": True,
-            "status": "SOVEREIGN_COMPANY_MODULE_LOADED",
-            "file": SOVEREIGN_COMPANY_FILE.name,
-            "public_symbols": public_names[:250],
-            "warning": "NO_STANDARD_COMPANY_STATUS_INTERFACE",
-            **bilingual(
-                "تم تحميل الشركة السيادية لكن لم توجد واجهة حالة قياسية.",
-                "Sovereign company loaded, but no standard status interface was found.",
-            ),
+            "status":
+                "SOVEREIGN_COMPANY_MODULE_LOADED",
+
+            "warning":
+                "NO_STANDARD_COMPANY_STATUS_INTERFACE",
         }
 
 
 # ============================================================
-# PLAYABLE ARTIFACT VERIFIER
+# PLAYABLE ARTIFACT
 # ============================================================
 
 def verify_playable_artifact(
@@ -1187,64 +1251,53 @@ def verify_playable_artifact(
     if not artifact_value:
         return {
             "success": False,
-            "status": "PLAYABLE_ARTIFACT_MISSING",
-            **bilingual(
-                "Artifact القابل للعب غير موجود.",
-                "Playable artifact is missing.",
-            ),
+            "status":
+                "PLAYABLE_ARTIFACT_MISSING",
         }
 
-    artifact = Path(str(artifact_value))
+    artifact = Path(
+        str(artifact_value)
+    )
 
     if not artifact.is_absolute():
-        artifact = (ROOT_DIR / artifact).resolve()
+        artifact = (
+            ROOT_DIR
+            / artifact
+        ).resolve()
     else:
-        artifact = artifact.resolve()
+        artifact = (
+            artifact.resolve()
+        )
 
-    if not artifact.exists():
+    if (
+        not artifact.exists()
+        or not artifact.is_dir()
+    ):
         return {
             "success": False,
-            "status": "PLAYABLE_ARTIFACT_NOT_FOUND",
-            "artifact": str(artifact),
-            **bilingual(
-                "لم يتم العثور على Artifact القابل للعب.",
-                "Playable artifact was not found.",
-            ),
+            "status":
+                "PLAYABLE_ARTIFACT_NOT_FOUND",
+
+            "artifact":
+                str(artifact),
         }
 
-    if not artifact.is_dir():
+    index_file = (
+        artifact
+        / "index.html"
+    )
+
+    if (
+        not index_file.exists()
+        or index_file.stat().st_size <= 0
+    ):
         return {
             "success": False,
-            "status": "PLAYABLE_ARTIFACT_NOT_DIRECTORY",
-            "artifact": str(artifact),
-            **bilingual(
-                "مسار Artifact ليس مجلدًا.",
-                "Artifact path is not a directory.",
-            ),
-        }
+            "status":
+                "PLAYABLE_INDEX_NOT_FOUND_OR_EMPTY",
 
-    index_file = artifact / "index.html"
-
-    if not index_file.exists():
-        return {
-            "success": False,
-            "status": "PLAYABLE_INDEX_NOT_FOUND",
-            "artifact": str(artifact),
-            **bilingual(
-                "ملف index.html غير موجود داخل Artifact.",
-                "index.html is missing from the artifact.",
-            ),
-        }
-
-    if index_file.stat().st_size <= 0:
-        return {
-            "success": False,
-            "status": "PLAYABLE_INDEX_EMPTY",
-            "artifact": str(artifact),
-            **bilingual(
-                "ملف index.html فارغ.",
-                "index.html is empty.",
-            ),
+            "artifact":
+                str(artifact),
         }
 
     files = [
@@ -1256,255 +1309,254 @@ def verify_playable_artifact(
     javascript_files = [
         path
         for path in files
-        if path.suffix.lower() in (".js", ".mjs")
+        if path.suffix.lower()
+        in (".js", ".mjs")
     ]
 
     if not javascript_files:
         return {
             "success": False,
-            "status": "PLAYABLE_JAVASCRIPT_NOT_FOUND",
-            "artifact": str(artifact),
-            **bilingual(
-                "لم يتم العثور على JavaScript داخل اللعبة.",
-                "No JavaScript files were found in the playable artifact.",
-            ),
+            "status":
+                "PLAYABLE_JAVASCRIPT_NOT_FOUND",
+
+            "artifact":
+                str(artifact),
         }
 
     return {
         "success": True,
-        "status": "PLAYABLE_ARTIFACT_VERIFIED",
-        "artifact": str(artifact),
-        "index": str(index_file),
-        "file_count": len(files),
-        **bilingual(
-            "تم التحقق من Artifact القابل للعب.",
-            "Playable artifact was verified.",
-        ),
+        "status":
+            "PLAYABLE_ARTIFACT_VERIFIED",
+
+        "artifact":
+            str(artifact),
+
+        "index":
+            str(index_file),
+
+        "file_count":
+            len(files),
     }
 
 
 # ============================================================
-# PUBLISHED ARTIFACT VERIFIER
+# PUBLISHED RESULT
 # ============================================================
 
 def verify_published_result(
     platform_result: Dict[str, Any],
 ) -> Dict[str, Any]:
-    if not isinstance(platform_result, dict):
+    if not isinstance(
+        platform_result,
+        dict,
+    ):
         return {
             "success": False,
-            "status": "PLATFORM_RESULT_INVALID",
-            **bilingual(
-                "نتيجة النشر غير صالحة.",
-                "Publication result is invalid.",
-            ),
+            "status":
+                "PLATFORM_RESULT_INVALID",
         }
 
-    if not platform_result.get("success"):
+    if not platform_result.get(
+        "success"
+    ):
         return {
             "success": False,
-            "status": platform_result.get(
-                "status",
-                "PLATFORM_NOT_SUCCESSFUL",
-            ),
-            "platform": platform_result,
-            **bilingual(
-                "منصة النشر لم تعد نتيجة ناجحة.",
-                "Publication platform did not return a successful result.",
-            ),
+            "status":
+                platform_result.get(
+                    "status",
+                    "PLATFORM_NOT_SUCCESSFUL",
+                ),
         }
 
-    published_directory = platform_result.get(
-        "published_directory"
+    published_directory = (
+        platform_result.get(
+            "published_directory"
+        )
     )
 
-    if not published_directory:
+    public_url = (
+        platform_result.get(
+            "public_url"
+        )
+    )
+
+    game_path = (
+        platform_result.get(
+            "game_path"
+        )
+    )
+
+    if (
+        not published_directory
+        or not public_url
+        or not game_path
+    ):
         return {
             "success": False,
-            "status": "PUBLISHED_DIRECTORY_MISSING",
-            "platform": platform_result,
-            **bilingual(
-                "مجلد النسخة المنشورة غير محدد.",
-                "Published directory is missing.",
-            ),
+            "status":
+                "PUBLISHED_RESULT_INCOMPLETE",
         }
 
-    published_path = Path(str(published_directory))
+    published_path = Path(
+        str(
+            published_directory
+        )
+    )
 
     if not published_path.is_absolute():
         published_path = (
-            ROOT_DIR / published_path
+            ROOT_DIR
+            / published_path
         ).resolve()
-    else:
-        published_path = published_path.resolve()
 
-    if not published_path.exists():
+    index_file = (
+        published_path
+        / "index.html"
+    )
+
+    if (
+        not published_path.exists()
+        or not index_file.exists()
+    ):
         return {
             "success": False,
-            "status": "PUBLISHED_DIRECTORY_NOT_FOUND",
-            "published_directory": str(published_path),
-            **bilingual(
-                "مجلد النسخة المنشورة غير موجود.",
-                "Published directory does not exist.",
-            ),
-        }
-
-    index_file = published_path / "index.html"
-
-    if not index_file.exists():
-        return {
-            "success": False,
-            "status": "PUBLISHED_INDEX_NOT_FOUND",
-            "published_directory": str(published_path),
-            **bilingual(
-                "ملف index.html غير موجود في النسخة المنشورة.",
-                "index.html is missing from the published build.",
-            ),
-        }
-
-    public_url = platform_result.get("public_url")
-    game_path = platform_result.get("game_path")
-
-    if not public_url:
-        return {
-            "success": False,
-            "status": "PUBLIC_URL_MISSING",
-            **bilingual(
-                "الرابط العام غير موجود.",
-                "Public URL is missing.",
-            ),
-        }
-
-    if not game_path:
-        return {
-            "success": False,
-            "status": "GAME_PATH_MISSING",
-            **bilingual(
-                "مسار اللعبة المنشورة غير موجود.",
-                "Published game path is missing.",
-            ),
+            "status":
+                "PUBLISHED_ARTIFACT_NOT_FOUND",
         }
 
     return {
         "success": True,
-        "status": "PUBLISHED_RESULT_VERIFIED",
-        "published_directory": str(published_path),
-        "index": str(index_file),
-        "game_path": game_path,
-        "public_url": public_url,
-        **bilingual(
-            "تم التحقق من النسخة المنشورة.",
-            "Published result was verified.",
-        ),
+        "status":
+            "PUBLISHED_RESULT_VERIFIED",
+
+        "published_directory":
+            str(published_path),
+
+        "index":
+            str(index_file),
+
+        "game_path":
+            game_path,
+
+        "public_url":
+            public_url,
     }
 
 
 # ============================================================
-# FINAL MASTERMIND RESULT VERIFICATION
+# FINAL RESULT
 # ============================================================
 
 def verify_mastermind_result(
     command_type: str,
     result: Dict[str, Any],
 ) -> Dict[str, Any]:
-    if not isinstance(result, dict):
+    if not isinstance(
+        result,
+        dict,
+    ):
         return {
             "success": False,
-            "status": "INVALID_FINAL_RESULT",
-            **bilingual(
-                "النتيجة النهائية غير صالحة.",
-                "Final result is invalid.",
-            ),
+            "status":
+                "INVALID_FINAL_RESULT",
         }
 
-    if not result.get("success"):
+    if not result.get(
+        "success"
+    ):
         return {
             "success": False,
-            "status": result.get(
-                "status",
-                "MASTERMIND_FAILED",
-            ),
-            "result": result,
-            **bilingual(
-                "العقل المدبر لم يعد نتيجة ناجحة.",
-                "Mastermind did not return a successful result.",
-            ),
+            "status":
+                result.get(
+                    "status",
+                    "MASTERMIND_FAILED",
+                ),
+
+            "result":
+                result,
         }
 
     if command_type != "CREATE_GAME":
         return {
             "success": True,
-            "status": "MASTERMIND_RESULT_VERIFIED",
-            "result": result,
-            **bilingual(
-                "تم التحقق من نتيجة العقل المدبر.",
-                "Mastermind result was verified.",
-            ),
+            "status":
+                "MASTERMIND_RESULT_VERIFIED",
+
+            "result":
+                result,
         }
 
-    artifact_verification = verify_playable_artifact(
-        result.get("artifact")
+    artifact_verification = (
+        verify_playable_artifact(
+            result.get(
+                "artifact"
+            )
+        )
     )
 
-    if not artifact_verification.get("success"):
+    if not artifact_verification.get(
+        "success"
+    ):
         return {
             "success": False,
-            "status": artifact_verification.get(
-                "status",
-                "ARTIFACT_FINAL_VERIFICATION_FAILED",
-            ),
-            "artifact_verification": artifact_verification,
-            "mastermind_result": result,
-            **bilingual(
-                "فشل التحقق النهائي من Artifact.",
-                "Final artifact verification failed.",
-            ),
+            "status":
+                artifact_verification.get(
+                    "status"
+                ),
+
+            "artifact_verification":
+                artifact_verification,
         }
 
-    platform_result = result.get("platform")
-
-    if not isinstance(platform_result, dict):
-        return {
-            "success": False,
-            "status": "PLATFORM_RESULT_MISSING",
-            "artifact_verification": artifact_verification,
-            "mastermind_result": result,
-            **bilingual(
-                "نتيجة منصة النشر غير موجودة.",
-                "Publication platform result is missing.",
-            ),
-        }
-
-    publication_verification = verify_published_result(
-        platform_result
+    platform_result = (
+        result.get(
+            "platform"
+        )
     )
 
-    if not publication_verification.get("success"):
+    if not isinstance(
+        platform_result,
+        dict,
+    ):
         return {
             "success": False,
-            "status": publication_verification.get(
-                "status",
-                "PUBLICATION_FINAL_VERIFICATION_FAILED",
-            ),
-            "artifact_verification": artifact_verification,
-            "publication_verification": publication_verification,
-            "mastermind_result": result,
-            **bilingual(
-                "فشل التحقق النهائي من النشر.",
-                "Final publication verification failed.",
-            ),
+            "status":
+                "PLATFORM_RESULT_MISSING",
+        }
+
+    publication_verification = (
+        verify_published_result(
+            platform_result
+        )
+    )
+
+    if not publication_verification.get(
+        "success"
+    ):
+        return {
+            "success": False,
+            "status":
+                publication_verification.get(
+                    "status"
+                ),
+
+            "publication_verification":
+                publication_verification,
         }
 
     return {
         "success": True,
-        "status": "FULL_EXECUTION_VERIFIED",
-        "artifact": artifact_verification,
-        "publication": publication_verification,
-        "result": result,
-        **bilingual(
-            "تم التحقق من التنفيذ الكامل بنجاح.",
-            "Full execution was verified successfully.",
-        ),
+        "status":
+            "FULL_EXECUTION_VERIFIED",
+
+        "artifact":
+            artifact_verification,
+
+        "publication":
+            publication_verification,
+
+        "result":
+            result,
     }
 
 
@@ -1514,81 +1566,146 @@ def verify_mastermind_result(
 
 class MajdFullExecutionRuntime:
     def __init__(self) -> None:
-        self.runtime_id = str(uuid.uuid4())
+        self.runtime_id = str(
+            uuid.uuid4()
+        )
 
-    def state_path(self) -> Path:
-        return RUNTIME_DIR / f"{self.runtime_id}.json"
+    def state_path(
+        self,
+    ) -> Path:
+        return (
+            RUNTIME_DIR
+            / f"{self.runtime_id}.json"
+        )
 
-    def save(self, state: Dict[str, Any]) -> None:
-        state["updated_at"] = utc_now()
-        save_json(self.state_path(), state)
+    def save(
+        self,
+        state: Dict[str, Any],
+    ) -> None:
+        state[
+            "updated_at"
+        ] = utc_now()
+
+        save_json(
+            self.state_path(),
+            state,
+        )
 
     def execute(
         self,
         command: str,
         owner: str = DEFAULT_OWNER,
     ) -> Dict[str, Any]:
-        command = str(command or "").strip()
+        command = str(
+            command or ""
+        ).strip()
 
         state: Dict[str, Any] = {
-            "runtime_id": self.runtime_id,
-            "system": SYSTEM_NAME,
-            "runtime": RUNTIME_NAME,
-            "version": VERSION,
-            "owner": owner,
-            "command": command,
-            "official_platform": OFFICIAL_MAJD_PLATFORM,
-            "started_at": utc_now(),
-            "updated_at": utc_now(),
-            "finished_at": None,
-            "success": False,
-            "status": "STARTING",
-            "stages": {},
-            **status_message("STARTING"),
+            "runtime_id":
+                self.runtime_id,
+
+            "system":
+                SYSTEM_NAME,
+
+            "runtime":
+                RUNTIME_NAME,
+
+            "version":
+                VERSION,
+
+            "owner":
+                owner,
+
+            "command":
+                command,
+
+            "official_platform":
+                OFFICIAL_MAJD_PLATFORM,
+
+            "started_at":
+                utc_now(),
+
+            "updated_at":
+                utc_now(),
+
+            "finished_at":
+                None,
+
+            "success":
+                False,
+
+            "status":
+                "STARTING",
+
+            "stages":
+                {},
+
+            **status_message(
+                "STARTING"
+            ),
         }
 
         self.save(state)
 
         try:
             if not command:
-                state["status"] = "EMPTY_OWNER_COMMAND"
-                state["error"] = "Owner command cannot be empty."
+                state[
+                    "status"
+                ] = (
+                    "EMPTY_OWNER_COMMAND"
+                )
+
                 state.update(
                     bilingual(
-                        "أمر المالك لا يمكن أن يكون فارغًا.",
+                        "أمر المالك لا يمكن أن يكون فارغا.",
                         "Owner command cannot be empty.",
                     )
                 )
-                state["finished_at"] = utc_now()
+
+                state[
+                    "finished_at"
+                ] = utc_now()
+
                 self.save(state)
+
                 return state
 
-            state["status"] = "VERIFYING_CORE"
-            state.update(status_message("VERIFYING_CORE"))
-            self.save(state)
+            files_result = (
+                verify_required_files()
+            )
 
-            files_result = verify_required_files()
-            state["stages"]["core_files"] = files_result
+            state[
+                "stages"
+            ][
+                "core_files"
+            ] = files_result
 
-            if not files_result.get("success"):
-                state["status"] = "REQUIRED_FILES_MISSING"
-                state["error"] = "REQUIRED_FILES_MISSING"
-                state.update(
-                    bilingual(
-                        "توجد ملفات أساسية مفقودة، لذلك تم إيقاف التنفيذ.",
-                        "Required core files are missing, so execution was stopped.",
-                    )
+            if not files_result.get(
+                "success"
+            ):
+                state[
+                    "status"
+                ] = (
+                    "REQUIRED_FILES_MISSING"
                 )
-                state["finished_at"] = utc_now()
+
+                state[
+                    "finished_at"
+                ] = utc_now()
+
                 self.save(state)
+
                 return state
 
-            state["status"] = "OWNER_COMMAND_CENTER"
-            state.update(status_message("OWNER_COMMAND_CENTER"))
-            self.save(state)
+            owner_runtime = (
+                OwnerCommandCenterRuntime()
+            )
 
-            owner_runtime = OwnerCommandCenterRuntime()
-            parsed_request = owner_runtime.parse(command)
+            parsed_request = (
+                owner_runtime.parse(
+                    command
+                )
+            )
 
             command_type = str(
                 parsed_request.get(
@@ -1597,197 +1714,288 @@ class MajdFullExecutionRuntime:
                 )
             ).upper()
 
-            if not command_type or command_type == "UNKNOWN":
-                command_type = "GENERAL_OWNER_COMMAND"
-                parsed_request["type"] = command_type
+            if (
+                not command_type
+                or command_type == "UNKNOWN"
+            ):
+                command_type = (
+                    "GENERAL_OWNER_COMMAND"
+                )
 
-            state["stages"]["command"] = {
-                "success": True,
-                "status": "OWNER_COMMAND_PARSED",
-                "type": command_type,
-                "request": parsed_request,
-                **bilingual(
-                    "تم تحليل أمر المالك.",
-                    "Owner command was parsed.",
-                ),
+                parsed_request[
+                    "type"
+                ] = command_type
+
+            state[
+                "stages"
+            ][
+                "command"
+            ] = {
+                "success":
+                    True,
+
+                "type":
+                    command_type,
+
+                "request":
+                    parsed_request,
             }
-            self.save(state)
 
             if command_type in (
                 "STATUS",
                 "SYSTEM_STATUS",
             ):
-                state["status"] = "OWNER_STATUS_EXECUTION"
-                state.update(
-                    bilingual(
-                        "جارٍ تنفيذ طلب حالة النظام.",
-                        "Executing system status request.",
+                result = (
+                    owner_runtime.execute(
+                        command=command,
+                        owner=owner,
                     )
                 )
-                self.save(state)
 
-                result = owner_runtime.execute(
-                    command=command,
-                    owner=owner,
+                state[
+                    "stages"
+                ][
+                    "owner_status"
+                ] = result
+
+                state[
+                    "result"
+                ] = result
+
+                state[
+                    "success"
+                ] = bool(
+                    result.get(
+                        "success",
+                        False,
+                    )
                 )
 
-                state["stages"]["owner_status"] = result
-                state["result"] = result
-                state["success"] = bool(
-                    result.get("success", False)
-                )
-
-                state["status"] = str(
-                    result.get("status")
+                state[
+                    "status"
+                ] = str(
+                    result.get(
+                        "status"
+                    )
                     or (
                         "COMPLETED"
-                        if state["success"]
-                        else "FAILED"
+                        if state[
+                            "success"
+                        ]
+                        else
+                        "FAILED"
                     )
                 )
 
-                if not state["success"]:
-                    state["error"] = (
-                        result.get("error")
-                        or result.get("message")
-                        or state["status"]
-                    )
+                state[
+                    "finished_at"
+                ] = utc_now()
 
-                state["finished_at"] = utc_now()
                 self.save(state)
+
                 return state
 
-            state["status"] = "MASTERMIND_EXECUTION"
-            state.update(
-                status_message("MASTERMIND_EXECUTION")
-            )
-            self.save(state)
-
-            mastermind = MastermindRuntime()
-
-            mastermind_result = mastermind.execute(
-                command=command,
-                request=parsed_request,
-                runtime_id=self.runtime_id,
-                owner=owner,
+            mastermind = (
+                MastermindRuntime()
             )
 
-            state["stages"]["mastermind"] = mastermind_result
-            self.save(state)
+            mastermind_result = (
+                mastermind.execute(
+                    command=
+                        command,
 
-            if not mastermind_result.get("success"):
-                state["success"] = False
-                state["status"] = str(
+                    request=
+                        parsed_request,
+
+                    runtime_id=
+                        self.runtime_id,
+
+                    owner=
+                        owner,
+                )
+            )
+
+            state[
+                "stages"
+            ][
+                "mastermind"
+            ] = mastermind_result
+
+            if not mastermind_result.get(
+                "success"
+            ):
+                state[
+                    "status"
+                ] = str(
                     mastermind_result.get(
                         "status",
                         "MASTERMIND_FAILED",
                     )
                 )
-                state["error"] = (
-                    mastermind_result.get("error")
-                    or mastermind_result.get("message")
-                    or state["status"]
+
+                state[
+                    "result"
+                ] = (
+                    mastermind_result
                 )
-                state["result"] = mastermind_result
-                state.update(
-                    bilingual(
-                        "فشل تنفيذ المهمة عبر العقل المدبر.",
-                        "Task execution through the mastermind failed.",
-                    )
-                )
-                state["finished_at"] = utc_now()
+
+                state[
+                    "finished_at"
+                ] = utc_now()
+
                 self.save(state)
+
                 return state
 
-            state["status"] = "FINAL_VERIFICATION"
-            state.update(
-                status_message("FINAL_VERIFICATION")
-            )
-            self.save(state)
+            verification = (
+                verify_mastermind_result(
+                    command_type=
+                        command_type,
 
-            final_verification = verify_mastermind_result(
-                command_type=command_type,
-                result=mastermind_result,
+                    result=
+                        mastermind_result,
+                )
             )
 
-            state["stages"]["final_verification"] = (
-                final_verification
-            )
-            self.save(state)
+            state[
+                "stages"
+            ][
+                "final_verification"
+            ] = verification
 
-            if not final_verification.get("success"):
-                state["success"] = False
-                state["status"] = str(
-                    final_verification.get(
+            if not verification.get(
+                "success"
+            ):
+                state[
+                    "status"
+                ] = str(
+                    verification.get(
                         "status",
                         "FINAL_VERIFICATION_FAILED",
                     )
                 )
-                state["error"] = state["status"]
-                state["result"] = mastermind_result
-                state.update(
-                    bilingual(
-                        "فشل التحقق النهائي من نتيجة التنفيذ.",
-                        "Final execution verification failed.",
-                    )
+
+                state[
+                    "result"
+                ] = (
+                    mastermind_result
                 )
-                state["finished_at"] = utc_now()
+
+                state[
+                    "finished_at"
+                ] = utc_now()
+
                 self.save(state)
+
                 return state
 
-            state["success"] = True
-            state["status"] = "COMPLETED"
-            state["result"] = mastermind_result
-            state["verification"] = final_verification
+            state[
+                "success"
+            ] = True
+
+            state[
+                "status"
+            ] = (
+                "COMPLETED"
+            )
+
+            state[
+                "result"
+            ] = (
+                mastermind_result
+            )
+
+            state[
+                "verification"
+            ] = verification
+
+            state.update(
+                status_message(
+                    "COMPLETED"
+                )
+            )
 
             if command_type == "CREATE_GAME":
-                publication = final_verification.get(
-                    "publication",
-                    {},
-                )
-                artifact = final_verification.get(
-                    "artifact",
-                    {},
-                )
-
-                state["artifact"] = artifact.get("artifact")
-                state["game_path"] = publication.get("game_path")
-                state["public_url"] = publication.get("public_url")
-                state["published"] = True
-
-                state.update(
-                    bilingual(
-                        "تم تنفيذ أمر إنشاء اللعبة عبر العقل المدبر، وبناء اللعبة والتحقق من Artifact والنسخة المنشورة فعليًا.",
-                        "The game creation command was executed through the mastermind, and the game, artifact, and published build were verified.",
-                    )
-                )
-            else:
-                state.update(
-                    bilingual(
-                        "تم تنفيذ أمر المالك عبر العقل المدبر وتم التحقق من النتيجة.",
-                        "The owner command was executed through the mastermind and the result was verified.",
+                publication = (
+                    verification.get(
+                        "publication",
+                        {},
                     )
                 )
 
-            state["finished_at"] = utc_now()
+                artifact = (
+                    verification.get(
+                        "artifact",
+                        {},
+                    )
+                )
+
+                state[
+                    "artifact"
+                ] = (
+                    artifact.get(
+                        "artifact"
+                    )
+                )
+
+                state[
+                    "game_path"
+                ] = (
+                    publication.get(
+                        "game_path"
+                    )
+                )
+
+                state[
+                    "public_url"
+                ] = (
+                    publication.get(
+                        "public_url"
+                    )
+                )
+
+                state[
+                    "published"
+                ] = True
+
+            state[
+                "finished_at"
+            ] = utc_now()
+
             self.save(state)
+
             return state
 
         except Exception as error:
-            state["success"] = False
-            state["status"] = "RUNTIME_EXCEPTION"
-            state["error"] = (
-                f"{type(error).__name__}: {error}"
+            state[
+                "success"
+            ] = False
+
+            state[
+                "status"
+            ] = (
+                "RUNTIME_EXCEPTION"
             )
-            state["traceback"] = traceback.format_exc()
-            state.update(
-                bilingual(
-                    "حدث خطأ غير متوقع في Runtime.",
-                    "An unexpected runtime error occurred.",
-                )
+
+            state[
+                "error"
+            ] = (
+                f"{type(error).__name__}: "
+                f"{error}"
             )
-            state["finished_at"] = utc_now()
+
+            state[
+                "traceback"
+            ] = (
+                traceback.format_exc()
+            )
+
+            state[
+                "finished_at"
+            ] = utc_now()
+
             self.save(state)
+
             return state
 
 
@@ -1807,26 +2015,51 @@ def finding(
     evidence: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     return {
-        "id": finding_id,
-        "severity": severity.upper(),
-        "component": component,
-        "status": status,
-        "message_ar": message_ar,
-        "message_en": message_en,
-        "repairable": bool(repairable),
-        "owner_required": bool(owner_required),
-        "evidence": evidence or {},
-        "detected_at": utc_now(),
+        "id":
+            finding_id,
+
+        "severity":
+            severity.upper(),
+
+        "component":
+            component,
+
+        "status":
+            status,
+
+        "message_ar":
+            message_ar,
+
+        "message_en":
+            message_en,
+
+        "repairable":
+            repairable,
+
+        "owner_required":
+            owner_required,
+
+        "evidence":
+            evidence or {},
+
+        "detected_at":
+            utc_now(),
     }
 
 
 def derive_findings(
     inspection: Dict[str, Any],
 ) -> List[Dict[str, Any]]:
-    findings: List[Dict[str, Any]] = []
+    findings: List[
+        Dict[str, Any]
+    ] = []
 
-    core = inspection.get("core_files", {})
-    if not core.get("success"):
+    if not inspection.get(
+        "core_files",
+        {},
+    ).get(
+        "success"
+    ):
         findings.append(
             finding(
                 "CORE_FILES_MISSING",
@@ -1835,13 +2068,20 @@ def derive_findings(
                 "FAILED",
                 "ملفات أساسية مطلوبة مفقودة أو فارغة.",
                 "Required core files are missing or empty.",
-                repairable=True,
-                evidence=core,
+                evidence=
+                    inspection.get(
+                        "core_files",
+                        {},
+                    ),
             )
         )
 
-    syntax = inspection.get("python_syntax", {})
-    if not syntax.get("success"):
+    if not inspection.get(
+        "python_syntax",
+        {},
+    ).get(
+        "success"
+    ):
         findings.append(
             finding(
                 "PYTHON_SYNTAX_FAILURE",
@@ -1850,28 +2090,42 @@ def derive_findings(
                 "FAILED",
                 "يوجد خطأ Syntax في ملف بايثون واحد أو أكثر.",
                 "One or more Python files contain syntax errors.",
-                repairable=True,
-                evidence=syntax,
+                evidence=
+                    inspection.get(
+                        "python_syntax",
+                        {},
+                    ),
             )
         )
 
-    local_api = inspection.get("local_api", {})
-    if not local_api.get("success"):
+    if not inspection.get(
+        "local_api",
+        {},
+    ).get(
+        "success"
+    ):
         findings.append(
             finding(
                 "LOCAL_API_UNHEALTHY",
                 "HIGH",
                 "MAJD_AI_CORE",
                 "DEGRADED",
-                "فشل فحص صحة API المحلي لمجد.",
-                "Local MAJD API health probe failed.",
-                repairable=True,
-                evidence=local_api,
+                "فشل فحص صحة API المحلي.",
+                "Local API health probe failed.",
+                evidence=
+                    inspection.get(
+                        "local_api",
+                        {},
+                    ),
             )
         )
 
-    official = inspection.get("official_platform", {})
-    if not official.get("success"):
+    if not inspection.get(
+        "official_platform",
+        {},
+    ).get(
+        "success"
+    ):
         findings.append(
             finding(
                 "OFFICIAL_PLATFORM_UNREACHABLE",
@@ -1880,28 +2134,42 @@ def derive_findings(
                 "FAILED",
                 "تعذر الوصول إلى منصة مجد الرسمية.",
                 "Official MAJD platform is unreachable.",
-                repairable=True,
-                evidence=official,
+                evidence=
+                    inspection.get(
+                        "official_platform",
+                        {},
+                    ),
             )
         )
 
-    docker = inspection.get("docker", {})
-    if not docker.get("success"):
+    if not inspection.get(
+        "docker",
+        {},
+    ).get(
+        "success"
+    ):
         findings.append(
             finding(
-                "DOCKER_SERVICES_DEGRADED",
+                "DOCKER_DEGRADED",
                 "HIGH",
                 "DOCKER",
                 "DEGRADED",
-                "بعض خدمات Docker الأساسية لمجد غير سليمة.",
-                "Some core MAJD Docker services are unhealthy.",
-                repairable=True,
-                evidence=docker,
+                "Docker غير متاح أو فشل فحصه.",
+                "Docker is unavailable or failed inspection.",
+                evidence=
+                    inspection.get(
+                        "docker",
+                        {},
+                    ),
             )
         )
 
-    disk = inspection.get("disk", {})
-    if not disk.get("success"):
+    if not inspection.get(
+        "disk",
+        {},
+    ).get(
+        "success"
+    ):
         findings.append(
             finding(
                 "DISK_CAPACITY_RISK",
@@ -1910,13 +2178,20 @@ def derive_findings(
                 "DEGRADED",
                 "مساحة تخزين السيرفر تحتاج معالجة.",
                 "Server storage requires attention.",
-                repairable=True,
-                evidence=disk,
+                evidence=
+                    inspection.get(
+                        "disk",
+                        {},
+                    ),
             )
         )
 
-    company = inspection.get("sovereign_company", {})
-    if not company.get("success"):
+    if not inspection.get(
+        "sovereign_company",
+        {},
+    ).get(
+        "success"
+    ):
         findings.append(
             finding(
                 "SOVEREIGN_COMPANY_UNAVAILABLE",
@@ -1925,8 +2200,11 @@ def derive_findings(
                 "UNAVAILABLE",
                 "تعذر فحص الشركة السيادية 02.",
                 "Unable to inspect Sovereign Company 02.",
-                repairable=True,
-                evidence=company,
+                evidence=
+                    inspection.get(
+                        "sovereign_company",
+                        {},
+                    ),
             )
         )
 
@@ -1940,50 +2218,76 @@ def derive_findings(
 def build_autonomous_objective(
     cycle_id: str,
     findings: List[Dict[str, Any]],
-) -> Tuple[str, Dict[str, Any]]:
-    compact_findings = [
-        {
-            "id": item.get("id"),
-            "severity": item.get("severity"),
-            "component": item.get("component"),
-            "status": item.get("status"),
-            "message_ar": item.get("message_ar"),
-            "message_en": item.get("message_en"),
-            "owner_required": item.get(
-                "owner_required",
-                False,
-            ),
-        }
-        for item in findings
-    ]
-
+) -> Tuple[
+    str,
+    Dict[str, Any],
+]:
     request = {
-        "type": "AUTONOMOUS_PLATFORM_MAINTENANCE",
-        "source": RUNTIME_NAME,
-        "cycle_id": cycle_id,
-        "owner": DEFAULT_OWNER,
-        "autonomous": True,
+        "type":
+            "AUTONOMOUS_PLATFORM_MAINTENANCE",
+
+        "source":
+            RUNTIME_NAME,
+
+        "cycle_id":
+            cycle_id,
+
+        "owner":
+            DEFAULT_OWNER,
+
+        "autonomous":
+            True,
+
         "language": {
-            "owner_reports": ["ar", "en"],
-            "primary": "ar",
-            "secondary": "en",
+            "primary":
+                "ar",
+
+            "secondary":
+                "en",
         },
-        "findings": compact_findings,
+
+        "findings":
+            findings,
+
         "policy": {
-            "routine_owner_approval_required": False,
-            "preserve_working_features": True,
-            "prefer_existing_components": True,
-            "allow_code_generation": True,
-            "allow_code_repair": True,
-            "allow_integration": True,
-            "allow_testing": True,
-            "allow_routine_service_recovery": True,
-            "require_real_verification": True,
-            "never_fake_operational": True,
-            "rollback_on_failed_change": True,
-            "protect_owner_authority": True,
-            "protect_secrets": True,
-            "owner_reports_bilingual": True,
+            "routine_owner_approval_required":
+                False,
+
+            "preserve_working_features":
+                True,
+
+            "prefer_existing_components":
+                True,
+
+            "allow_code_generation":
+                True,
+
+            "allow_code_repair":
+                True,
+
+            "allow_integration":
+                True,
+
+            "allow_testing":
+                True,
+
+            "allow_routine_service_recovery":
+                True,
+
+            "require_real_verification":
+                True,
+
+            "never_fake_operational":
+                True,
+
+            "protect_owner_authority":
+                True,
+
+            "protect_secrets":
+                True,
+
+            "owner_reports_bilingual":
+                True,
         },
     }
 
@@ -1993,18 +2297,11 @@ def build_autonomous_objective(
         "Inspect the supplied findings and repair all routine "
         "technical problems that can be repaired safely without "
         "owner interaction. Use existing MAJD components first. "
-        "If code is missing or defective, create or repair it. "
-        "Preserve working functionality. Test every change. "
-        "Do not report success without real evidence. "
-        "Never mark a capability OPERATIONAL unless its real "
-        "adapter, engine, or service exists and passes verification. "
-        "Protect OWNER authority and secrets. "
-        "Return a structured result with Arabic and English owner messages. "
-        "افحص المشاكل المرسلة وأصلح المشاكل التشغيلية الروتينية "
-        "دون إزعاج المالك، واستخدم مكونات مجد الموجودة أولاً، "
-        "وأنشئ أو أصلح الكود عند الحاجة، واختبر كل تغيير، "
-        "ولا تعتبر أي قدرة تشغيلية بدون تحقق حقيقي، "
-        "واحفظ سلطة المالك والأسرار، وأعد تقريراً عربياً وإنجليزياً."
+        "Create or repair code when required. Preserve working "
+        "functionality. Test every change. Do not report "
+        "OPERATIONAL without real evidence. Protect OWNER "
+        "authority and secrets. Return structured Arabic and "
+        "English owner messages."
     )
 
     return command, request
@@ -2021,11 +2318,18 @@ class MajdAutonomousRuntime:
         cycle_seconds: int = DEFAULT_CYCLE_SECONDS,
     ) -> None:
         self.owner = owner
+
         self.cycle_seconds = max(
             30,
-            int(cycle_seconds),
+            int(
+                cycle_seconds
+            ),
         )
-        self.session_id = str(uuid.uuid4())
+
+        self.session_id = str(
+            uuid.uuid4()
+        )
+
         self.started_at = utc_now()
 
         previous = load_json(
@@ -2034,64 +2338,120 @@ class MajdAutonomousRuntime:
         )
 
         self.total_cycles = int(
-            previous.get("total_cycles", 0) or 0
+            previous.get(
+                "total_cycles",
+                0,
+            )
+            or 0
         )
+
         self.successful_cycles = int(
-            previous.get("successful_cycles", 0) or 0
+            previous.get(
+                "successful_cycles",
+                0,
+            )
+            or 0
         )
+
         self.failed_cycles = int(
-            previous.get("failed_cycles", 0) or 0
+            previous.get(
+                "failed_cycles",
+                0,
+            )
+            or 0
         )
+
         self.repair_cycles = int(
-            previous.get("repair_cycles", 0) or 0
+            previous.get(
+                "repair_cycles",
+                0,
+            )
+            or 0
         )
 
     def audit(
         self,
         event: str,
-        data: Optional[Dict[str, Any]] = None,
+        data: Optional[
+            Dict[str, Any]
+        ] = None,
     ) -> None:
         append_jsonl(
             AUTONOMOUS_AUDIT_FILE,
             {
-                "time": utc_now(),
-                "system": SYSTEM_NAME,
-                "runtime": RUNTIME_NAME,
-                "version": VERSION,
-                "session_id": self.session_id,
-                "event": event,
-                "data": data or {},
+                "time":
+                    utc_now(),
+
+                "session_id":
+                    self.session_id,
+
+                "event":
+                    event,
+
+                "data":
+                    data or {},
             },
         )
 
     def save_state(
         self,
         status: str,
-        cycle: Optional[Dict[str, Any]] = None,
+        cycle: Optional[
+            Dict[str, Any]
+        ] = None,
     ) -> None:
         state = {
-            "system": SYSTEM_NAME,
-            "runtime": RUNTIME_NAME,
-            "version": VERSION,
-            "mode": "AUTONOMOUS_PERSISTENT",
-            "enabled": True,
-            "owner": self.owner,
-            "owner_language": {
-                "primary": "ar",
-                "secondary": "en",
-            },
-            "session_id": self.session_id,
-            "pid": os.getpid(),
-            "status": status,
-            **status_message(status),
-            "started_at": self.started_at,
-            "updated_at": utc_now(),
-            "cycle_seconds": self.cycle_seconds,
-            "total_cycles": self.total_cycles,
-            "successful_cycles": self.successful_cycles,
-            "failed_cycles": self.failed_cycles,
-            "repair_cycles": self.repair_cycles,
-            "last_cycle": cycle,
+            "system":
+                SYSTEM_NAME,
+
+            "runtime":
+                RUNTIME_NAME,
+
+            "version":
+                VERSION,
+
+            "mode":
+                "AUTONOMOUS_PERSISTENT",
+
+            "owner":
+                self.owner,
+
+            "session_id":
+                self.session_id,
+
+            "pid":
+                os.getpid(),
+
+            "status":
+                status,
+
+            **status_message(
+                status
+            ),
+
+            "started_at":
+                self.started_at,
+
+            "updated_at":
+                utc_now(),
+
+            "cycle_seconds":
+                self.cycle_seconds,
+
+            "total_cycles":
+                self.total_cycles,
+
+            "successful_cycles":
+                self.successful_cycles,
+
+            "failed_cycles":
+                self.failed_cycles,
+
+            "repair_cycles":
+                self.repair_cycles,
+
+            "last_cycle":
+                cycle,
         }
 
         save_json(
@@ -2099,38 +2459,62 @@ class MajdAutonomousRuntime:
             state,
         )
 
-    def inspect_platform(self) -> Dict[str, Any]:
-        inspection: Dict[str, Any] = {
-            "time": utc_now(),
+    def inspect_platform(
+        self,
+    ) -> Dict[str, Any]:
+        inspection: Dict[
+            str,
+            Any
+        ] = {
+            "time":
+                utc_now(),
+
+            "core_files":
+                verify_required_files(),
+
+            "python_syntax":
+                verify_python_syntax(),
+
+            "local_api":
+                http_probe(
+                    LOCAL_API_HEALTH_URL
+                ),
+
+            "official_platform":
+                http_probe(
+                    OFFICIAL_MAJD_PLATFORM
+                ),
+
+            "docker":
+                inspect_docker(),
+
+            "disk":
+                inspect_disk(),
         }
 
-        inspection["core_files"] = verify_required_files()
-        inspection["python_syntax"] = verify_python_syntax()
-        inspection["local_api"] = http_probe(
-            LOCAL_API_HEALTH_URL
-        )
-        inspection["official_platform"] = http_probe(
-            OFFICIAL_MAJD_PLATFORM
-        )
-        inspection["docker"] = inspect_docker()
-        inspection["disk"] = inspect_disk()
-
         try:
-            company_runtime = SovereignCompanyRuntime()
-            inspection["sovereign_company"] = (
+            company_runtime = (
+                SovereignCompanyRuntime()
+            )
+
+            inspection[
+                "sovereign_company"
+            ] = (
                 company_runtime.inspect()
             )
+
         except Exception as error:
-            inspection["sovereign_company"] = {
-                "success": False,
-                "status": "SOVEREIGN_COMPANY_EXCEPTION",
-                "error": (
-                    f"{type(error).__name__}: {error}"
-                ),
-                **bilingual(
-                    "حدث خطأ أثناء فحص الشركة السيادية.",
-                    "An error occurred while inspecting the sovereign company.",
-                ),
+            inspection[
+                "sovereign_company"
+            ] = {
+                "success":
+                    False,
+
+                "status":
+                    "SOVEREIGN_COMPANY_EXCEPTION",
+
+                "error":
+                    f"{type(error).__name__}: {error}",
             }
 
         return inspection
@@ -2140,16 +2524,13 @@ class MajdAutonomousRuntime:
         cycle_id: str,
         findings: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
-        owner_blockers = [
-            item
-            for item in findings
-            if item.get("owner_required")
-        ]
-
         repairable = [
             item
             for item in findings
-            if item.get("repairable", True)
+            if item.get(
+                "repairable",
+                True,
+            )
             and not item.get(
                 "owner_required",
                 False,
@@ -2158,29 +2539,26 @@ class MajdAutonomousRuntime:
 
         if not repairable:
             return {
-                "success": not owner_blockers,
-                "status": (
-                    "OWNER_ACTION_REQUIRED"
-                    if owner_blockers
-                    else "NO_AUTONOMOUS_REPAIR_REQUIRED"
-                ),
-                "owner_blockers": owner_blockers,
-                **(
-                    status_message("OWNER_ACTION_REQUIRED")
-                    if owner_blockers
-                    else bilingual(
-                        "لا توجد إصلاحات تلقائية مطلوبة.",
-                        "No autonomous repairs are required.",
-                    )
-                ),
+                "success":
+                    True,
+
+                "status":
+                    "NO_AUTONOMOUS_REPAIR_REQUIRED",
             }
 
-        command, request = build_autonomous_objective(
-            cycle_id=cycle_id,
-            findings=repairable,
+        command, request = (
+            build_autonomous_objective(
+                cycle_id=
+                    cycle_id,
+
+                findings=
+                    repairable,
+            )
         )
 
-        attempts: List[Dict[str, Any]] = []
+        attempts: List[
+            Dict[str, Any]
+        ] = []
 
         for attempt in range(
             1,
@@ -2191,213 +2569,319 @@ class MajdAutonomousRuntime:
             )
 
             try:
-                mastermind = MastermindRuntime()
-                result = mastermind.execute(
-                    command=command,
-                    request=request,
-                    runtime_id=runtime_id,
-                    owner=self.owner,
+                mastermind = (
+                    MastermindRuntime()
                 )
+
+                result = (
+                    mastermind.execute(
+                        command=
+                            command,
+
+                        request=
+                            request,
+
+                        runtime_id=
+                            runtime_id,
+
+                        owner=
+                            self.owner,
+                    )
+                )
+
             except Exception as error:
                 result = {
-                    "success": False,
-                    "status": "AUTONOMOUS_MASTERMIND_EXCEPTION",
-                    "error": (
-                        f"{type(error).__name__}: {error}"
-                    ),
-                    "traceback": traceback.format_exc(),
-                    **bilingual(
-                        "حدث خطأ أثناء الإصلاح الذاتي عبر العقل المدبر.",
-                        "An error occurred during autonomous repair through the mastermind.",
-                    ),
+                    "success":
+                        False,
+
+                    "status":
+                        "AUTONOMOUS_MASTERMIND_EXCEPTION",
+
+                    "error":
+                        f"{type(error).__name__}: {error}",
                 }
 
             attempts.append(
                 {
-                    "attempt": attempt,
-                    "runtime_id": runtime_id,
-                    "result": result,
+                    "attempt":
+                        attempt,
+
+                    "runtime_id":
+                        runtime_id,
+
+                    "result":
+                        result,
                 }
             )
 
             self.audit(
                 "AUTONOMOUS_REPAIR_ATTEMPT",
                 {
-                    "cycle_id": cycle_id,
-                    "attempt": attempt,
-                    "success": bool(
-                        result.get("success")
-                    ),
-                    "status": result.get("status"),
+                    "cycle_id":
+                        cycle_id,
+
+                    "attempt":
+                        attempt,
+
+                    "success":
+                        bool(
+                            result.get(
+                                "success"
+                            )
+                        ),
+
+                    "status":
+                        result.get(
+                            "status"
+                        ),
                 },
             )
 
-            if result.get("success"):
+            if result.get(
+                "success"
+            ):
                 return {
-                    "success": True,
-                    "status": "MASTERMIND_REPAIR_EXECUTED",
-                    "attempts": attempts,
-                    "result": result,
-                    "owner_blockers": owner_blockers,
-                    **bilingual(
-                        "نفذ العقل المدبر محاولة إصلاح ناجحة.",
-                        "Mastermind completed a successful repair attempt.",
-                    ),
+                    "success":
+                        True,
+
+                    "status":
+                        "MASTERMIND_REPAIR_EXECUTED",
+
+                    "attempts":
+                        attempts,
+
+                    "result":
+                        result,
                 }
 
-            if attempt < MAX_AUTONOMOUS_REPAIR_ATTEMPTS:
+            if (
+                attempt
+                <
+                MAX_AUTONOMOUS_REPAIR_ATTEMPTS
+            ):
                 time.sleep(2)
 
         return {
-            "success": False,
-            "status": "AUTONOMOUS_REPAIR_FAILED",
-            "attempts": attempts,
-            "owner_blockers": owner_blockers,
-            **bilingual(
-                "فشلت محاولات الإصلاح الذاتي في هذه الدورة.",
-                "Autonomous repair attempts failed in this cycle.",
-            ),
+            "success":
+                False,
+
+            "status":
+                "AUTONOMOUS_REPAIR_FAILED",
+
+            "attempts":
+                attempts,
         }
 
-    def run_cycle(self) -> Dict[str, Any]:
-        cycle_id = str(uuid.uuid4())
+    def run_cycle(
+        self,
+    ) -> Dict[str, Any]:
+        cycle_id = str(
+            uuid.uuid4()
+        )
 
         self.total_cycles += 1
 
-        cycle: Dict[str, Any] = {
-            "cycle_id": cycle_id,
-            "started_at": utc_now(),
-            "finished_at": None,
-            "success": False,
-            "status": "INSPECTING",
+        cycle: Dict[
+            str,
+            Any
+        ] = {
+            "cycle_id":
+                cycle_id,
+
+            "started_at":
+                utc_now(),
+
+            "finished_at":
+                None,
+
+            "success":
+                False,
+
+            "status":
+                "INSPECTING",
+
             **bilingual(
                 "جارٍ فحص المنصة.",
                 "Inspecting the platform.",
             ),
-            "inspection": {},
-            "findings": [],
-            "repair": None,
-            "verification": None,
+
+            "inspection":
+                {},
+
+            "findings":
+                [],
+
+            "repair":
+                None,
+
+            "verification":
+                None,
         }
 
         self.audit(
             "CYCLE_STARTED",
-            {"cycle_id": cycle_id},
+            {
+                "cycle_id":
+                    cycle_id,
+            },
         )
 
         try:
-            inspection = self.inspect_platform()
-            cycle["inspection"] = inspection
-
-            findings = derive_findings(
-                inspection
+            inspection = (
+                self.inspect_platform()
             )
-            cycle["findings"] = findings
+
+            cycle[
+                "inspection"
+            ] = inspection
+
+            findings = (
+                derive_findings(
+                    inspection
+                )
+            )
+
+            cycle[
+                "findings"
+            ] = findings
 
             if not findings:
-                cycle["success"] = True
-                cycle["status"] = "PLATFORM_HEALTHY"
-                cycle.update(
-                    status_message("PLATFORM_HEALTHY")
-                )
-                self.successful_cycles += 1
-                cycle["finished_at"] = utc_now()
+                cycle[
+                    "success"
+                ] = True
 
-                self.save_state(
-                    "RUNNING_HEALTHY",
-                    cycle,
+                cycle[
+                    "status"
+                ] = (
+                    "PLATFORM_HEALTHY"
                 )
+
+                cycle.update(
+                    status_message(
+                        "PLATFORM_HEALTHY"
+                    )
+                )
+
+                cycle[
+                    "finished_at"
+                ] = utc_now()
+
+                self.successful_cycles += 1
 
                 save_json(
                     AUTONOMOUS_LATEST_REPORT,
                     cycle,
                 )
 
-                self.audit(
-                    "CYCLE_HEALTHY",
-                    {"cycle_id": cycle_id},
+                self.save_state(
+                    "RUNNING_HEALTHY",
+                    cycle,
                 )
 
                 return cycle
 
-            cycle["status"] = "ISSUES_DETECTED"
+            cycle[
+                "status"
+            ] = (
+                "ISSUES_DETECTED"
+            )
+
             cycle.update(
-                bilingual(
-                    "اكتشف النظام مشكلات وسيبدأ الإصلاح الذاتي.",
-                    "The runtime detected issues and will start autonomous repair.",
+                status_message(
+                    "ISSUES_DETECTED"
                 )
             )
 
             self.repair_cycles += 1
 
-            repair_result = self.repair(
-                cycle_id=cycle_id,
-                findings=findings,
+            repair_result = (
+                self.repair(
+                    cycle_id=
+                        cycle_id,
+
+                    findings=
+                        findings,
+                )
             )
 
-            cycle["repair"] = repair_result
+            cycle[
+                "repair"
+            ] = repair_result
 
-            verification = self.inspect_platform()
-            cycle["verification"] = verification
-
-            remaining = derive_findings(
-                verification
+            verification = (
+                self.inspect_platform()
             )
 
-            cycle["remaining_findings"] = remaining
+            cycle[
+                "verification"
+            ] = verification
+
+            remaining = (
+                derive_findings(
+                    verification
+                )
+            )
+
+            cycle[
+                "remaining_findings"
+            ] = remaining
 
             if not remaining:
-                cycle["success"] = True
-                cycle["status"] = "REPAIRED_AND_VERIFIED"
+                cycle[
+                    "success"
+                ] = True
+
+                cycle[
+                    "status"
+                ] = (
+                    "REPAIRED_AND_VERIFIED"
+                )
+
                 cycle.update(
                     status_message(
                         "REPAIRED_AND_VERIFIED"
                     )
                 )
+
                 self.successful_cycles += 1
+
             else:
-                owner_required = [
-                    item
-                    for item in remaining
-                    if item.get("owner_required")
-                ]
+                cycle[
+                    "success"
+                ] = False
 
-                if (
-                    owner_required
-                    and len(owner_required)
-                    == len(remaining)
-                ):
-                    cycle["success"] = True
-                    cycle["status"] = "OWNER_ACTION_REQUIRED"
-                    cycle.update(
-                        status_message(
-                            "OWNER_ACTION_REQUIRED"
-                        )
-                    )
-                    self.successful_cycles += 1
-                else:
-                    cycle["success"] = False
-                    cycle["status"] = "DEGRADED_AFTER_REPAIR"
-                    cycle.update(
-                        status_message(
-                            "DEGRADED_AFTER_REPAIR"
-                        )
-                    )
-                    self.failed_cycles += 1
+                cycle[
+                    "status"
+                ] = (
+                    "DEGRADED_AFTER_REPAIR"
+                )
 
-            cycle["finished_at"] = utc_now()
+                cycle.update(
+                    status_message(
+                        "DEGRADED_AFTER_REPAIR"
+                    )
+                )
+
+                self.failed_cycles += 1
+
+            cycle[
+                "finished_at"
+            ] = utc_now()
+
+            save_json(
+                AUTONOMOUS_LATEST_REPORT,
+                cycle,
+            )
 
             self.save_state(
                 (
                     "RUNNING_HEALTHY"
-                    if cycle["success"]
-                    else "RUNNING_DEGRADED"
+                    if cycle[
+                        "success"
+                    ]
+                    else
+                    "RUNNING_DEGRADED"
                 ),
-                cycle,
-            )
-
-            save_json(
-                AUTONOMOUS_LATEST_REPORT,
                 cycle,
             )
 
@@ -2406,26 +2890,40 @@ class MajdAutonomousRuntime:
         except Exception as error:
             self.failed_cycles += 1
 
-            cycle["success"] = False
-            cycle["status"] = "AUTONOMOUS_CYCLE_EXCEPTION"
-            cycle["error"] = (
-                f"{type(error).__name__}: {error}"
-            )
-            cycle["traceback"] = traceback.format_exc()
-            cycle.update(
-                status_message(
-                    "AUTONOMOUS_CYCLE_EXCEPTION"
-                )
-            )
-            cycle["finished_at"] = utc_now()
+            cycle[
+                "success"
+            ] = False
 
-            self.save_state(
-                "RUNNING_DEGRADED",
-                cycle,
+            cycle[
+                "status"
+            ] = (
+                "AUTONOMOUS_CYCLE_EXCEPTION"
             )
+
+            cycle[
+                "error"
+            ] = (
+                f"{type(error).__name__}: "
+                f"{error}"
+            )
+
+            cycle[
+                "traceback"
+            ] = (
+                traceback.format_exc()
+            )
+
+            cycle[
+                "finished_at"
+            ] = utc_now()
 
             save_json(
                 AUTONOMOUS_LATEST_REPORT,
+                cycle,
+            )
+
+            self.save_state(
+                "RUNNING_DEGRADED",
                 cycle,
             )
 
@@ -2439,12 +2937,16 @@ class MajdAutonomousRuntime:
 
         deadline = (
             time.monotonic()
-            + max(0, seconds)
+            + max(
+                0,
+                seconds,
+            )
         )
 
         while (
             not STOP_REQUESTED
-            and time.monotonic() < deadline
+            and time.monotonic()
+            < deadline
         ):
             remaining = (
                 deadline
@@ -2454,66 +2956,124 @@ class MajdAutonomousRuntime:
             time.sleep(
                 min(
                     1.0,
-                    max(0.05, remaining),
+                    max(
+                        0.05,
+                        remaining,
+                    ),
                 )
             )
 
-    def run_forever(self) -> int:
+    def run_once(
+        self,
+    ) -> Dict[str, Any]:
+        self.save_state(
+            "RUNNING"
+        )
+
+        result = (
+            self.run_cycle()
+        )
+
+        self.save_state(
+            (
+                "RUNNING_HEALTHY"
+                if result.get(
+                    "success"
+                )
+                else
+                "RUNNING_DEGRADED"
+            ),
+            result,
+        )
+
+        return result
+
+    def run_forever(
+        self,
+    ) -> int:
         global STOP_REQUESTED
 
         PID_FILE.write_text(
-            str(os.getpid()),
+            str(
+                os.getpid()
+            ),
             encoding="utf-8",
         )
 
         self.audit(
             "AUTONOMOUS_RUNTIME_STARTED",
             {
-                "pid": os.getpid(),
-                "cycle_seconds": self.cycle_seconds,
+                "pid":
+                    os.getpid(),
+
+                "cycle_seconds":
+                    self.cycle_seconds,
             },
         )
 
-        self.save_state("STARTING")
+        self.save_state(
+            "STARTING"
+        )
 
         try:
             while not STOP_REQUESTED:
-                self.save_state("RUNNING")
+                self.save_state(
+                    "RUNNING"
+                )
 
-                cycle = self.run_cycle()
+                cycle = (
+                    self.run_cycle()
+                )
 
                 print(
                     json.dumps(
                         {
-                            "time": utc_now(),
-                            "mode": "AUTONOMOUS",
-                            "cycle_id": cycle.get(
-                                "cycle_id"
-                            ),
-                            "success": cycle.get(
-                                "success"
-                            ),
-                            "status": cycle.get(
-                                "status"
-                            ),
-                            "message_ar": cycle.get(
-                                "message_ar"
-                            ),
-                            "message_en": cycle.get(
-                                "message_en"
-                            ),
-                            "findings": len(
+                            "time":
+                                utc_now(),
+
+                            "mode":
+                                "AUTONOMOUS",
+
+                            "cycle_id":
                                 cycle.get(
-                                    "findings",
-                                    [],
-                                )
-                            ),
-                            "remaining_findings": len(
+                                    "cycle_id"
+                                ),
+
+                            "success":
                                 cycle.get(
-                                    "remaining_findings",
-                                    [],
-                                )
-                            ),
+                                    "success"
+                                ),
+
+                            "status":
+                                cycle.get(
+                                    "status"
+                                ),
+
+                            "message_ar":
+                                cycle.get(
+                                    "message_ar"
+                                ),
+
+                            "message_en":
+                                cycle.get(
+                                    "message_en"
+                                ),
+
+                            "findings":
+                                len(
+                                    cycle.get(
+                                        "findings",
+                                        [],
+                                    )
+                                ),
+
+                            "remaining_findings":
+                                len(
+                                    cycle.get(
+                                        "remaining_findings",
+                                        [],
+                                    )
+                                ),
                         },
                         ensure_ascii=False,
                     ),
@@ -2527,7 +3087,9 @@ class MajdAutonomousRuntime:
                     self.cycle_seconds
                 )
 
-            self.save_state("STOPPED")
+            self.save_state(
+                "STOPPED"
+            )
 
             self.audit(
                 "AUTONOMOUS_RUNTIME_STOPPED",
@@ -2542,18 +3104,6 @@ class MajdAutonomousRuntime:
                     PID_FILE.unlink()
             except Exception:
                 pass
-
-    def run_once(self) -> Dict[str, Any]:
-        self.save_state("RUNNING_ONCE")
-
-        result = self.run_cycle()
-
-        self.save_state(
-            "ONCE_COMPLETED",
-            result,
-        )
-
-        return result
 
 
 # ============================================================
@@ -2572,11 +3122,17 @@ def request_shutdown(
         append_jsonl(
             AUTONOMOUS_AUDIT_FILE,
             {
-                "time": utc_now(),
-                "event": "SHUTDOWN_SIGNAL",
-                "signal": signum,
+                "time":
+                    utc_now(),
+
+                "event":
+                    "SHUTDOWN_SIGNAL",
+
+                "signal":
+                    signum,
             },
         )
+
     except Exception:
         pass
 
@@ -2586,6 +3142,7 @@ def install_signal_handlers() -> None:
         signal.SIGTERM,
         request_shutdown,
     )
+
     signal.signal(
         signal.SIGINT,
         request_shutdown,
@@ -2593,7 +3150,7 @@ def install_signal_handlers() -> None:
 
 
 # ============================================================
-# PUBLIC OWNER API
+# PUBLIC API
 # ============================================================
 
 def execute_full_factory(
@@ -2601,11 +3158,16 @@ def execute_full_factory(
     owner: str = DEFAULT_OWNER,
     **kwargs: Any,
 ) -> Dict[str, Any]:
-    runtime = MajdFullExecutionRuntime()
+    runtime = (
+        MajdFullExecutionRuntime()
+    )
 
     return runtime.execute(
-        command=command,
-        owner=owner,
+        command=
+            command,
+
+        owner=
+            owner,
     )
 
 
@@ -2615,8 +3177,11 @@ def execute_owner_runtime(
     **kwargs: Any,
 ) -> Dict[str, Any]:
     return execute_full_factory(
-        command=command,
-        owner=owner,
+        command=
+            command,
+
+        owner=
+            owner,
     )
 
 
@@ -2626,8 +3191,11 @@ def execute(
     **kwargs: Any,
 ) -> Dict[str, Any]:
     return execute_full_factory(
-        command=command,
-        owner=owner,
+        command=
+            command,
+
+        owner=
+            owner,
     )
 
 
@@ -2637,21 +3205,29 @@ def run(
     **kwargs: Any,
 ) -> Dict[str, Any]:
     return execute_full_factory(
-        command=command,
-        owner=owner,
+        command=
+            command,
+
+        owner=
+            owner,
     )
 
 
-# ============================================================
-# PUBLIC AUTONOMOUS API
-# ============================================================
-
 def run_autonomous_once(
     owner: str = DEFAULT_OWNER,
+    cycle_seconds: int = DEFAULT_CYCLE_SECONDS,
     **kwargs: Any,
 ) -> Dict[str, Any]:
-    runtime = MajdAutonomousRuntime(
-        owner=owner,
+    install_signal_handlers()
+
+    runtime = (
+        MajdAutonomousRuntime(
+            owner=
+                owner,
+
+            cycle_seconds=
+                cycle_seconds,
+        )
     )
 
     return runtime.run_once()
@@ -2664,9 +3240,14 @@ def run_autonomous_forever(
 ) -> int:
     install_signal_handlers()
 
-    runtime = MajdAutonomousRuntime(
-        owner=owner,
-        cycle_seconds=cycle_seconds,
+    runtime = (
+        MajdAutonomousRuntime(
+            owner=
+                owner,
+
+            cycle_seconds=
+                cycle_seconds,
+        )
     )
 
     return runtime.run_forever()
@@ -2678,25 +3259,50 @@ def get_autonomous_status() -> Dict[str, Any]:
         {},
     )
 
-    pid = state.get("pid")
+    pid = state.get(
+        "pid"
+    )
+
     process_alive = False
 
-    if isinstance(pid, int) and pid > 0:
+    if (
+        isinstance(
+            pid,
+            int,
+        )
+        and pid > 0
+    ):
         try:
-            os.kill(pid, 0)
+            os.kill(
+                pid,
+                0,
+            )
+
             process_alive = True
+
         except Exception:
             process_alive = False
 
-    state["process_alive"] = process_alive
-    state["state_file"] = str(
+    state[
+        "process_alive"
+    ] = process_alive
+
+    state[
+        "state_file"
+    ] = str(
         AUTONOMOUS_STATE_FILE
     )
-    state["latest_report"] = str(
+
+    state[
+        "latest_report"
+    ] = str(
         AUTONOMOUS_LATEST_REPORT
     )
 
-    if "message_ar" not in state:
+    if (
+        "message_ar"
+        not in state
+    ):
         state.update(
             bilingual(
                 "هذه هي حالة التشغيل الذاتي الحالية.",
@@ -2732,140 +3338,197 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "MAJD SOVEREIGN AUTONOMOUS "
-            "FULL EXECUTION RUNTIME 06"
+            "FULL EXECUTION RUNTIME 06 / "
+            "المشغل السيادي الذاتي الكامل لمجد"
         )
     )
 
+    # هذا هو الإصلاح الأساسي:
+    # command لم يعد إجباريا.
     parser.add_argument(
         "command",
         nargs="*",
         help=(
-            "Owner command in Arabic or English. "
-            "أمر المالك بالعربية أو الإنجليزية."
+            "Owner command in Arabic or English / "
+            "أمر المالك بالعربية أو الإنجليزية"
         ),
     )
 
     parser.add_argument(
         "--owner",
-        default=DEFAULT_OWNER,
-        help="Owner identity / هوية المالك",
+        default=
+            DEFAULT_OWNER,
+
+        help=
+            "Owner identity / هوية المالك",
     )
 
     parser.add_argument(
         "--autonomous",
-        action="store_true",
+        action=
+            "store_true",
+
         help=(
-            "Run MAJD autonomous persistent runtime. "
-            "تشغيل مجد الذاتي الدائم."
+            "Run autonomous persistent runtime / "
+            "تشغيل ذاتي دائم"
         ),
     )
 
     parser.add_argument(
         "--once",
-        action="store_true",
+        action=
+            "store_true",
+
         help=(
-            "Run one autonomous cycle and exit. "
-            "تشغيل دورة ذاتية واحدة ثم الخروج."
+            "Run one autonomous cycle then exit / "
+            "تشغيل دورة ذاتية واحدة"
         ),
     )
 
     parser.add_argument(
         "--autonomous-status",
-        action="store_true",
+        action=
+            "store_true",
+
         help=(
-            "Show autonomous runtime state. "
-            "عرض حالة التشغيل الذاتي."
+            "Show autonomous runtime status / "
+            "عرض حالة التشغيل الذاتي"
         ),
     )
 
     parser.add_argument(
         "--cycle-seconds",
-        type=int,
-        default=DEFAULT_CYCLE_SECONDS,
+        type=
+            int,
+
+        default=
+            DEFAULT_CYCLE_SECONDS,
+
         help=(
-            "Seconds between autonomous cycles. "
-            "عدد الثواني بين دورات التشغيل الذاتي."
+            "Seconds between autonomous cycles / "
+            "الثواني بين دورات التشغيل الذاتي"
         ),
     )
 
-    args = parser.parse_args()
+    args = (
+        parser.parse_args()
+    )
 
     if args.autonomous_status:
-        result = get_autonomous_status()
-        print_result(result)
+        print_result(
+            get_autonomous_status()
+        )
+
         return 0
 
     if args.once:
-        install_signal_handlers()
+        result = (
+            run_autonomous_once(
+                owner=
+                    args.owner,
 
-        runtime = MajdAutonomousRuntime(
-            owner=args.owner,
-            cycle_seconds=args.cycle_seconds,
+                cycle_seconds=
+                    args.cycle_seconds,
+            )
         )
 
-        result = runtime.run_once()
+        print_result(
+            result
+        )
 
-        print_result(result)
-
-        return 0 if result.get("success") else 1
+        return (
+            0
+            if result.get(
+                "success"
+            )
+            else 1
+        )
 
     if args.autonomous:
-        return run_autonomous_forever(
-            owner=args.owner,
-            cycle_seconds=args.cycle_seconds,
+        return (
+            run_autonomous_forever(
+                owner=
+                    args.owner,
+
+                cycle_seconds=
+                    args.cycle_seconds,
+            )
         )
 
     command = " ".join(
         args.command
     ).strip()
 
+    # إذا ما فيه أمر يبدأ التشغيل الذاتي تلقائيا.
     if not command:
-        if AUTONOMOUS_ENABLED_BY_DEFAULT:
-            return run_autonomous_forever(
-                owner=args.owner,
-                cycle_seconds=args.cycle_seconds,
-            )
+        return (
+            run_autonomous_forever(
+                owner=
+                    args.owner,
 
-        parser.error(
-            "Owner command required when autonomous mode is disabled."
+                cycle_seconds=
+                    args.cycle_seconds,
+            )
         )
 
     print(
         "=============================================="
     )
+
     print(
         "MAJD GAME FACTORY"
     )
+
     print(
         "SOVEREIGN FULL EXECUTION RUNTIME 06"
     )
+
     print(
         "المشغل السيادي الكامل لمجد"
     )
+
     print(
         "=============================================="
     )
+
     print(
         f"OWNER / المالك: {args.owner}"
     )
+
     print(
         f"COMMAND / الأمر: {command}"
     )
+
     print(
-        f"PLATFORM / المنصة: {OFFICIAL_MAJD_PLATFORM}"
+        f"PLATFORM / المنصة: "
+        f"{OFFICIAL_MAJD_PLATFORM}"
     )
+
     print(
         "=============================================="
     )
 
-    result = execute_full_factory(
-        command=command,
-        owner=args.owner,
+    result = (
+        execute_full_factory(
+            command=
+                command,
+
+            owner=
+                args.owner,
+        )
     )
 
-    print_result(result)
+    print_result(
+        result
+    )
 
-    return 0 if result.get("success") else 1
+    return (
+        0
+        if result.get(
+            "success"
+        )
+        else 1
+    )
 
 
 # ============================================================
@@ -2873,4 +3536,6 @@ def main() -> int:
 # ============================================================
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(
+        main()
+    )
