@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""MAJD-FULL-EXECUTION-RUNTIME-06.py
+01 mastermind, 02 sovereign company/owner center, 03 real executor, 04 platform bridge.
+06 runs permanently, reads Company-02 directly, queues every real unavailable capability,
+verifies BEFORE/AFTER, repairs safe dependencies, and rolls back only real regressions.
+"""
 
 from __future__ import annotations
 
@@ -12,19 +17,21 @@ import json
 import os
 import shutil
 import signal
-import smtplib
 import subprocess
 import sys
 import time
 import traceback
 import urllib.request
 import uuid
+
+from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
-from email.message import EmailMessage
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Mapping
+
 
 ROOT = Path(__file__).resolve().parent
+
 F01 = ROOT / "MAJD-AI-MASTERMIND-01.py"
 F02C = ROOT / "MAJD-AI-SOVEREIGN-COMPANY-02.py"
 F02O = ROOT / "MAJD-OWNER-COMMAND-CENTER-02.py"
@@ -32,15 +39,17 @@ F03 = ROOT / "MAJD-REAL-GAME-EXECUTOR-03.py"
 F04 = ROOT / "MAJD-OFFICIAL-PLATFORM-BRIDGE-04.py"
 
 STATE = ROOT / "majd_factory_state"
+RUNTIME_DIR = STATE / "runtime"
 AUTO = STATE / "autonomous"
 AUDIT = STATE / "audit"
 REPORT = STATE / "reports"
-BACKUP = STATE / "backups"
+BACKUP = STATE / "runtime_backups"
 QUEUE = STATE / "work_queue"
 OUTPUT = ROOT / "majd_game_output"
 
-for p in (
+for path in (
     STATE,
+    RUNTIME_DIR,
     AUTO,
     AUDIT,
     REPORT,
@@ -48,29 +57,23 @@ for p in (
     QUEUE,
     OUTPUT,
 ):
-    p.mkdir(
+    path.mkdir(
         parents=True,
         exist_ok=True,
     )
 
 STATE_FILE = AUTO / "state.json"
-REPORT_FILE = REPORT / "latest.json"
-AUDIT_FILE = AUDIT / "runtime.jsonl"
+REPORT_FILE = REPORT / "autonomous-latest.json"
+AUDIT_FILE = AUDIT / "autonomous-runtime.jsonl"
 QUEUE_FILE = QUEUE / "capabilities.json"
+PID_FILE = AUTO / "majd-autonomous-runtime.pid"
 
-SERVICE = (
-    "/etc/systemd/system/"
-    "majd-autonomous.service"
-)
+SERVICE_NAME = "majd-autonomous.service"
+SERVICE_FILE = Path("/etc/systemd/system") / SERVICE_NAME
 
 SYSTEM = "MAJD-GAME-FACTORY"
 RUNTIME = "MAJD-FULL-EXECUTION-RUNTIME"
-
-VERSION = (
-    "6.0.0-"
-    "SOVEREIGN-AUTONOMOUS"
-)
-
+VERSION = "8.1.0-DIRECT-COMPANY-SMART-VERIFY"
 OWNER = "MAJD"
 
 PLATFORM = os.getenv(
@@ -113,47 +116,70 @@ MAX_ATTEMPTS = max(
     ),
 )
 
+HTTP_TIMEOUT = max(
+    2,
+    int(
+        os.getenv(
+            "MAJD_HTTP_TIMEOUT",
+            "12",
+        )
+    ),
+)
+
+ALLOW_DEP_INSTALL = (
+    os.getenv(
+        "MAJD_ALLOW_PYTHON_PACKAGE_INSTALL",
+        "true",
+    ).lower()
+    in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+)
+
+PROACTIVE = (
+    os.getenv(
+        "MAJD_PROACTIVE_WORK_ENABLED",
+        "true",
+    ).lower()
+    in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+)
+
 STOP = False
 
-
-# ============================================================
-# SAFE DEPENDENCIES
-# ============================================================
-
-SAFE_DEPS = {
-    "fastapi":
-        "fastapi>=0.115,<1",
-
-    "uvicorn":
-        "uvicorn[standard]>=0.30,<1",
-
-    "pydantic":
-        "pydantic>=2.7,<3",
-
-    "starlette":
-        "starlette>=0.37,<1",
-
-    "requests":
-        "requests>=2.31,<3",
-
-    "httpx":
-        "httpx>=0.27,<1",
-
-    "aiohttp":
-        "aiohttp>=3.9,<4",
-
-    "psutil":
-        "psutil>=5.9,<8",
-
-    "yaml":
-        "PyYAML>=6,<7",
-
-    "dotenv":
-        "python-dotenv>=1,<2",
+OPERATIONAL = {
+    "AVAILABLE",
+    "CONFIGURED",
+    "OPERATIONAL",
+    "HEALTHY",
+    "READY",
+    "ACTIVE",
 }
 
+SAFE_DEPS = {
+    "fastapi": "fastapi",
+    "uvicorn": "uvicorn",
+    "pydantic": "pydantic",
+    "starlette": "starlette",
+    "requests": "requests",
+    "httpx": "httpx",
+    "aiohttp": "aiohttp",
+    "psutil": "psutil",
+    "yaml": "PyYAML",
+    "dotenv": "python-dotenv",
+    "PIL": "Pillow",
+    "numpy": "numpy",
+    "schedule": "schedule",
+}
 
-SOURCE_EXT = {
+SOURCE_EXTENSIONS = {
     ".py",
     ".js",
     ".jsx",
@@ -163,13 +189,12 @@ SOURCE_EXT = {
     ".html",
     ".css",
     ".scss",
-    ".yml",
     ".yaml",
+    ".yml",
     ".toml",
     ".sh",
     ".md",
 }
-
 
 IGNORE_DIRS = {
     ".git",
@@ -183,142 +208,198 @@ IGNORE_DIRS = {
     "build",
     ".next",
     ".cache",
+    "coverage",
 }
 
-
-SECRET_FILES = {
+SECRET_NAMES = {
     ".env",
     ".env.local",
     ".env.production",
+    ".env.development",
     "credentials.json",
     "secrets.json",
 }
 
+EXTERNAL_BLOCKERS = (
+    "api key",
+    "api_key",
+    "credential",
+    "credentials",
+    "oauth",
+    "merchant approval",
+    "merchant account",
+    "bank approval",
+    "identity verification",
+    "legal approval",
+    "government approval",
+    "domain verification",
+    "dns ownership",
+    "phone verification",
+    "sms verification",
+    "external account",
+    "billing account",
+    "payment account",
+    "access token",
+    "secret token",
+)
 
-# ============================================================
-# BASIC HELPERS
-# ============================================================
 
-def now() -> str:
-
+def now():
     return datetime.now(
         timezone.utc
     ).isoformat()
 
 
-def save_json(
-    path: Path,
-    data: Dict[str, Any],
-) -> None:
+def jsonable(value):
+    if is_dataclass(value):
+        return {
+            str(key): jsonable(child)
+            for key, child
+            in asdict(value).items()
+        }
 
-    tmp = path.with_suffix(
+    if isinstance(value, Mapping):
+        return {
+            str(key): jsonable(child)
+            for key, child
+            in value.items()
+        }
+
+    if isinstance(
+        value,
+        (
+            list,
+            tuple,
+            set,
+        ),
+    ):
+        return [
+            jsonable(child)
+            for child
+            in value
+        ]
+
+    if isinstance(value, Path):
+        return str(value)
+
+    if (
+        hasattr(
+            value,
+            "value",
+        )
+        and
+        not isinstance(
+            value,
+            (
+                str,
+                bytes,
+            ),
+        )
+    ):
+        try:
+            return jsonable(
+                value.value
+            )
+        except Exception:
+            pass
+
+    return value
+
+
+def save_json(
+    path,
+    data,
+):
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    temporary = path.with_suffix(
         path.suffix + ".tmp"
     )
 
-    with tmp.open(
+    with temporary.open(
         "w",
         encoding="utf-8",
-    ) as f:
-
+    ) as file:
         json.dump(
-            data,
-            f,
+            jsonable(
+                dict(data)
+            ),
+            file,
             ensure_ascii=False,
             indent=2,
             default=str,
         )
 
-    tmp.replace(
-        path
-    )
+    temporary.replace(path)
 
 
 def load_json(
-    path: Path,
-    default: Optional[
-        Dict[str, Any]
-    ] = None,
-) -> Dict[str, Any]:
-
-    default = default or {}
-
+    path,
+    default=None,
+):
     try:
-
         with path.open(
             "r",
             encoding="utf-8",
-        ) as f:
+        ) as file:
+            value = json.load(file)
 
-            value = json.load(
-                f
-            )
-
-        return (
-            value
-            if isinstance(
-                value,
-                dict,
-            )
-            else dict(
-                default
-            )
-        )
+        if isinstance(
+            value,
+            dict,
+        ):
+            return value
 
     except Exception:
+        pass
 
-        return dict(
-            default
-        )
+    return dict(
+        default or {}
+    )
 
 
 def audit(
-    event: str,
-    data: Optional[
-        Dict[str, Any]
-    ] = None,
-) -> None:
-
+    event,
+    data=None,
+):
     with AUDIT_FILE.open(
         "a",
         encoding="utf-8",
-    ) as f:
-
-        f.write(
+    ) as file:
+        file.write(
             json.dumps(
                 {
-                    "time":
-                        now(),
-
-                    "event":
-                        event,
-
-                    "data":
-                        data or {},
+                    "time": now(),
+                    "event": event,
+                    "data": jsonable(
+                        data or {}
+                    ),
                 },
                 ensure_ascii=False,
                 default=str,
             )
-            +
-            "\n"
+            + "\n"
         )
 
 
 def run_process(
-    cmd: List[str],
-    timeout: int = 120,
-) -> Dict[str, Any]:
+    command,
+    timeout=120,
+):
+    started = time.time()
 
     try:
-
         process = subprocess.run(
-            cmd,
-            cwd=str(
-                ROOT
-            ),
+            list(command),
+            cwd=str(ROOT),
             capture_output=True,
             text=True,
             timeout=timeout,
             check=False,
+            env=os.environ.copy(),
         )
 
         return {
@@ -329,54 +410,73 @@ def run_process(
                 process.returncode,
 
             "stdout":
-                process.stdout[
-                    -12000:
-                ],
+                (
+                    process.stdout
+                    or ""
+                )[-12000:],
 
             "stderr":
-                process.stderr[
-                    -12000:
-                ],
+                (
+                    process.stderr
+                    or ""
+                )[-12000:],
 
             "command":
-                cmd,
+                list(command),
+
+            "duration_seconds":
+                round(
+                    time.time()
+                    -
+                    started,
+                    3,
+                ),
         }
 
     except Exception as error:
-
         return {
             "success":
                 False,
 
             "error":
-                (
-                    f"{type(error).__name__}: "
-                    f"{error}"
-                ),
+                f"{type(error).__name__}: {error}",
 
             "command":
-                cmd,
+                list(command),
+
+            "duration_seconds":
+                round(
+                    time.time()
+                    -
+                    started,
+                    3,
+                ),
         }
 
 
 def http_probe(
-    url: str,
-) -> Dict[str, Any]:
-
-    request = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent":
-                f"{RUNTIME}/{VERSION}"
-        },
-    )
-
+    url,
+):
     try:
+        request = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent":
+                    f"{RUNTIME}/{VERSION}"
+            },
+        )
 
         with urllib.request.urlopen(
             request,
-            timeout=12,
+            timeout=HTTP_TIMEOUT,
         ) as response:
+            status_code = int(
+                getattr(
+                    response,
+                    "status",
+                    200,
+                )
+            )
 
             body = response.read(
                 65536
@@ -385,30 +485,23 @@ def http_probe(
                 "replace",
             )
 
-            code = int(
-                getattr(
-                    response,
-                    "status",
-                    200,
-                )
-            )
-
             return {
                 "success":
-                    200 <= code < 400,
+                    200
+                    <= status_code
+                    < 400,
 
                 "status_code":
-                    code,
+                    status_code,
 
                 "url":
                     url,
 
                 "body":
-                    body[:4000],
+                    body[:3000],
             }
 
     except Exception as error:
-
         return {
             "success":
                 False,
@@ -417,1377 +510,24 @@ def http_probe(
                 url,
 
             "error":
-                (
-                    f"{type(error).__name__}: "
-                    f"{error}"
-                ),
+                f"{type(error).__name__}: {error}",
         }
 
-
-# ============================================================
-# SOURCE DISCOVERY
-# ============================================================
-
-def source_files() -> List[Path]:
-
-    result = []
-
-    for path in ROOT.rglob(
-        "*"
-    ):
-
-        if (
-            not path.is_file()
-            or
-            path.suffix.lower()
-            not in SOURCE_EXT
-            or
-            path.name
-            in SECRET_FILES
-        ):
-
-            continue
-
-        try:
-
-            relative = (
-                path.relative_to(
-                    ROOT
-                )
-            )
-
-        except ValueError:
-
-            continue
-
-        if any(
-            part in IGNORE_DIRS
-            for part
-            in relative.parts
-        ):
-
-            continue
-
-        result.append(
-            path
-        )
-
-    return sorted(
-        result
-    )
-
-
-def sha(
-    path: Path,
-) -> str:
-
-    digest = (
-        hashlib.sha256()
-    )
-
-    with path.open(
-        "rb"
-    ) as f:
-
-        for chunk in iter(
-            lambda:
-                f.read(
-                    1024 * 1024
-                ),
-            b"",
-        ):
-
-            digest.update(
-                chunk
-            )
-
-    return digest.hexdigest()
-
-
-# ============================================================
-# BACKUP / ROLLBACK
-# ============================================================
-
-def backup(
-    cycle: str,
-) -> Dict[str, Any]:
-
-    base = (
-        BACKUP
-        /
-        cycle
-    )
-
-    base.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    manifest = {
-        "files":
-            {}
-    }
-
-    for path in source_files():
-
-        relative = str(
-            path.relative_to(
-                ROOT
-            )
-        )
-
-        destination = (
-            base
-            /
-            relative
-        )
-
-        destination.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        shutil.copy2(
-            path,
-            destination,
-        )
-
-        manifest[
-            "files"
-        ][
-            relative
-        ] = {
-            "sha256":
-                sha(
-                    path
-                )
-        }
-
-    save_json(
-        base
-        /
-        "manifest.json",
-
-        manifest,
-    )
-
-    return {
-        "success":
-            True,
-
-        "path":
-            str(
-                base
-            ),
-
-        "count":
-            len(
-                manifest[
-                    "files"
-                ]
-            ),
-    }
-
-
-def rollback(
-    cycle: str,
-) -> Dict[str, Any]:
-
-    base = (
-        BACKUP
-        /
-        cycle
-    )
-
-    manifest = load_json(
-        base
-        /
-        "manifest.json",
-        {},
-    )
-
-    originals = set(
-        manifest.get(
-            "files",
-            {},
-        )
-    )
-
-    if not originals:
-
-        return {
-            "success":
-                False,
-
-            "status":
-                "NO_BACKUP",
-        }
-
-    for relative in originals:
-
-        source = (
-            base
-            /
-            relative
-        )
-
-        destination = (
-            ROOT
-            /
-            relative
-        )
-
-        if source.exists():
-
-            destination.parent.mkdir(
-                parents=True,
-                exist_ok=True,
-            )
-
-            shutil.copy2(
-                source,
-                destination,
-            )
-
-    current = {
-        str(
-            path.relative_to(
-                ROOT
-            )
-        )
-
-        for path
-        in source_files()
-    }
-
-    for relative in (
-        current
-        -
-        originals
-    ):
-
-        try:
-
-            (
-                ROOT
-                /
-                relative
-            ).unlink()
-
-        except Exception:
-
-            pass
-
-    return {
-        "success":
-            True,
-
-        "status":
-            "ROLLED_BACK",
-    }
-
-
-# ============================================================
-# CORE VERIFICATION
-# ============================================================
-
-def verify_core() -> Dict[str, Any]:
-
-    required = [
-        F01,
-        F02O,
-        F03,
-        F04,
-    ]
-
-    important = [
-        F02C,
-    ]
-
-    missing = [
-        path.name
-
-        for path
-        in required
-
-        if (
-            not path.exists()
-            or
-            path.stat().st_size
-            ==
-            0
-        )
-    ]
-
-    return {
-        "success":
-            not missing,
-
-        "missing":
-            missing,
-
-        "files":
-            [
-                {
-                    "file":
-                        path.name,
-
-                    "exists":
-                        path.exists(),
-
-                    "size":
-                        (
-                            path.stat().st_size
-                            if path.exists()
-                            else 0
-                        ),
-                }
-
-                for path
-                in (
-                    required
-                    +
-                    important
-                )
-            ],
-    }
-
-
-# ============================================================
-# PYTHON SYNTAX
-# ============================================================
-
-def verify_syntax() -> Dict[str, Any]:
-
-    failed = []
-    checked = []
-
-    for path in source_files():
-
-        if (
-            path.suffix.lower()
-            !=
-            ".py"
-        ):
-
-            continue
-
-        result = run_process(
-            [
-                sys.executable,
-                "-m",
-                "py_compile",
-                str(
-                    path
-                ),
-            ],
-            30,
-        )
-
-        relative = str(
-            path.relative_to(
-                ROOT
-            )
-        )
-
-        checked.append(
-            {
-                "file":
-                    relative,
-
-                "success":
-                    result[
-                        "success"
-                    ],
-
-                "stderr":
-                    result.get(
-                        "stderr",
-                        "",
-                    ),
-            }
-        )
-
-        if not result[
-            "success"
-        ]:
-
-            failed.append(
-                relative
-            )
-
-    return {
-        "success":
-            not failed,
-
-        "failed":
-            failed,
-
-        "checked":
-            checked,
-    }
-
-
-# ============================================================
-# DEPENDENCY DISCOVERY / REPAIR
-# ============================================================
-
-def import_roots(
-    path: Path,
-) -> Set[str]:
-
-    try:
-
-        tree = ast.parse(
-            path.read_text(
-                encoding="utf-8"
-            )
-        )
-
-    except Exception:
-
-        return set()
-
-    roots = set()
-
-    for node in ast.walk(
-        tree
-    ):
-
-        if isinstance(
-            node,
-            ast.Import,
-        ):
-
-            roots.update(
-                alias.name.split(
-                    "."
-                )[0]
-
-                for alias
-                in node.names
-            )
-
-        elif (
-            isinstance(
-                node,
-                ast.ImportFrom,
-            )
-            and
-            node.module
-        ):
-
-            roots.add(
-                node.module.split(
-                    "."
-                )[0]
-            )
-
-    return roots
-
-
-def dependency_state() -> Dict[str, Any]:
-
-    roots = set()
-
-    for path in source_files():
-
-        if (
-            path.suffix.lower()
-            ==
-            ".py"
-        ):
-
-            roots |= (
-                import_roots(
-                    path
-                )
-            )
-
-    missing = []
-
-    for (
-        root,
-        package,
-    ) in SAFE_DEPS.items():
-
-        if (
-            root in roots
-            and
-            importlib.util.find_spec(
-                root
-            )
-            is None
-        ):
-
-            missing.append(
-                {
-                    "module":
-                        root,
-
-                    "package":
-                        package,
-                }
-            )
-
-    return {
-        "success":
-            not missing,
-
-        "missing":
-            missing,
-    }
-
-
-def repair_dependencies() -> Dict[str, Any]:
-
-    before = (
-        dependency_state()
-    )
-
-    if before[
-        "success"
-    ]:
-
-        return {
-            "success":
-                True,
-
-            "status":
-                "HEALTHY",
-
-            "installed":
-                [],
-        }
-
-    installed = []
-    failed = []
-
-    for item in before[
-        "missing"
-    ]:
-
-        result = run_process(
-            [
-                sys.executable,
-                "-m",
-                "pip",
-                "install",
-                "--disable-pip-version-check",
-                item[
-                    "package"
-                ],
-            ],
-            300,
-        )
-
-        record = {
-            "module":
-                item[
-                    "module"
-                ],
-
-            "package":
-                item[
-                    "package"
-                ],
-
-            "success":
-                result[
-                    "success"
-                ],
-
-            "stderr":
-                result.get(
-                    "stderr",
-                    "",
-                ),
-        }
-
-        if result[
-            "success"
-        ]:
-
-            installed.append(
-                record
-            )
-
-        else:
-
-            failed.append(
-                record
-            )
-
-    after = (
-        dependency_state()
-    )
-
-    return {
-        "success":
-            (
-                not failed
-                and
-                after[
-                    "success"
-                ]
-            ),
-
-        "status":
-            (
-                "REPAIRED"
-                if (
-                    not failed
-                    and
-                    after[
-                        "success"
-                    ]
-                )
-                else
-                "INCOMPLETE"
-            ),
-
-        "installed":
-            installed,
-
-        "failed":
-            failed,
-
-        "after":
-            after,
-    }
-
-
-# ============================================================
-# DOCKER
-# ============================================================
-
-def docker_state() -> Dict[str, Any]:
-
-    result = run_process(
-        [
-            "docker",
-            "ps",
-            "--format",
-            "{{.Names}}|"
-            "{{.Status}}|"
-            "{{.Ports}}",
-        ],
-        30,
-    )
-
-    if not result[
-        "success"
-    ]:
-
-        return {
-            "success":
-                False,
-
-            "error":
-                (
-                    result.get(
-                        "stderr"
-                    )
-                    or
-                    result.get(
-                        "error"
-                    )
-                ),
-        }
-
-    containers = []
-
-    for line in result[
-        "stdout"
-    ].splitlines():
-
-        parts = line.split(
-            "|",
-            2,
-        )
-
-        if line.strip():
-
-            containers.append(
-                {
-                    "name":
-                        parts[
-                            0
-                        ],
-
-                    "status":
-                        (
-                            parts[
-                                1
-                            ]
-                            if len(
-                                parts
-                            )
-                            > 1
-                            else ""
-                        ),
-
-                    "ports":
-                        (
-                            parts[
-                                2
-                            ]
-                            if len(
-                                parts
-                            )
-                            > 2
-                            else ""
-                        ),
-                }
-            )
-
-    names = {
-        item[
-            "name"
-        ]
-
-        for item
-        in containers
-    }
-
-    missing = sorted(
-        {
-            "majd-ai-core",
-            "majd-web-ui",
-        }
-        -
-        names
-    )
-
-    return {
-        "success":
-            not missing,
-
-        "containers":
-            containers,
-
-        "missing_expected":
-            missing,
-    }
-
-
-def recover_docker() -> Dict[str, Any]:
-
-    before = (
-        docker_state()
-    )
-
-    if before[
-        "success"
-    ]:
-
-        return {
-            "success":
-                True,
-
-            "status":
-                "HEALTHY",
-        }
-
-    actions = []
-
-    for name in before.get(
-        "missing_expected",
-        [],
-    ):
-
-        result = run_process(
-            [
-                "docker",
-                "start",
-                name,
-            ],
-            60,
-        )
-
-        actions.append(
-            {
-                "name":
-                    name,
-
-                "success":
-                    result[
-                        "success"
-                    ],
-            }
-        )
-
-    after = (
-        docker_state()
-    )
-
-    return {
-        "success":
-            after[
-                "success"
-            ],
-
-        "actions":
-            actions,
-
-        "after":
-            after,
-    }
-
-
-# ============================================================
-# COMPANY INSPECTION
-# ============================================================
-
-def parse_json_output(
-    text: str,
-) -> Optional[
-    Dict[str, Any]
-]:
-
-    text = text.strip()
-
-    try:
-
-        value = json.loads(
-            text
-        )
-
-        return (
-            value
-            if isinstance(
-                value,
-                dict,
-            )
-            else None
-        )
-
-    except Exception:
-
-        pass
-
-    start = text.find(
-        "{"
-    )
-
-    end = text.rfind(
-        "}"
-    )
-
-    if (
-        start >= 0
-        and
-        end > start
-    ):
-
-        try:
-
-            value = json.loads(
-                text[
-                    start:
-                    end + 1
-                ]
-            )
-
-            return (
-                value
-                if isinstance(
-                    value,
-                    dict,
-                )
-                else None
-            )
-
-        except Exception:
-
-            pass
-
-    return None
-
-
-def inspect_company() -> Dict[str, Any]:
-
-    if not F02C.exists():
-
-        return {
-            "success":
-                False,
-
-            "status":
-                "COMPANY_FILE_MISSING",
-        }
-
-    health = run_process(
-        [
-            sys.executable,
-            str(
-                F02C
-            ),
-            "--health",
-        ],
-        180,
-    )
-
-    self_test = run_process(
-        [
-            sys.executable,
-            str(
-                F02C
-            ),
-            "--self-test",
-        ],
-        240,
-    )
-
-    health_json = (
-        parse_json_output(
-            health.get(
-                "stdout",
-                "",
-            )
-        )
-    )
-
-    self_test_json = (
-        parse_json_output(
-            self_test.get(
-                "stdout",
-                "",
-            )
-        )
-    )
-
-    return {
-        "success":
-            bool(
-                health[
-                    "success"
-                ]
-                and
-                self_test[
-                    "success"
-                ]
-                and
-                health_json
-                and
-                self_test_json
-            ),
-
-        "health":
-            health_json,
-
-        "self_test":
-            self_test_json,
-
-        "health_process":
-            health,
-
-        "self_test_process":
-            self_test,
-    }
-
-
-# ============================================================
-# CAPABILITY GAP DISCOVERY
-# ============================================================
-
-def extract_gaps(
-    company: Dict[str, Any],
-) -> List[
-    Dict[str, Any]
-]:
-
-    gaps = []
-
-    def walk(
-        value: Any,
-    ) -> None:
-
-        if isinstance(
-            value,
-            dict,
-        ):
-
-            status = str(
-                value.get(
-                    "status",
-                    "",
-                )
-            ).upper()
-
-            capability_id = (
-                value.get(
-                    "capability_id"
-                )
-                or
-                value.get(
-                    "capability"
-                )
-                or
-                value.get(
-                    "id"
-                )
-                or
-                value.get(
-                    "name"
-                )
-            )
-
-            if (
-                capability_id
-                and
-                status
-                in {
-                    "UNAVAILABLE",
-                    "FAILED",
-                    "MISSING",
-                    "DEGRADED",
-                    "NOT_CONFIGURED",
-                }
-            ):
-
-                reason = str(
-                    value.get(
-                        "reason"
-                    )
-                    or
-                    value.get(
-                        "message"
-                    )
-                    or
-                    (
-                        value.get(
-                            "health"
-                        )
-                        or
-                        {}
-                    ).get(
-                        "message"
-                    )
-                    or
-                    ""
-                )
-
-                owner_required = any(
-                    item
-                    in reason.lower()
-
-                    for item
-                    in (
-                        "api key",
-                        "credential",
-                        "oauth",
-                        "identity verification",
-                        "merchant approval",
-                        "legal approval",
-                        "bank approval",
-                    )
-                )
-
-                priority = (
-                    10
-                    if bool(
-                        value.get(
-                            "required"
-                        )
-                    )
-                    else 50
-                )
-
-                if any(
-                    item
-                    in str(
-                        capability_id
-                    ).upper()
-
-                    for item
-                    in (
-                        "OWNER",
-                        "AUTHORITY",
-                        "AUDIT",
-                        "SECURITY",
-                        "BUILD",
-                        "DEPLOY",
-                        "TEST",
-                        "EXECUTOR",
-                        "BRIDGE",
-                        "PUBLISH",
-                    )
-                ):
-
-                    priority -= 5
-
-                gaps.append(
-                    {
-                        "capability_id":
-                            str(
-                                capability_id
-                            ),
-
-                        "status":
-                            status,
-
-                        "required":
-                            bool(
-                                value.get(
-                                    "required"
-                                )
-                            ),
-
-                        "reason":
-                            reason,
-
-                        "adapter":
-                            value.get(
-                                "adapter"
-                            ),
-
-                        "engine":
-                            value.get(
-                                "engine"
-                            ),
-
-                        "owner_required":
-                            owner_required,
-
-                        "priority":
-                            max(
-                                1,
-                                priority,
-                            ),
-                    }
-                )
-
-            for child in value.values():
-
-                walk(
-                    child
-                )
-
-        elif isinstance(
-            value,
-            list,
-        ):
-
-            for child in value:
-
-                walk(
-                    child
-                )
-
-    walk(
-        company
-    )
-
-    unique = {}
-
-    for gap in gaps:
-
-        unique[
-            (
-                gap[
-                    "capability_id"
-                ],
-                gap[
-                    "status"
-                ],
-            )
-        ] = gap
-
-    return sorted(
-        unique.values(),
-        key=lambda item: (
-            item[
-                "owner_required"
-            ],
-            item[
-                "priority"
-            ],
-            item[
-                "capability_id"
-            ],
-        ),
-    )
-
-
-# ============================================================
-# CAPABILITY WORK QUEUE
-# ============================================================
-
-def update_queue(
-    gaps: List[
-        Dict[str, Any]
-    ],
-) -> Dict[str, Any]:
-
-    old = load_json(
-        QUEUE_FILE,
-        {},
-    )
-
-    old_map = {
-        item.get(
-            "capability_id"
-        ):
-            item
-
-        for item
-        in old.get(
-            "items",
-            [],
-        )
-
-        if isinstance(
-            item,
-            dict,
-        )
-    }
-
-    items = []
-
-    for gap in gaps:
-
-        previous = old_map.get(
-            gap[
-                "capability_id"
-            ],
-            {},
-        )
-
-        item = dict(
-            gap
-        )
-
-        item[
-            "attempts"
-        ] = int(
-            previous.get(
-                "attempts",
-                0,
-            )
-            or
-            0
-        )
-
-        item[
-            "last_result"
-        ] = previous.get(
-            "last_result"
-        )
-
-        item[
-            "last_attempt_at"
-        ] = previous.get(
-            "last_attempt_at"
-        )
-
-        items.append(
-            item
-        )
-
-    data = {
-        "updated_at":
-            now(),
-
-        "total":
-            len(
-                items
-            ),
-
-        "owner_required":
-            sum(
-                1
-                for item
-                in items
-                if item[
-                    "owner_required"
-                ]
-            ),
-
-        "autonomous":
-            sum(
-                1
-                for item
-                in items
-                if not item[
-                    "owner_required"
-                ]
-            ),
-
-        "items":
-            items,
-    }
-
-    save_json(
-        QUEUE_FILE,
-        data,
-    )
-
-    return data
-
-
-def select_batch(
-    queue: Dict[str, Any],
-) -> List[
-    Dict[str, Any]
-]:
-
-    items = [
-        item
-
-        for item
-        in queue.get(
-            "items",
-            [],
-        )
-
-        if not item.get(
-            "owner_required"
-        )
-    ]
-
-    items.sort(
-        key=lambda item: (
-            int(
-                item.get(
-                    "priority",
-                    50,
-                )
-            ),
-            int(
-                item.get(
-                    "attempts",
-                    0,
-                )
-            ),
-            item.get(
-                "capability_id",
-                "",
-            ),
-        )
-    )
-
-    return items[
-        :MAX_BATCH
-    ]
-
-
-# ============================================================
-# MODULE LOADER
-# ============================================================
 
 def load_module(
-    path: Path,
-    name: str,
-) -> Any:
+    path,
+    name,
+):
+    if not path.exists():
+        raise FileNotFoundError(
+            path.name
+        )
 
     spec = (
         importlib.util
         .spec_from_file_location(
             name,
-            str(
-                path
-            ),
+            str(path),
         )
     )
 
@@ -1796,10 +536,8 @@ def load_module(
         or
         spec.loader is None
     ):
-
-        raise RuntimeError(
-            f"cannot load "
-            f"{path.name}"
+        raise ImportError(
+            path.name
         )
 
     module = (
@@ -1821,34 +559,26 @@ def load_module(
 
 
 def find_callable(
-    module: Any,
-    names: Iterable[str],
-) -> Optional[
-    Callable[..., Any]
-]:
-
+    obj,
+    names,
+):
     for name in names:
-
-        value = getattr(
-            module,
+        function = getattr(
+            obj,
             name,
             None,
         )
 
-        if callable(
-            value
-        ):
-
-            return value
+        if callable(function):
+            return function
 
     return None
 
 
 def call_supported(
-    function: Callable[..., Any],
-    values: Dict[str, Any],
-) -> Any:
-
+    function,
+    values,
+):
     signature = inspect.signature(
         function
     )
@@ -1864,15 +594,9 @@ def call_supported(
 
     return function(
         **{
-            key:
-                value
-
-            for (
-                key,
-                value,
-            )
+            key: value
+            for key, value
             in values.items()
-
             if (
                 accepts_kwargs
                 or
@@ -1883,53 +607,1925 @@ def call_supported(
     )
 
 
-# ============================================================
-# MASTERMIND
-# ============================================================
+def source_files():
+    result = []
 
-class Mastermind:
+    for path in ROOT.rglob("*"):
+        if (
+            not path.is_file()
+            or
+            path.suffix.lower()
+            not in SOURCE_EXTENSIONS
+            or
+            path.name in SECRET_NAMES
+        ):
+            continue
+
+        try:
+            relative = path.relative_to(
+                ROOT
+            )
+        except ValueError:
+            continue
+
+        if any(
+            part in IGNORE_DIRS
+            for part
+            in relative.parts
+        ):
+            continue
+
+        result.append(path)
+
+    return sorted(result)
+
+
+def sha256_file(
+    path,
+):
+    digest = hashlib.sha256()
+
+    with path.open(
+        "rb"
+    ) as file:
+        for chunk in iter(
+            lambda:
+                file.read(
+                    1024 * 1024
+                ),
+            b"",
+        ):
+            digest.update(chunk)
+
+    return digest.hexdigest()
+
+
+def backup(
+    cycle_id,
+):
+    base = BACKUP / cycle_id
+
+    base.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    manifest = {
+        "files": {}
+    }
+
+    for path in source_files():
+        relative = path.relative_to(
+            ROOT
+        )
+
+        destination = (
+            base
+            /
+            relative
+        )
+
+        destination.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        shutil.copy2(
+            path,
+            destination,
+        )
+
+        manifest[
+            "files"
+        ][
+            str(relative)
+        ] = {
+            "sha256":
+                sha256_file(path),
+
+            "size":
+                path.stat().st_size,
+        }
+
+    save_json(
+        base
+        /
+        "manifest.json",
+        manifest,
+    )
+
+    return {
+        "success": True,
+        "status":
+            "SOURCE_BACKUP_CREATED",
+        "file_count":
+            len(
+                manifest[
+                    "files"
+                ]
+            ),
+    }
+
+
+def source_changes(
+    cycle_id,
+):
+    before = load_json(
+        BACKUP
+        /
+        cycle_id
+        /
+        "manifest.json",
+        {},
+    ).get(
+        "files",
+        {},
+    )
+
+    current = {
+        str(
+            path.relative_to(
+                ROOT
+            )
+        ): {
+            "sha256":
+                sha256_file(path)
+        }
+        for path
+        in source_files()
+    }
+
+    changed = sorted(
+        name
+        for name
+        in before
+        if (
+            name in current
+            and
+            before[
+                name
+            ].get(
+                "sha256"
+            )
+            !=
+            current[
+                name
+            ].get(
+                "sha256"
+            )
+        )
+    )
+
+    created = sorted(
+        set(current)
+        -
+        set(before)
+    )
+
+    deleted = sorted(
+        set(before)
+        -
+        set(current)
+    )
+
+    return {
+        "success": True,
+        "changed_files":
+            changed,
+        "created_files":
+            created,
+        "deleted_files":
+            deleted,
+        "has_changes":
+            bool(
+                changed
+                or created
+                or deleted
+            ),
+    }
+
+
+def rollback(
+    cycle_id,
+):
+    base = BACKUP / cycle_id
+
+    before = load_json(
+        base
+        /
+        "manifest.json",
+        {},
+    ).get(
+        "files",
+        {},
+    )
+
+    if not before:
+        return {
+            "success": False,
+            "status":
+                "ROLLBACK_MANIFEST_MISSING",
+        }
+
+    original = set(before)
+
+    for relative in original:
+        source = (
+            base
+            /
+            relative
+        )
+
+        destination = (
+            ROOT
+            /
+            relative
+        )
+
+        if source.exists():
+            destination.parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+
+            shutil.copy2(
+                source,
+                destination,
+            )
+
+    current = {
+        str(
+            path.relative_to(
+                ROOT
+            )
+        )
+        for path
+        in source_files()
+    }
+
+    for relative in (
+        current
+        -
+        original
+    ):
+        try:
+            (
+                ROOT
+                /
+                relative
+            ).unlink()
+        except Exception:
+            pass
+
+    return {
+        "success": True,
+        "status":
+            "SOURCE_ROLLBACK_COMPLETED",
+    }
+
+
+def verify_core():
+    required = {
+        "01":
+            F01,
+
+        "02_company":
+            F02C,
+
+        "02_owner":
+            F02O,
+
+        "03":
+            F03,
+
+        "04":
+            F04,
+    }
+
+    missing = []
+    files = {}
+
+    for name, path in required.items():
+        exists = (
+            path.exists()
+            and
+            path.is_file()
+            and
+            path.stat().st_size > 0
+        )
+
+        files[
+            name
+        ] = {
+            "file":
+                path.name,
+
+            "exists":
+                exists,
+
+            "size":
+                (
+                    path.stat().st_size
+                    if path.exists()
+                    else 0
+                ),
+        }
+
+        if not exists:
+            missing.append(
+                path.name
+            )
+
+    return {
+        "success":
+            not missing,
+
+        "missing":
+            missing,
+
+        "files":
+            files,
+    }
+
+
+def verify_syntax():
+    checked = []
+    failed = []
+
+    for path in source_files():
+        if (
+            path.suffix.lower()
+            != ".py"
+        ):
+            continue
+
+        result = run_process(
+            [
+                sys.executable,
+                "-m",
+                "py_compile",
+                str(path),
+            ],
+            45,
+        )
+
+        item = {
+            "file":
+                str(
+                    path.relative_to(
+                        ROOT
+                    )
+                ),
+
+            "success":
+                bool(
+                    result.get(
+                        "success"
+                    )
+                ),
+
+            "stderr":
+                result.get(
+                    "stderr",
+                    "",
+                ),
+        }
+
+        checked.append(item)
+
+        if not item[
+            "success"
+        ]:
+            failed.append(item)
+
+    return {
+        "success":
+            not failed,
+
+        "checked_count":
+            len(checked),
+
+        "failed":
+            failed,
+
+        "checked":
+            checked,
+    }
+
+
+def imported_roots(
+    path,
+):
+    try:
+        tree = ast.parse(
+            path.read_text(
+                encoding="utf-8"
+            ),
+            filename=str(path),
+        )
+    except Exception:
+        return set()
+
+    result = set()
+
+    for node in ast.walk(tree):
+        if isinstance(
+            node,
+            ast.Import,
+        ):
+            result |= {
+                alias.name.split(
+                    "."
+                )[0]
+                for alias
+                in node.names
+            }
+
+        elif (
+            isinstance(
+                node,
+                ast.ImportFrom,
+            )
+            and
+            node.module
+        ):
+            result.add(
+                node.module.split(
+                    "."
+                )[0]
+            )
+
+    return result
+
+
+def dependency_state():
+    roots = set()
+
+    for path in source_files():
+        if (
+            path.suffix.lower()
+            == ".py"
+        ):
+            roots |= imported_roots(
+                path
+            )
+
+    missing = []
+
+    for module, package in SAFE_DEPS.items():
+        if module not in roots:
+            continue
+
+        try:
+            available = (
+                importlib.util
+                .find_spec(
+                    module
+                )
+                is not None
+            )
+        except Exception:
+            available = False
+
+        if not available:
+            missing.append(
+                {
+                    "module":
+                        module,
+
+                    "package":
+                        package,
+                }
+            )
+
+    return {
+        "success":
+            not missing,
+
+        "missing":
+            missing,
+    }
+
+
+def pip_install(
+    package,
+):
+    if not ALLOW_DEP_INSTALL:
+        return {
+            "success": False,
+            "status":
+                "DEPENDENCY_INSTALL_DISABLED",
+        }
+
+    command = [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--disable-pip-version-check",
+        package,
+    ]
+
+    result = run_process(
+        command,
+        600,
+    )
+
+    text = (
+        result.get(
+            "stdout",
+            "",
+        )
+        +
+        result.get(
+            "stderr",
+            "",
+        )
+    ).lower()
+
+    if (
+        not result.get(
+            "success"
+        )
+        and
+        (
+            "externally-managed-environment"
+            in text
+            or
+            "pep 668"
+            in text
+        )
+    ):
+        result = run_process(
+            command
+            +
+            [
+                "--break-system-packages"
+            ],
+            600,
+        )
+
+    return {
+        "success":
+            bool(
+                result.get(
+                    "success"
+                )
+            ),
+
+        "status":
+            (
+                "INSTALLED"
+                if result.get(
+                    "success"
+                )
+                else
+                "INSTALL_FAILED"
+            ),
+
+        "process":
+            result,
+    }
+
+
+def repair_dependencies():
+    before = dependency_state()
+
+    if before[
+        "success"
+    ]:
+        return {
+            "success": True,
+            "status":
+                "DEPENDENCIES_HEALTHY",
+            "before":
+                before,
+            "after":
+                before,
+            "installed": [],
+            "failed": [],
+        }
+
+    installed = []
+    failed = []
+
+    for item in before[
+        "missing"
+    ]:
+        result = pip_install(
+            item[
+                "package"
+            ]
+        )
+
+        record = {
+            "module":
+                item[
+                    "module"
+                ],
+
+            "package":
+                item[
+                    "package"
+                ],
+
+            "result":
+                result,
+        }
+
+        if result[
+            "success"
+        ]:
+            installed.append(
+                record
+            )
+        else:
+            failed.append(
+                record
+            )
+
+    after = dependency_state()
+
+    return {
+        "success":
+            after[
+                "success"
+            ],
+
+        "status":
+            (
+                "DEPENDENCIES_REPAIRED"
+                if after[
+                    "success"
+                ]
+                else
+                "DEPENDENCY_REPAIR_INCOMPLETE"
+            ),
+
+        "before":
+            before,
+
+        "after":
+            after,
+
+        "installed":
+            installed,
+
+        "failed":
+            failed,
+    }
+
+
+def disk_state():
+    try:
+        stat = os.statvfs(ROOT)
+
+        total = (
+            stat.f_blocks
+            *
+            stat.f_frsize
+        )
+
+        available = (
+            stat.f_bavail
+            *
+            stat.f_frsize
+        )
+
+        percent = (
+            (
+                total
+                -
+                available
+            )
+            /
+            total
+            *
+            100
+            if total
+            else 0
+        )
+
+        return {
+            "success":
+                percent < 90,
+
+            "used_percent":
+                round(
+                    percent,
+                    2,
+                ),
+
+            "available_bytes":
+                available,
+        }
+
+    except Exception as error:
+        return {
+            "success": False,
+            "error":
+                str(error),
+        }
+
+
+def docker_state():
+    if (
+        shutil.which(
+            "docker"
+        )
+        is None
+    ):
+        return {
+            "success": False,
+            "status":
+                "DOCKER_COMMAND_MISSING",
+        }
+
+    result = run_process(
+        [
+            "docker",
+            "ps",
+            "-a",
+            "--format",
+            "{{.Names}}|{{.State}}|{{.Status}}|{{.Ports}}",
+        ],
+        45,
+    )
+
+    if not result.get(
+        "success"
+    ):
+        return {
+            "success": False,
+            "status":
+                "DOCKER_QUERY_FAILED",
+            "process":
+                result,
+        }
+
+    containers = []
+
+    for line in result.get(
+        "stdout",
+        "",
+    ).splitlines():
+        if not line.strip():
+            continue
+
+        parts = line.split(
+            "|",
+            3,
+        )
+
+        containers.append(
+            {
+                "name":
+                    (
+                        parts[0]
+                        if len(parts) > 0
+                        else ""
+                    ),
+
+                "state":
+                    (
+                        parts[1]
+                        if len(parts) > 1
+                        else ""
+                    ),
+
+                "status":
+                    (
+                        parts[2]
+                        if len(parts) > 2
+                        else ""
+                    ),
+
+                "ports":
+                    (
+                        parts[3]
+                        if len(parts) > 3
+                        else ""
+                    ),
+            }
+        )
+
+    by_name = {
+        item[
+            "name"
+        ]:
+            item
+        for item
+        in containers
+    }
+
+    expected = {
+        "majd-ai-core",
+        "majd-web-ui",
+    }
+
+    missing = sorted(
+        expected
+        -
+        set(by_name)
+    )
+
+    stopped = sorted(
+        name
+        for name
+        in (
+            expected
+            &
+            set(by_name)
+        )
+        if (
+            by_name[
+                name
+            ][
+                "state"
+            ].lower()
+            != "running"
+        )
+    )
+
+    return {
+        "success":
+            not missing
+            and
+            not stopped,
+
+        "containers":
+            containers,
+
+        "missing_expected":
+            missing,
+
+        "stopped_expected":
+            stopped,
+    }
+
+
+def recover_docker():
+    before = docker_state()
+    actions = []
+
+    for name in before.get(
+        "stopped_expected",
+        [],
+    ):
+        result = run_process(
+            [
+                "docker",
+                "start",
+                name,
+            ],
+            90,
+        )
+
+        actions.append(
+            {
+                "container":
+                    name,
+
+                "success":
+                    bool(
+                        result.get(
+                            "success"
+                        )
+                    ),
+            }
+        )
+
+    after = docker_state()
+
+    return {
+        "success":
+            after.get(
+                "success",
+                False,
+            ),
+
+        "before":
+            before,
+
+        "actions":
+            actions,
+
+        "after":
+            after,
+    }
+
+
+def normalize_status(
+    value,
+):
+    if value is None:
+        return "UNKNOWN"
+
+    if (
+        hasattr(
+            value,
+            "value",
+        )
+        and
+        not isinstance(
+            value,
+            str,
+        )
+    ):
+        try:
+            value = value.value
+        except Exception:
+            pass
+
+    text = str(
+        value
+    ).strip().upper()
+
+    aliases = {
+        "OPERATIONAL":
+            "AVAILABLE",
+
+        "HEALTHY":
+            "AVAILABLE",
+
+        "READY":
+            "AVAILABLE",
+
+        "ACTIVE":
+            "AVAILABLE",
+
+        "OK":
+            "AVAILABLE",
+
+        "CONNECTED":
+            "CONFIGURED",
+
+        "ENABLED":
+            "CONFIGURED",
+
+        "NOT AVAILABLE":
+            "UNAVAILABLE",
+
+        "NOT_AVAILABLE":
+            "UNAVAILABLE",
+
+        "NOT CONFIGURED":
+            "NOT_CONFIGURED",
+
+        "ERROR":
+            "FAILED",
+
+        "BROKEN":
+            "FAILED",
+    }
+
+    return aliases.get(
+        text,
+        text or "UNKNOWN",
+    )
+
+
+def capability_id(
+    value,
+    fallback="",
+):
+    if isinstance(
+        value,
+        Mapping,
+    ):
+        return str(
+            value.get(
+                "capability_id"
+            )
+            or
+            value.get(
+                "id"
+            )
+            or
+            value.get(
+                "name"
+            )
+            or
+            fallback
+        )
+
+    for attribute in (
+        "capability_id",
+        "id",
+        "name",
+    ):
+        candidate = getattr(
+            value,
+            attribute,
+            None,
+        )
+
+        if candidate:
+            return str(candidate)
+
+    return str(fallback)
+
+
+def capability_status(
+    value,
+):
+    if isinstance(
+        value,
+        Mapping,
+    ):
+        for key in (
+            "status",
+            "state",
+            "availability",
+        ):
+            if key in value:
+                return normalize_status(
+                    value[key]
+                )
+
+        health = value.get(
+            "health"
+        )
+
+        if health is not None:
+            return capability_status(
+                health
+            )
+
+        return "UNKNOWN"
+
+    for attribute in (
+        "status",
+        "state",
+        "availability",
+    ):
+        candidate = getattr(
+            value,
+            attribute,
+            None,
+        )
+
+        if candidate is not None:
+            return normalize_status(
+                candidate
+            )
+
+    health = getattr(
+        value,
+        "health",
+        None,
+    )
+
+    if health is not None:
+        return capability_status(
+            health
+        )
+
+    return "UNKNOWN"
+
+
+def capability_reason(
+    value,
+):
+    if isinstance(
+        value,
+        Mapping,
+    ):
+        for key in (
+            "reason",
+            "message",
+            "error",
+            "detail",
+            "details",
+        ):
+            if value.get(key):
+                return str(
+                    value[key]
+                )
+
+        health = value.get(
+            "health"
+        )
+
+        if health is not None:
+            return capability_reason(
+                health
+            )
+
+        return ""
+
+    for attribute in (
+        "reason",
+        "message",
+        "error",
+        "detail",
+        "details",
+    ):
+        candidate = getattr(
+            value,
+            attribute,
+            None,
+        )
+
+        if candidate:
+            return str(candidate)
+
+    health = getattr(
+        value,
+        "health",
+        None,
+    )
+
+    if health is not None:
+        return capability_reason(
+            health
+        )
+
+    return ""
+
+
+def capability_snapshot(
+    value,
+    fallback="",
+):
+    status = capability_status(
+        value
+    )
+
+    if isinstance(
+        value,
+        Mapping,
+    ):
+        adapter = (
+            value.get(
+                "adapter"
+            )
+            or
+            value.get(
+                "adapter_name"
+            )
+            or
+            value.get(
+                "engine"
+            )
+        )
+
+        required = bool(
+            value.get(
+                "required",
+                False,
+            )
+        )
+
+    else:
+        adapter = (
+            getattr(
+                value,
+                "adapter_name",
+                None,
+            )
+            or
+            getattr(
+                value,
+                "adapter",
+                None,
+            )
+            or
+            getattr(
+                value,
+                "engine_name",
+                None,
+            )
+        )
+
+        required = bool(
+            getattr(
+                value,
+                "required",
+                False,
+            )
+        )
+
+    return {
+        "capability_id":
+            capability_id(
+                value,
+                fallback,
+            ),
+
+        "status":
+            status,
+
+        "operational":
+            status
+            in OPERATIONAL,
+
+        "required":
+            required,
+
+        "reason":
+            capability_reason(
+                value
+            ),
+
+        "adapter":
+            (
+                str(adapter)
+                if adapter
+                else None
+            ),
+
+        "raw":
+            jsonable(value),
+    }
+
+
+def inspect_company_direct():
+    module_name = (
+        "majd_company_"
+        +
+        uuid.uuid4().hex
+    )
+
+    try:
+        company_module = load_module(
+            F02C,
+            module_name,
+        )
+
+        getter = getattr(
+            company_module,
+            "get_company",
+            None,
+        )
+
+        if not callable(getter):
+            raise RuntimeError(
+                "get_company() missing in Company 02"
+            )
+
+        company = call_supported(
+            getter,
+            {
+                "root_dir":
+                    str(ROOT),
+
+                "owner":
+                    OWNER,
+            },
+        )
+
+        refresh = find_callable(
+            company,
+            (
+                "refresh_health",
+                "refresh",
+                "health_check",
+                "check_health",
+            ),
+        )
+
+        refresh_result = (
+            call_supported(
+                refresh,
+                {},
+            )
+            if refresh
+            else None
+        )
+
+        raw = getattr(
+            company,
+            "capabilities",
+            {},
+        )
+
+        if isinstance(
+            raw,
+            Mapping,
+        ):
+            capabilities = [
+                capability_snapshot(
+                    value,
+                    str(key),
+                )
+                for key, value
+                in raw.items()
+            ]
+
+        else:
+            capabilities = [
+                capability_snapshot(
+                    value,
+                    f"CAPABILITY_{index + 1}",
+                )
+                for index, value
+                in enumerate(
+                    raw or []
+                )
+            ]
+
+        unavailable = [
+            item
+            for item
+            in capabilities
+            if not item[
+                "operational"
+            ]
+        ]
+
+        operational = [
+            item
+            for item
+            in capabilities
+            if item[
+                "operational"
+            ]
+        ]
+
+        required_unavailable = [
+            item
+            for item
+            in unavailable
+            if item[
+                "required"
+            ]
+        ]
+
+        return {
+            "success": True,
+            "company_loaded": True,
+            "status":
+                "COMPANY_INSPECTED_DIRECTLY",
+
+            "refresh":
+                jsonable(
+                    refresh_result
+                ),
+
+            "capability_count":
+                len(
+                    capabilities
+                ),
+
+            "operational_count":
+                len(
+                    operational
+                ),
+
+            "unavailable_count":
+                len(
+                    unavailable
+                ),
+
+            "required_unavailable_count":
+                len(
+                    required_unavailable
+                ),
+
+            "all_capabilities_operational":
+                (
+                    bool(
+                        capabilities
+                    )
+                    and
+                    not unavailable
+                ),
+
+            "required_capabilities_operational":
+                not required_unavailable,
+
+            "capabilities":
+                capabilities,
+        }
+
+    except Exception as error:
+        return {
+            "success": False,
+            "company_loaded": False,
+            "status":
+                "COMPANY_DIRECT_INSPECTION_EXCEPTION",
+
+            "error":
+                f"{type(error).__name__}: {error}",
+
+            "traceback":
+                traceback.format_exc(),
+
+            "capabilities": [],
+
+            "unavailable_count": 0,
+        }
+
+    finally:
+        sys.modules.pop(
+            module_name,
+            None,
+        )
+
+
+def owner_action_required(
+    item,
+):
+    text = (
+        str(
+            item.get(
+                "reason",
+                "",
+            )
+        )
+        +
+        " "
+        +
+        json.dumps(
+            jsonable(
+                item.get(
+                    "raw",
+                    {},
+                )
+            ),
+            ensure_ascii=False,
+            default=str,
+        )
+    ).lower()
+
+    return any(
+        keyword in text
+        for keyword
+        in EXTERNAL_BLOCKERS
+    )
+
+
+def capability_priority(
+    item,
+):
+    identifier = str(
+        item.get(
+            "capability_id",
+            "",
+        )
+    ).upper()
+
+    priority = (
+        10
+        if item.get(
+            "required"
+        )
+        else 50
+    )
+
+    important = (
+        "OWNER",
+        "AUTHORITY",
+        "SECURITY",
+        "AUDIT",
+        "DATABASE",
+        "EXECUTOR",
+        "BUILD",
+        "TEST",
+        "QA",
+        "DEPLOY",
+        "BRIDGE",
+        "PUBLISH",
+        "PLATFORM",
+        "API",
+        "ORIGINALITY",
+        "IP_",
+        "MONITOR",
+        "RECOVERY",
+        "BACKUP",
+    )
+
+    if any(
+        keyword
+        in identifier
+        for keyword
+        in important
+    ):
+        priority -= 5
+
+    return max(
+        1,
+        priority,
+    )
+
+
+def build_queue(
+    company,
+):
+    old = load_json(
+        QUEUE_FILE,
+        {},
+    )
+
+    previous = {
+        str(
+            item.get(
+                "capability_id"
+            )
+        ):
+            item
+        for item
+        in old.get(
+            "items",
+            [],
+        )
+        if isinstance(
+            item,
+            dict,
+        )
+    }
+
+    items = []
+
+    for capability in company.get(
+        "capabilities",
+        [],
+    ):
+        if capability.get(
+            "operational"
+        ):
+            continue
+
+        item = dict(
+            capability
+        )
+
+        old_item = previous.get(
+            str(
+                capability.get(
+                    "capability_id"
+                )
+            ),
+            {},
+        )
+
+        item.update(
+            {
+                "owner_required":
+                    owner_action_required(
+                        capability
+                    ),
+
+                "priority":
+                    capability_priority(
+                        capability
+                    ),
+
+                "attempts":
+                    int(
+                        old_item.get(
+                            "attempts",
+                            0,
+                        )
+                        or 0
+                    ),
+
+                "last_attempt_at":
+                    old_item.get(
+                        "last_attempt_at"
+                    ),
+
+                "last_result":
+                    old_item.get(
+                        "last_result"
+                    ),
+            }
+        )
+
+        items.append(item)
+
+    items.sort(
+        key=lambda item: (
+            item[
+                "owner_required"
+            ],
+            item[
+                "priority"
+            ],
+            item[
+                "attempts"
+            ],
+            str(
+                item.get(
+                    "capability_id",
+                    "",
+                )
+            ),
+        )
+    )
+
+    queue = {
+        "updated_at":
+            now(),
+
+        "total":
+            len(items),
+
+        "autonomous":
+            sum(
+                not item[
+                    "owner_required"
+                ]
+                for item
+                in items
+            ),
+
+        "owner_required":
+            sum(
+                item[
+                    "owner_required"
+                ]
+                for item
+                in items
+            ),
+
+        "required_total":
+            sum(
+                bool(
+                    item.get(
+                        "required"
+                    )
+                )
+                for item
+                in items
+            ),
+
+        "items":
+            items,
+    }
+
+    save_json(
+        QUEUE_FILE,
+        queue,
+    )
+
+    return queue
+
+
+def select_batch(
+    queue,
+):
+    return [
+        dict(item)
+        for item
+        in queue.get(
+            "items",
+            [],
+        )
+        if not item.get(
+            "owner_required"
+        )
+    ][:MAX_BATCH]
+
+
+def mark_attempts(
+    selected,
+    result,
+):
+    queue = load_json(
+        QUEUE_FILE,
+        {},
+    )
+
+    identifiers = {
+        str(
+            item.get(
+                "capability_id"
+            )
+        )
+        for item
+        in selected
+    }
+
+    for item in queue.get(
+        "items",
+        [],
+    ):
+        if (
+            str(
+                item.get(
+                    "capability_id"
+                )
+            )
+            in identifiers
+        ):
+            item[
+                "attempts"
+            ] = (
+                int(
+                    item.get(
+                        "attempts",
+                        0,
+                    )
+                    or 0
+                )
+                +
+                1
+            )
+
+            item[
+                "last_attempt_at"
+            ] = now()
+
+            item[
+                "last_result"
+            ] = {
+                "success":
+                    bool(
+                        result.get(
+                            "success"
+                        )
+                    ),
+
+                "status":
+                    result.get(
+                        "status"
+                    ),
+            }
+
+    save_json(
+        QUEUE_FILE,
+        queue,
+    )
+
+
+class OwnerBridge:
 
     def __init__(
         self,
     ):
+        self.module = load_module(
+            F02O,
+            (
+                "majd_owner_"
+                +
+                uuid.uuid4().hex
+            ),
+        )
 
-        self.dep = (
+    def parse(
+        self,
+        command,
+    ):
+        parser = getattr(
+            self.module,
+            "OwnerCommandParser",
+            None,
+        )
+
+        if parser is None:
+            return {
+                "type":
+                    "GENERAL_OWNER_COMMAND",
+                "raw":
+                    command,
+            }
+
+        try:
+            result = parser().parse(
+                command
+            )
+
+            if not isinstance(
+                result,
+                dict,
+            ):
+                result = {
+                    "type":
+                        "GENERAL_OWNER_COMMAND",
+                    "raw":
+                        command,
+                }
+
+            if str(
+                result.get(
+                    "type",
+                    "",
+                )
+            ).upper() in {
+                "",
+                "UNKNOWN",
+            }:
+                result[
+                    "type"
+                ] = (
+                    "GENERAL_OWNER_COMMAND"
+                )
+
+            return result
+
+        except Exception as error:
+            return {
+                "type":
+                    "GENERAL_OWNER_COMMAND",
+
+                "raw":
+                    command,
+
+                "parser_error":
+                    str(error),
+            }
+
+    def execute(
+        self,
+        command,
+        owner,
+    ):
+        function = getattr(
+            self.module,
+            "execute_owner_command",
+            None,
+        )
+
+        if not callable(
+            function
+        ):
+            return {
+                "success": False,
+                "status":
+                    "OWNER_COMMAND_INTERFACE_MISSING",
+            }
+
+        try:
+            result = call_supported(
+                function,
+                {
+                    "command":
+                        command,
+
+                    "owner":
+                        owner,
+                },
+            )
+
+            if isinstance(
+                result,
+                dict,
+            ):
+                return result
+
+            return {
+                "success": False,
+                "status":
+                    "INVALID_OWNER_COMMAND_RESULT",
+            }
+
+        except Exception as error:
+            return {
+                "success": False,
+
+                "status":
+                    "OWNER_COMMAND_EXCEPTION",
+
+                "error":
+                    str(error),
+
+                "traceback":
+                    traceback.format_exc(),
+            }
+
+
+class Mastermind:
+
+    FUNCTION_NAMES = (
+        "execute_request",
+        "process_request",
+        "execute_game_request",
+        "run",
+        "run_request",
+        "execute",
+    )
+
+    def __init__(
+        self,
+    ):
+        self.dependencies = (
             repair_dependencies()
         )
 
-        self.module = (
-            load_module(
-                F01,
-                (
-                    "majd_mastermind_"
-                    +
-                    uuid.uuid4().hex
-                ),
-            )
+        self.module = load_module(
+            F01,
+            (
+                "majd_master_"
+                +
+                uuid.uuid4().hex
+            ),
         )
 
     def execute(
         self,
-        command: str,
-        request: Dict[str, Any],
-        runtime_id: str,
-        owner: str,
-    ) -> Dict[str, Any]:
-
+        command,
+        request,
+        runtime_id,
+        owner,
+    ):
         function = find_callable(
             self.module,
-            (
-                "execute_request",
-                "process_request",
-                "execute_game_request",
-                "run_request",
-                "run",
-                "execute",
-            ),
+            self.FUNCTION_NAMES,
         )
 
         if function is None:
-
             mastermind_class = getattr(
                 self.module,
                 "Mastermind",
@@ -1937,41 +2533,27 @@ class Mastermind:
             )
 
             if mastermind_class:
-
                 instance = call_supported(
                     mastermind_class,
                     {
                         "owner":
-                            owner,
+                            owner
                     },
                 )
 
                 function = find_callable(
                     instance,
-                    (
-                        "execute_request",
-                        "process_request",
-                        "run_request",
-                        "run",
-                        "execute",
-                    ),
+                    self.FUNCTION_NAMES,
                 )
 
         if function is None:
-
             return {
-                "success":
-                    False,
-
+                "success": False,
                 "status":
                     "MASTERMIND_INTERFACE_MISSING",
-
-                "dependency_repair":
-                    self.dep,
             }
 
         try:
-
             result = call_supported(
                 function,
                 {
@@ -1979,10 +2561,10 @@ class Mastermind:
                         command,
 
                     "request":
-                        request,
+                        dict(request),
 
                     "payload":
-                        request,
+                        dict(request),
 
                     "job_id":
                         runtime_id,
@@ -1994,303 +2576,739 @@ class Mastermind:
                         owner,
 
                     "output_root":
-                        str(
-                            OUTPUT
-                        ),
+                        str(OUTPUT),
                 },
             )
 
-            return (
-                result
-                if isinstance(
-                    result,
-                    dict,
-                )
-                else
-                {
-                    "success":
-                        False,
-
-                    "status":
-                        "INVALID_MASTERMIND_RESULT",
-                }
-            )
-
-        except ModuleNotFoundError as error:
-
-            dependency_repair = (
-                repair_dependencies()
-            )
-
-            if dependency_repair[
-                "success"
-            ]:
-
-                try:
-
-                    self.module = (
-                        load_module(
-                            F01,
-                            (
-                                "majd_mastermind_retry_"
-                                +
-                                uuid.uuid4().hex
-                            ),
-                        )
-                    )
-
-                    function = find_callable(
-                        self.module,
-                        (
-                            "execute_request",
-                            "process_request",
-                            "execute_game_request",
-                            "run_request",
-                            "run",
-                            "execute",
-                        ),
-                    )
-
-                    if function:
-
-                        result = call_supported(
-                            function,
-                            {
-                                "command":
-                                    command,
-
-                                "request":
-                                    request,
-
-                                "payload":
-                                    request,
-
-                                "job_id":
-                                    runtime_id,
-
-                                "runtime_id":
-                                    runtime_id,
-
-                                "owner":
-                                    owner,
-
-                                "output_root":
-                                    str(
-                                        OUTPUT
-                                    ),
-                            },
-                        )
-
-                        return (
-                            result
-                            if isinstance(
-                                result,
-                                dict,
-                            )
-                            else
-                            {
-                                "success":
-                                    False,
-
-                                "status":
-                                    "INVALID_MASTERMIND_RESULT",
-                            }
-                        )
-
-                except Exception as retry_error:
-
-                    return {
-                        "success":
-                            False,
-
-                        "status":
-                            "MASTERMIND_RETRY_FAILED",
-
-                        "error":
-                            (
-                                f"{type(retry_error).__name__}: "
-                                f"{retry_error}"
-                            ),
-
-                        "traceback":
-                            traceback.format_exc(),
-                    }
+            if isinstance(
+                result,
+                dict,
+            ):
+                return result
 
             return {
-                "success":
-                    False,
-
+                "success": False,
                 "status":
-                    "DEPENDENCY_REPAIR_FAILED",
-
-                "error":
-                    str(
-                        error
-                    ),
-
-                "dependency_repair":
-                    dependency_repair,
+                    "INVALID_MASTERMIND_RESULT",
             }
 
         except Exception as error:
-
             return {
-                "success":
-                    False,
+                "success": False,
 
                 "status":
-                    "MASTERMIND_EXCEPTION",
+                    "MASTERMIND_EXECUTION_EXCEPTION",
 
                 "error":
-                    (
-                        f"{type(error).__name__}: "
-                        f"{error}"
-                    ),
+                    f"{type(error).__name__}: {error}",
 
                 "traceback":
                     traceback.format_exc(),
+
+                "dependency_repair":
+                    self.dependencies,
             }
 
 
-# ============================================================
-# AUTONOMOUS POLICY
-# ============================================================
+def verify_artifact(
+    value,
+):
+    if not value:
+        return {
+            "success": False,
+            "status":
+                "PLAYABLE_ARTIFACT_MISSING",
+        }
 
-def policy() -> Dict[str, Any]:
+    path = Path(
+        str(value)
+    )
+
+    if not path.is_absolute():
+        path = (
+            ROOT
+            /
+            path
+        ).resolve()
+    else:
+        path = path.resolve()
+
+    if (
+        not path.exists()
+        or
+        not path.is_dir()
+    ):
+        return {
+            "success": False,
+            "status":
+                "PLAYABLE_ARTIFACT_NOT_FOUND",
+        }
+
+    index = (
+        path
+        /
+        "index.html"
+    )
+
+    files = [
+        item
+        for item
+        in path.rglob("*")
+        if item.is_file()
+    ]
+
+    if (
+        not index.exists()
+        or
+        index.stat().st_size
+        <= 0
+    ):
+        return {
+            "success": False,
+            "status":
+                "PLAYABLE_INDEX_NOT_FOUND_OR_EMPTY",
+        }
+
+    if not any(
+        item.suffix.lower()
+        in {
+            ".js",
+            ".mjs",
+        }
+        for item
+        in files
+    ):
+        return {
+            "success": False,
+            "status":
+                "PLAYABLE_JAVASCRIPT_NOT_FOUND",
+        }
 
     return {
-        "routine_owner_approval_required":
-            False,
+        "success": True,
 
-        "allow_code_generation":
-            True,
+        "status":
+            "PLAYABLE_ARTIFACT_VERIFIED",
 
-        "allow_code_repair":
-            True,
+        "artifact":
+            str(path),
 
-        "allow_adapter_generation":
-            True,
+        "index":
+            str(index),
 
-        "allow_integration":
-            True,
-
-        "allow_ui_development":
-            True,
-
-        "allow_tests":
-            True,
-
-        "allow_build":
-            True,
-
-        "allow_routine_deployment":
-            True,
-
-        "allow_safe_dependency_repair":
-            True,
-
-        "require_real_verification":
-            True,
-
-        "never_fake_operational":
-            True,
-
-        "rollback_on_failed_change":
-            True,
-
-        "protect_owner_authority":
-            True,
-
-        "protect_platform_secrets":
-            True,
-
-        "do_not_ask_owner_for_code":
-            True,
-
-        "owner_only_for_true_external_blockers":
-            True,
+        "file_count":
+            len(files),
     }
 
 
-# ============================================================
-# OBJECTIVE
-# ============================================================
+def verify_published(
+    value,
+):
+    if (
+        not isinstance(
+            value,
+            Mapping,
+        )
+        or
+        not value.get(
+            "success"
+        )
+    ):
+        return {
+            "success": False,
+            "status":
+                "PLATFORM_RESULT_INVALID_OR_FAILED",
+        }
 
-def objective(
-    cycle: str,
-    inspection: Dict[str, Any],
-    batch: List[
-        Dict[str, Any]
-    ],
-    proactive: bool = False,
-) -> Tuple[
-    str,
-    Dict[str, Any],
-]:
-
-    kind = (
-        "AUTONOMOUS_CONTINUOUS_IMPROVEMENT"
-        if proactive
-        else
-        "AUTONOMOUS_REPAIR_AND_COMPLETION"
+    directory = value.get(
+        "published_directory"
     )
 
+    public_url = value.get(
+        "public_url"
+    )
+
+    game_path = value.get(
+        "game_path"
+    )
+
+    if (
+        not directory
+        or
+        not public_url
+        or
+        not game_path
+    ):
+        return {
+            "success": False,
+            "status":
+                "PUBLISHED_RESULT_INCOMPLETE",
+        }
+
+    path = Path(
+        str(directory)
+    )
+
+    if not path.is_absolute():
+        path = (
+            ROOT
+            /
+            path
+        ).resolve()
+
+    if (
+        not path.exists()
+        or
+        not (
+            path
+            /
+            "index.html"
+        ).exists()
+    ):
+        return {
+            "success": False,
+            "status":
+                "PUBLISHED_ARTIFACT_NOT_FOUND",
+        }
+
+    return {
+        "success": True,
+
+        "status":
+            "PUBLISHED_RESULT_VERIFIED",
+
+        "published_directory":
+            str(path),
+
+        "public_url":
+            str(public_url),
+
+        "game_path":
+            str(game_path),
+    }
+
+
+def verify_mastermind_result(
+    command_type,
+    result,
+):
+    if not result.get(
+        "success"
+    ):
+        return {
+            "success": False,
+            "status":
+                result.get(
+                    "status",
+                    "MASTERMIND_FAILED",
+                ),
+        }
+
+    if (
+        command_type
+        != "CREATE_GAME"
+    ):
+        return {
+            "success": True,
+            "status":
+                "MASTERMIND_RESULT_VERIFIED",
+        }
+
+    artifact = verify_artifact(
+        result.get(
+            "artifact"
+        )
+    )
+
+    publication = verify_published(
+        result.get(
+            "platform"
+        )
+    )
+
+    success = (
+        artifact[
+            "success"
+        ]
+        and
+        publication[
+            "success"
+        ]
+    )
+
+    return {
+        "success":
+            success,
+
+        "status":
+            (
+                "FULL_EXECUTION_VERIFIED"
+                if success
+                else
+                (
+                    artifact[
+                        "status"
+                    ]
+                    if not artifact[
+                        "success"
+                    ]
+                    else
+                    publication[
+                        "status"
+                    ]
+                )
+            ),
+
+        "artifact":
+            artifact,
+
+        "publication":
+            publication,
+    }
+
+
+def inspect_platform():
+    dependencies = (
+        repair_dependencies()
+    )
+
+    docker_recovery = (
+        recover_docker()
+    )
+
+    company = (
+        inspect_company_direct()
+    )
+
+    queue = (
+        build_queue(
+            company
+        )
+        if company.get(
+            "success"
+        )
+        else
+        {
+            "total": 0,
+            "autonomous": 0,
+            "owner_required": 0,
+            "required_total": 0,
+            "items": [],
+        }
+    )
+
+    return {
+        "time":
+            now(),
+
+        "core_files":
+            verify_core(),
+
+        "python_syntax":
+            verify_syntax(),
+
+        "dependencies":
+            dependencies,
+
+        "local_api":
+            http_probe(
+                LOCAL_HEALTH
+            ),
+
+        "official_platform":
+            http_probe(
+                PLATFORM
+            ),
+
+        "docker_recovery":
+            docker_recovery,
+
+        "docker":
+            docker_state(),
+
+        "disk":
+            disk_state(),
+
+        "sovereign_company":
+            company,
+
+        "work_queue":
+            queue,
+    }
+
+
+def infrastructure_map(
+    inspection,
+):
+    return {
+        "core_files":
+            bool(
+                inspection.get(
+                    "core_files",
+                    {},
+                ).get(
+                    "success"
+                )
+            ),
+
+        "python_syntax":
+            bool(
+                inspection.get(
+                    "python_syntax",
+                    {},
+                ).get(
+                    "success"
+                )
+            ),
+
+        "dependencies":
+            bool(
+                inspection.get(
+                    "dependencies",
+                    {},
+                ).get(
+                    "success"
+                )
+            ),
+
+        "local_api":
+            bool(
+                inspection.get(
+                    "local_api",
+                    {},
+                ).get(
+                    "success"
+                )
+            ),
+
+        "official_platform":
+            bool(
+                inspection.get(
+                    "official_platform",
+                    {},
+                ).get(
+                    "success"
+                )
+            ),
+
+        "docker":
+            bool(
+                inspection.get(
+                    "docker",
+                    {},
+                ).get(
+                    "success"
+                )
+            ),
+
+        "disk":
+            bool(
+                inspection.get(
+                    "disk",
+                    {},
+                ).get(
+                    "success"
+                )
+            ),
+
+        "company_loaded":
+            bool(
+                inspection.get(
+                    "sovereign_company",
+                    {},
+                ).get(
+                    "success"
+                )
+            ),
+    }
+
+
+def infrastructure_findings(
+    inspection,
+):
+    return [
+        {
+            "id":
+                key.upper()
+                +
+                "_UNHEALTHY",
+
+            "component":
+                key,
+        }
+        for key, value
+        in infrastructure_map(
+            inspection
+        ).items()
+        if not value
+    ]
+
+
+def regression_check(
+    before,
+    after,
+):
+    before_map = infrastructure_map(
+        before
+    )
+
+    after_map = infrastructure_map(
+        after
+    )
+
+    regressions = [
+        key
+        for key, value
+        in before_map.items()
+        if (
+            value
+            and
+            not after_map.get(
+                key,
+                False,
+            )
+        )
+    ]
+
+    return {
+        "success":
+            not regressions,
+
+        "regressions":
+            regressions,
+
+        "before":
+            before_map,
+
+        "after":
+            after_map,
+    }
+
+
+def capability_map(
+    company,
+):
+    return {
+        str(
+            item.get(
+                "capability_id"
+            )
+        ):
+            str(
+                item.get(
+                    "status",
+                    "UNKNOWN",
+                )
+            ).upper()
+        for item
+        in company.get(
+            "capabilities",
+            [],
+        )
+        if item.get(
+            "capability_id"
+        )
+    }
+
+
+def capability_progress(
+    before,
+    after,
+    selected,
+):
+    before_company = before.get(
+        "sovereign_company",
+        {},
+    )
+
+    after_company = after.get(
+        "sovereign_company",
+        {},
+    )
+
+    before_map = capability_map(
+        before_company
+    )
+
+    after_map = capability_map(
+        after_company
+    )
+
+    identifiers = [
+        str(
+            item.get(
+                "capability_id"
+            )
+        )
+        for item
+        in selected
+        if item.get(
+            "capability_id"
+        )
+    ]
+
+    became_operational = [
+        identifier
+        for identifier
+        in identifiers
+        if (
+            before_map.get(
+                identifier
+            )
+            not in OPERATIONAL
+            and
+            after_map.get(
+                identifier
+            )
+            in OPERATIONAL
+        )
+    ]
+
+    before_unavailable = int(
+        before_company.get(
+            "unavailable_count",
+            0,
+        )
+        or 0
+    )
+
+    after_unavailable = int(
+        after_company.get(
+            "unavailable_count",
+            0,
+        )
+        or 0
+    )
+
+    return {
+        "success":
+            bool(
+                became_operational
+                or
+                after_unavailable
+                <
+                before_unavailable
+            ),
+
+        "before_unavailable":
+            before_unavailable,
+
+        "after_unavailable":
+            after_unavailable,
+
+        "became_operational":
+            became_operational,
+
+        "selected_status_before":
+            {
+                identifier:
+                    before_map.get(
+                        identifier
+                    )
+                for identifier
+                in identifiers
+            },
+
+        "selected_status_after":
+            {
+                identifier:
+                    after_map.get(
+                        identifier
+                    )
+                for identifier
+                in identifiers
+            },
+    }
+
+
+def build_objective(
+    cycle_id,
+    inspection,
+    selected,
+    findings,
+    proactive,
+):
     request = {
         "type":
-            kind,
+            (
+                "AUTONOMOUS_CONTINUOUS_COMPANY_OPERATION"
+                if proactive
+                else
+                "AUTONOMOUS_REPAIR_AND_CAPABILITY_COMPLETION"
+            ),
 
         "cycle_id":
-            cycle,
-
-        "owner":
-            OWNER,
+            cycle_id,
 
         "autonomous":
             True,
 
+        "proactive":
+            proactive,
+
+        "findings":
+            list(findings),
+
         "work_items":
-            batch,
+            list(selected),
 
-        "policy":
-            policy(),
+        "policy": {
+            "routine_owner_approval_required":
+                False,
 
-        "snapshot": {
-            "local_api":
-                inspection[
-                    "local_api"
-                ],
+            "allow_code_generation":
+                True,
 
-            "official_platform":
-                inspection[
-                    "official_platform"
-                ],
+            "allow_code_repair":
+                True,
 
-            "docker":
-                inspection[
-                    "docker"
-                ],
+            "allow_adapter_generation":
+                True,
 
-            "company_summary":
-                inspection[
-                    "company_summary"
-                ],
+            "allow_integration":
+                True,
+
+            "allow_ui_development":
+                True,
+
+            "allow_testing":
+                True,
+
+            "allow_build":
+                True,
+
+            "allow_routine_deployment":
+                True,
+
+            "require_real_verification":
+                True,
+
+            "never_fake_operational":
+                True,
+
+            "rollback_only_on_real_regression":
+                True,
+
+            "protect_owner_authority":
+                True,
+
+            "protect_platform_secrets":
+                True,
+
+            "do_not_ask_owner_for_code":
+                True,
         },
     }
 
     command = (
-        "MAJD SOVEREIGN AUTONOMOUS OPERATION. "
-        "تشغيل مجد السيادي تلقائياً. "
-        "Inspect the repository and supplied capability work items. "
-        "Build and register real internal adapters where possible, "
-        "repair broken code, connect disconnected integrations, "
-        "complete UI/runtime/tests/build/deploy work, test every "
-        "change and verify real runtime evidence. Never return fake "
-        "success. Do not ask the owner for code or routine approvals. "
-        "If a capability truly requires an external credential, "
-        "account, legal, financial or identity action, mark only that "
-        "capability OWNER_ACTION_REQUIRED and continue the rest. "
-        "Return structured Arabic and English proof of changed files, "
-        "adapters activated, tests, blockers and final status."
+        "MAJD SOVEREIGN AUTONOMOUS OPERATION / "
+        "تشغيل مجد السيادي الذاتي. "
+        "Inspect diagnose repair test and improve the supplied real work items. "
+        "For NO_REAL_ADAPTER inspect Company 02 and existing MAJD code, "
+        "build and persist a real adapter only when a real implementation exists, "
+        "run its health check, never create a placeholder or fake AVAILABLE state. "
+        "Continue unrelated work when an external credential/account/legal/"
+        "identity/financial blocker exists. Return structured proof."
     )
 
     return (
@@ -2299,317 +3317,76 @@ def objective(
     )
 
 
-# ============================================================
-# OWNER REPORT / EMAIL / WHATSAPP
-# ============================================================
-
 def notify(
-    cycle: Dict[str, Any],
-) -> Dict[str, Any]:
+    cycle,
+):
+    queue = cycle.get(
+        "queue_summary",
+        {},
+    )
 
-    ar = (
+    progress = cycle.get(
+        "capability_progress",
+        {},
+    )
+
+    report_ar = (
         "تقرير مجد\n"
-        f"الحالة: "
-        f"{cycle.get('status')}\n"
-        f"الوضع: "
-        f"{cycle.get('mode_executed')}\n"
-        f"النجاح: "
-        f"{cycle.get('success')}\n"
-        f"قائمة العمل: "
-        f"{cycle.get('queue_summary', {}).get('total', 0)}\n"
-        f"متطلبات خارجية: "
-        f"{cycle.get('queue_summary', {}).get('owner_required', 0)}"
+        f"الحالة: {cycle.get('status')}\n"
+        f"الوضع: {cycle.get('mode_executed')}\n"
+        f"النجاح: {cycle.get('success')}\n"
+        f"قائمة العمل: {queue.get('total', 0)}\n"
+        f"يحتاج المالك: {queue.get('owner_required', 0)}\n"
+        f"تحولت لتشغيلية: "
+        f"{','.join(progress.get('became_operational', [])) or 'لا يوجد'}"
     )
 
-    en = (
+    report_en = (
         "MAJD Report\n"
-        f"Status: "
-        f"{cycle.get('status')}\n"
-        f"Mode: "
-        f"{cycle.get('mode_executed')}\n"
-        f"Success: "
-        f"{cycle.get('success')}\n"
-        f"Work queue: "
-        f"{cycle.get('queue_summary', {}).get('total', 0)}\n"
-        f"External blockers: "
-        f"{cycle.get('queue_summary', {}).get('owner_required', 0)}"
+        f"Status: {cycle.get('status')}\n"
+        f"Mode: {cycle.get('mode_executed')}\n"
+        f"Success: {cycle.get('success')}\n"
+        f"Work queue: {queue.get('total', 0)}\n"
+        f"Owner required: {queue.get('owner_required', 0)}\n"
+        f"Became operational: "
+        f"{','.join(progress.get('became_operational', [])) or 'none'}"
     )
 
-    output = {
+    return {
         "report_ar":
-            ar,
+            report_ar,
 
         "report_en":
-            en,
+            report_en,
 
         "email": {
-            "success":
-                False,
-
+            "success": False,
             "status":
                 "NOT_CONFIGURED",
         },
 
         "whatsapp": {
-            "success":
-                False,
-
+            "success": False,
             "status":
                 "NOT_CONFIGURED",
         },
     }
 
-    host = os.getenv(
-        "MAJD_SMTP_HOST",
-        "",
-    ).strip()
-
-    recipient = os.getenv(
-        "MAJD_OWNER_EMAIL",
-        "",
-    ).strip()
-
-    sender = os.getenv(
-        "MAJD_REPORT_FROM_EMAIL",
-        os.getenv(
-            "MAJD_SMTP_USERNAME",
-            "",
-        ),
-    ).strip()
-
-    if (
-        host
-        and
-        recipient
-        and
-        sender
-    ):
-
-        try:
-
-            message = (
-                EmailMessage()
-            )
-
-            message[
-                "Subject"
-            ] = (
-                "MAJD Autonomous Report "
-                "| تقرير مجد"
-            )
-
-            message[
-                "From"
-            ] = sender
-
-            message[
-                "To"
-            ] = recipient
-
-            message.set_content(
-                ar
-                +
-                "\n\n"
-                +
-                en
-            )
-
-            with smtplib.SMTP(
-                host,
-                int(
-                    os.getenv(
-                        "MAJD_SMTP_PORT",
-                        "587",
-                    )
-                ),
-                timeout=20,
-            ) as smtp:
-
-                if os.getenv(
-                    "MAJD_SMTP_STARTTLS",
-                    "true",
-                ).lower() in (
-                    "1",
-                    "true",
-                    "yes",
-                    "on",
-                ):
-
-                    smtp.starttls()
-
-                username = os.getenv(
-                    "MAJD_SMTP_USERNAME",
-                    "",
-                )
-
-                if username:
-
-                    smtp.login(
-                        username,
-                        os.getenv(
-                            "MAJD_SMTP_PASSWORD",
-                            "",
-                        ),
-                    )
-
-                smtp.send_message(
-                    message
-                )
-
-            output[
-                "email"
-            ] = {
-                "success":
-                    True,
-
-                "status":
-                    "SENT",
-            }
-
-        except Exception as error:
-
-            output[
-                "email"
-            ] = {
-                "success":
-                    False,
-
-                "status":
-                    "FAILED",
-
-                "error":
-                    str(
-                        error
-                    ),
-            }
-
-    token = os.getenv(
-        "MAJD_WHATSAPP_TOKEN",
-        "",
-    ).strip()
-
-    phone_id = os.getenv(
-        "MAJD_WHATSAPP_PHONE_NUMBER_ID",
-        "",
-    ).strip()
-
-    to_number = os.getenv(
-        "MAJD_OWNER_WHATSAPP",
-        "",
-    ).strip()
-
-    if (
-        token
-        and
-        phone_id
-        and
-        to_number
-    ):
-
-        try:
-
-            url = (
-                "https://graph.facebook.com/"
-                f"{os.getenv('MAJD_WHATSAPP_API_VERSION', 'v23.0')}/"
-                f"{phone_id}/messages"
-            )
-
-            payload = {
-                "messaging_product":
-                    "whatsapp",
-
-                "to":
-                    to_number,
-
-                "type":
-                    "text",
-
-                "text": {
-                    "preview_url":
-                        False,
-
-                    "body":
-                        ar
-                        +
-                        "\n\n"
-                        +
-                        en,
-                },
-            }
-
-            request = urllib.request.Request(
-                url,
-                data=json.dumps(
-                    payload
-                ).encode(),
-                method="POST",
-                headers={
-                    "Authorization":
-                        f"Bearer {token}",
-
-                    "Content-Type":
-                        "application/json",
-                },
-            )
-
-            with urllib.request.urlopen(
-                request,
-                timeout=20,
-            ) as response:
-
-                response.read()
-
-            output[
-                "whatsapp"
-            ] = {
-                "success":
-                    True,
-
-                "status":
-                    "SENT",
-            }
-
-        except Exception as error:
-
-            output[
-                "whatsapp"
-            ] = {
-                "success":
-                    False,
-
-                "status":
-                    "FAILED",
-
-                "error":
-                    str(
-                        error
-                    ),
-            }
-
-    return output
-
-
-# ============================================================
-# AUTONOMOUS RUNTIME
-# ============================================================
 
 class AutonomousRuntime:
 
     def __init__(
         self,
-        owner: str = OWNER,
-        cycle_seconds: int = CYCLE_SECONDS,
+        owner=OWNER,
+        cycle_seconds=CYCLE_SECONDS,
     ):
-
         self.owner = owner
 
         self.cycle_seconds = max(
             30,
-            cycle_seconds,
-        )
-
-        self.session_id = str(
-            uuid.uuid4()
+            int(
+                cycle_seconds
+            ),
         )
 
         old = load_json(
@@ -2622,8 +3399,7 @@ class AutonomousRuntime:
                 "total_cycles",
                 0,
             )
-            or
-            0
+            or 0
         )
 
         self.good = int(
@@ -2631,8 +3407,7 @@ class AutonomousRuntime:
                 "successful_cycles",
                 0,
             )
-            or
-            0
+            or 0
         )
 
         self.bad = int(
@@ -2640,121 +3415,14 @@ class AutonomousRuntime:
                 "failed_cycles",
                 0,
             )
-            or
-            0
+            or 0
         )
-
-    def inspect(
-        self,
-    ) -> Dict[str, Any]:
-
-        dependencies = (
-            repair_dependencies()
-        )
-
-        docker_before = (
-            docker_state()
-        )
-
-        docker_recovery = (
-            recover_docker()
-            if not docker_before[
-                "success"
-            ]
-            else
-            {
-                "success":
-                    True,
-
-                "status":
-                    "HEALTHY",
-            }
-        )
-
-        company = (
-            inspect_company()
-        )
-
-        gaps = (
-            extract_gaps(
-                company
-            )
-        )
-
-        queue = (
-            update_queue(
-                gaps
-            )
-        )
-
-        return {
-            "core_files":
-                verify_core(),
-
-            "python_syntax":
-                verify_syntax(),
-
-            "dependencies":
-                dependencies,
-
-            "local_api":
-                http_probe(
-                    LOCAL_HEALTH
-                ),
-
-            "official_platform":
-                http_probe(
-                    PLATFORM
-                ),
-
-            "docker_recovery":
-                docker_recovery,
-
-            "docker":
-                docker_state(),
-
-            "sovereign_company":
-                company,
-
-            "company_summary": {
-                "gaps":
-                    len(
-                        gaps
-                    ),
-
-                "required":
-                    sum(
-                        1
-                        for gap
-                        in gaps
-                        if gap[
-                            "required"
-                        ]
-                    ),
-
-                "owner_required":
-                    sum(
-                        1
-                        for gap
-                        in gaps
-                        if gap[
-                            "owner_required"
-                        ]
-                    ),
-            },
-
-            "work_queue":
-                queue,
-        }
 
     def save_state(
         self,
-        status: str,
-        cycle: Optional[
-            Dict[str, Any]
-        ] = None,
+        status,
+        cycle=None,
     ):
-
         save_json(
             STATE_FILE,
             {
@@ -2766,9 +3434,6 @@ class AutonomousRuntime:
 
                 "version":
                     VERSION,
-
-                "mode":
-                    "AUTONOMOUS_COMPANY_WIDE",
 
                 "owner":
                     self.owner,
@@ -2799,100 +3464,38 @@ class AutonomousRuntime:
             },
         )
 
-    def verify(
+    def execute_mastermind(
         self,
-    ) -> Dict[str, Any]:
-
-        inspection = (
-            self.inspect()
-        )
-
-        success = all(
-            inspection[
-                key
-            ].get(
-                "success"
-            )
-
-            for key
-            in (
-                "core_files",
-                "python_syntax",
-                "dependencies",
-                "local_api",
-                "official_platform",
-                "docker",
-                "sovereign_company",
-            )
-        )
-
-        return {
-            "success":
-                success,
-
-            "status":
-                (
-                    "VERIFIED"
-                    if success
-                    else
-                    "VERIFICATION_FAILED"
-                ),
-
-            "inspection":
-                inspection,
-        }
-
-    def execute_objective(
-        self,
-        cycle: str,
-        command: str,
-        request: Dict[str, Any],
-        kind: str,
-    ) -> Dict[str, Any]:
-
+        cycle_id,
+        command,
+        request,
+        kind,
+    ):
         attempts = []
 
-        for number in range(
+        for attempt in range(
             1,
             MAX_ATTEMPTS + 1,
         ):
-
-            try:
-
-                result = (
-                    Mastermind()
-                    .execute(
-                        command,
-                        request,
-                        (
-                            f"AUTO-"
-                            f"{cycle}-"
-                            f"{kind}-"
-                            f"{number}"
-                        ),
-                        self.owner,
-                    )
+            result = (
+                Mastermind()
+                .execute(
+                    command,
+                    request,
+                    (
+                        f"AUTO-"
+                        f"{cycle_id}-"
+                        f"{kind}-"
+                        f"{attempt}"
+                    ),
+                    self.owner,
                 )
-
-            except Exception as error:
-
-                result = {
-                    "success":
-                        False,
-
-                    "status":
-                        "MASTER_EXCEPTION",
-
-                    "error":
-                        str(
-                            error
-                        ),
-                }
+            )
 
             attempts.append(
                 {
                     "attempt":
-                        number,
+                        attempt,
 
                     "result":
                         result,
@@ -2902,40 +3505,30 @@ class AutonomousRuntime:
             if result.get(
                 "success"
             ):
-
                 return {
-                    "success":
-                        True,
-
+                    "success": True,
                     "status":
-                        "EXECUTED",
-
+                        "MASTERMIND_EXECUTED",
                     "attempts":
                         attempts,
-
                     "result":
                         result,
                 }
 
-            time.sleep(
-                2
-            )
+            if attempt < MAX_ATTEMPTS:
+                time.sleep(2)
 
         return {
-            "success":
-                False,
-
+            "success": False,
             "status":
-                "FAILED",
-
+                "MASTERMIND_ATTEMPTS_EXHAUSTED",
             "attempts":
                 attempts,
         }
 
     def cycle(
         self,
-    ) -> Dict[str, Any]:
-
+    ):
         cycle_id = str(
             uuid.uuid4()
         )
@@ -2968,163 +3561,310 @@ class AutonomousRuntime:
         )
 
         try:
-
-            inspection = (
-                self.inspect()
+            before = (
+                inspect_platform()
             )
 
-            queue = inspection[
+            findings = (
+                infrastructure_findings(
+                    before
+                )
+            )
+
+            queue = before[
                 "work_queue"
             ]
 
-            batch = (
+            selected = (
                 select_batch(
                     queue
                 )
             )
 
-            cycle[
-                "inspection"
-            ] = inspection
+            if findings:
+                mode = "REPAIR"
 
-            cycle[
-                "queue_summary"
-            ] = {
-                key:
-                    queue[
-                        key
-                    ]
-
-                for key
-                in (
-                    "total",
-                    "owner_required",
-                    "autonomous",
-                )
-            }
-
-            cycle[
-                "selected_work"
-            ] = batch
-
-            infrastructure_ok = all(
-                inspection[
-                    key
-                ].get(
-                    "success"
+            elif selected:
+                mode = (
+                    "CAPABILITY_COMPLETION"
                 )
 
-                for key
-                in (
-                    "core_files",
-                    "python_syntax",
-                    "dependencies",
-                    "local_api",
-                    "official_platform",
-                    "docker",
-                    "sovereign_company",
-                )
-            )
-
-            proactive = (
-                not batch
-                and
-                infrastructure_ok
-            )
-
-            cycle[
-                "mode_executed"
-            ] = (
-                "PROACTIVE"
-                if proactive
-                else
-                "REPAIR"
-            )
-
-            backup_result = (
-                backup(
-                    cycle_id
-                )
-            )
-
-            cycle[
-                "backup"
-            ] = backup_result
-
-            (
-                command,
-                request,
-            ) = objective(
-                cycle_id,
-                inspection,
-                batch,
-                proactive=
-                    proactive,
-            )
-
-            mastermind = (
-                self.execute_objective(
-                    cycle_id,
-                    command,
-                    request,
-                    cycle[
-                        "mode_executed"
-                    ],
-                )
-            )
-
-            cycle[
-                "mastermind"
-            ] = mastermind
-
-            verification = (
-                self.verify()
-            )
-
-            cycle[
-                "verification"
-            ] = verification
-
-            if (
-                mastermind.get(
-                    "success"
-                )
-                and
-                verification.get(
-                    "success"
-                )
-            ):
-
-                cycle[
-                    "success"
-                ] = True
-
-                cycle[
-                    "status"
-                ] = (
-                    "PROACTIVE_WORK_COMPLETED"
-                    if proactive
-                    else
-                    "REPAIRED_AND_VERIFIED"
-                )
-
-                self.good += 1
+            elif PROACTIVE:
+                mode = "PROACTIVE"
 
             else:
+                mode = "HEALTH_ONLY"
 
+            cycle.update(
+                {
+                    "inspection_before":
+                        before,
+
+                    "findings":
+                        findings,
+
+                    "selected_work":
+                        selected,
+
+                    "mode_executed":
+                        mode,
+
+                    "queue_summary": {
+                        key:
+                            queue.get(
+                                key,
+                                0,
+                            )
+                        for key
+                        in (
+                            "total",
+                            "autonomous",
+                            "owner_required",
+                            "required_total",
+                        )
+                    },
+                }
+            )
+
+            if mode == "HEALTH_ONLY":
                 cycle[
-                    "rollback"
-                ] = rollback(
-                    cycle_id
+                    "success"
+                ] = all(
+                    infrastructure_map(
+                        before
+                    ).values()
                 )
 
                 cycle[
                     "status"
                 ] = (
-                    "DEGRADED_AFTER_REPAIR"
+                    "PLATFORM_HEALTHY"
+                    if cycle[
+                        "success"
+                    ]
+                    else
+                    "PLATFORM_DEGRADED"
                 )
 
-                self.bad += 1
+            else:
+                cycle[
+                    "backup"
+                ] = backup(
+                    cycle_id
+                )
+
+                (
+                    command,
+                    request,
+                ) = build_objective(
+                    cycle_id,
+                    before,
+                    selected,
+                    findings,
+                    mode
+                    ==
+                    "PROACTIVE",
+                )
+
+                mastermind = (
+                    self.execute_mastermind(
+                        cycle_id,
+                        command,
+                        request,
+                        mode,
+                    )
+                )
+
+                cycle[
+                    "mastermind"
+                ] = mastermind
+
+                mark_attempts(
+                    selected,
+                    mastermind,
+                )
+
+                after = (
+                    inspect_platform()
+                )
+
+                regressions = (
+                    regression_check(
+                        before,
+                        after,
+                    )
+                )
+
+                progress = (
+                    capability_progress(
+                        before,
+                        after,
+                        selected,
+                    )
+                )
+
+                changes = (
+                    source_changes(
+                        cycle_id
+                    )
+                )
+
+                cycle.update(
+                    {
+                        "inspection_after":
+                            after,
+
+                        "regression_check":
+                            regressions,
+
+                        "capability_progress":
+                            progress,
+
+                        "source_changes":
+                            changes,
+                    }
+                )
+
+                infrastructure_progress = (
+                    len(
+                        infrastructure_findings(
+                            after
+                        )
+                    )
+                    <
+                    len(
+                        findings
+                    )
+                )
+
+                if mode == "REPAIR":
+                    real_progress = (
+                        infrastructure_progress
+                        or
+                        progress[
+                            "success"
+                        ]
+                    )
+
+                elif (
+                    mode
+                    ==
+                    "CAPABILITY_COMPLETION"
+                ):
+                    real_progress = (
+                        progress[
+                            "success"
+                        ]
+                    )
+
+                else:
+                    real_progress = bool(
+                        mastermind.get(
+                            "success"
+                        )
+                    )
+
+                if (
+                    regressions[
+                        "success"
+                    ]
+                    and
+                    real_progress
+                ):
+                    cycle[
+                        "success"
+                    ] = True
+
+                    cycle[
+                        "status"
+                    ] = (
+                        "REPAIRED_AND_VERIFIED"
+                        if mode
+                        ==
+                        "REPAIR"
+                        else
+                        "CAPABILITY_PROGRESS_VERIFIED"
+                        if mode
+                        ==
+                        "CAPABILITY_COMPLETION"
+                        else
+                        "PROACTIVE_WORK_VERIFIED"
+                    )
+
+                    cycle[
+                        "rollback"
+                    ] = {
+                        "success": True,
+                        "status":
+                            "NOT_REQUIRED",
+                    }
+
+                else:
+                    should_rollback = (
+                        changes[
+                            "has_changes"
+                        ]
+                        and
+                        not regressions[
+                            "success"
+                        ]
+                    )
+
+                    cycle[
+                        "rollback"
+                    ] = (
+                        rollback(
+                            cycle_id
+                        )
+                        if should_rollback
+                        else
+                        {
+                            "success": True,
+                            "status":
+                                "NOT_REQUIRED_NO_REAL_REGRESSION",
+                        }
+                    )
+
+                    if not regressions[
+                        "success"
+                    ]:
+                        cycle[
+                            "status"
+                        ] = (
+                            "REGRESSION_DETECTED"
+                        )
+
+                    elif (
+                        mastermind.get(
+                            "success"
+                        )
+                        and
+                        not real_progress
+                    ):
+                        cycle[
+                            "status"
+                        ] = (
+                            "NO_REAL_PROGRESS_VERIFIED"
+                        )
+
+                    else:
+                        cycle[
+                            "status"
+                        ] = (
+                            "DEGRADED_AFTER_REPAIR"
+                        )
+
+            self.good += int(
+                cycle[
+                    "success"
+                ]
+            )
+
+            self.bad += int(
+                not cycle[
+                    "success"
+                ]
+            )
 
             cycle[
                 "finished_at"
@@ -3153,71 +3893,29 @@ class AutonomousRuntime:
                 cycle,
             )
 
-            audit(
-                "CYCLE_FINISHED",
-                {
-                    "cycle_id":
-                        cycle_id,
-
-                    "status":
-                        cycle[
-                            "status"
-                        ],
-
-                    "success":
-                        cycle[
-                            "success"
-                        ],
-                },
-            )
-
             return cycle
 
         except Exception as error:
+            cycle.update(
+                {
+                    "success":
+                        False,
 
-            cycle[
-                "status"
-            ] = (
-                "CYCLE_EXCEPTION"
+                    "status":
+                        "AUTONOMOUS_CYCLE_EXCEPTION",
+
+                    "error":
+                        f"{type(error).__name__}: {error}",
+
+                    "traceback":
+                        traceback.format_exc(),
+
+                    "finished_at":
+                        now(),
+                }
             )
-
-            cycle[
-                "error"
-            ] = (
-                f"{type(error).__name__}: "
-                f"{error}"
-            )
-
-            cycle[
-                "traceback"
-            ] = (
-                traceback.format_exc()
-            )
-
-            cycle[
-                "finished_at"
-            ] = now()
 
             self.bad += 1
-
-            if cycle.get(
-                "backup",
-                {},
-            ).get(
-                "success"
-            ):
-
-                cycle[
-                    "rollback"
-                ] = rollback(
-                    cycle_id
-                )
-
-            cycle[
-                "notification"
-            ] = notify(
-                cycle
-            )
 
             save_json(
                 REPORT_FILE,
@@ -3233,8 +3931,7 @@ class AutonomousRuntime:
 
     def once(
         self,
-    ) -> Dict[str, Any]:
-
+    ):
         self.save_state(
             "RUNNING"
         )
@@ -3243,114 +3940,492 @@ class AutonomousRuntime:
 
     def forever(
         self,
-    ) -> int:
-
+    ):
         global STOP
+
+        PID_FILE.write_text(
+            str(
+                os.getpid()
+            ),
+            encoding="utf-8",
+        )
 
         self.save_state(
             "STARTING"
         )
 
-        while not STOP:
-
-            cycle = (
-                self.cycle()
-            )
-
-            print(
-                json.dumps(
-                    {
-                        "time":
-                            now(),
-
-                        "mode":
-                            "AUTONOMOUS_COMPANY_WIDE",
-
-                        "success":
-                            cycle.get(
-                                "success"
-                            ),
-
-                        "status":
-                            cycle.get(
-                                "status"
-                            ),
-
-                        "work_mode":
-                            cycle.get(
-                                "mode_executed"
-                            ),
-
-                        "queue":
-                            cycle.get(
-                                "queue_summary"
-                            ),
-
-                        "selected":
-                            [
-                                item.get(
-                                    "capability_id"
-                                )
-
-                                for item
-                                in cycle.get(
-                                    "selected_work",
-                                    [],
-                                )
-                            ],
-                    },
-                    ensure_ascii=False,
-                ),
-                flush=True,
-            )
-
-            deadline = (
-                time.monotonic()
-                +
-                self.cycle_seconds
-            )
-
-            while (
-                not STOP
-                and
-                time.monotonic()
-                <
-                deadline
-            ):
-
-                time.sleep(
-                    min(
-                        1,
-                        max(
-                            .05,
-                            (
-                                deadline
-                                -
-                                time.monotonic()
-                            ),
-                        ),
-                    )
+        try:
+            while not STOP:
+                cycle = (
+                    self.cycle()
                 )
 
-        self.save_state(
-            "STOPPED"
+                print(
+                    json.dumps(
+                        {
+                            "time":
+                                now(),
+
+                            "mode":
+                                "AUTONOMOUS_COMPANY_WIDE",
+
+                            "success":
+                                cycle.get(
+                                    "success"
+                                ),
+
+                            "status":
+                                cycle.get(
+                                    "status"
+                                ),
+
+                            "work_mode":
+                                cycle.get(
+                                    "mode_executed"
+                                ),
+
+                            "queue":
+                                cycle.get(
+                                    "queue_summary"
+                                ),
+
+                            "became_operational":
+                                cycle.get(
+                                    "capability_progress",
+                                    {},
+                                ).get(
+                                    "became_operational",
+                                    [],
+                                ),
+
+                            "regressions":
+                                cycle.get(
+                                    "regression_check",
+                                    {},
+                                ).get(
+                                    "regressions",
+                                    [],
+                                ),
+                        },
+                        ensure_ascii=False,
+                    ),
+                    flush=True,
+                )
+
+                deadline = (
+                    time.monotonic()
+                    +
+                    self.cycle_seconds
+                )
+
+                while (
+                    not STOP
+                    and
+                    time.monotonic()
+                    <
+                    deadline
+                ):
+                    time.sleep(
+                        min(
+                            1,
+                            max(
+                                .05,
+                                deadline
+                                -
+                                time.monotonic(),
+                            ),
+                        )
+                    )
+
+            self.save_state(
+                "STOPPED"
+            )
+
+            return 0
+
+        finally:
+            try:
+                PID_FILE.unlink(
+                    missing_ok=True
+                )
+            except Exception:
+                pass
+
+
+class FullRuntime:
+
+    def __init__(
+        self,
+    ):
+        self.runtime_id = str(
+            uuid.uuid4()
         )
 
-        return 0
+    def execute(
+        self,
+        command,
+        owner=OWNER,
+    ):
+        command = str(
+            command
+            or ""
+        ).strip()
 
+        state = {
+            "runtime_id":
+                self.runtime_id,
 
-# ============================================================
-# SYSTEMD SERVICE
-# ============================================================
+            "system":
+                SYSTEM,
 
-def install_service() -> Dict[str, Any]:
+            "runtime":
+                RUNTIME,
 
-    if os.geteuid() != 0:
+            "version":
+                VERSION,
 
-        return {
+            "owner":
+                owner,
+
+            "command":
+                command,
+
+            "started_at":
+                now(),
+
             "success":
                 False,
 
+            "status":
+                "STARTING",
+
+            "stages":
+                {},
+        }
+
+        state_path = (
+            RUNTIME_DIR
+            /
+            f"{self.runtime_id}.json"
+        )
+
+        save_json(
+            state_path,
+            state,
+        )
+
+        try:
+            if not command:
+                state[
+                    "status"
+                ] = (
+                    "EMPTY_OWNER_COMMAND"
+                )
+
+                return state
+
+            state[
+                "stages"
+            ][
+                "core_files"
+            ] = verify_core()
+
+            if not state[
+                "stages"
+            ][
+                "core_files"
+            ][
+                "success"
+            ]:
+                state[
+                    "status"
+                ] = (
+                    "REQUIRED_FILES_MISSING"
+                )
+
+                return state
+
+            owner_bridge = (
+                OwnerBridge()
+            )
+
+            request = (
+                owner_bridge.parse(
+                    command
+                )
+            )
+
+            command_type = str(
+                request.get(
+                    "type",
+                    "GENERAL_OWNER_COMMAND",
+                )
+            ).upper()
+
+            state[
+                "stages"
+            ][
+                "command"
+            ] = {
+                "type":
+                    command_type,
+
+                "request":
+                    request,
+            }
+
+            if command_type in {
+                "STATUS",
+                "SYSTEM_STATUS",
+            }:
+                result = (
+                    owner_bridge.execute(
+                        command,
+                        owner,
+                    )
+                )
+
+                state.update(
+                    {
+                        "result":
+                            result,
+
+                        "success":
+                            bool(
+                                result.get(
+                                    "success"
+                                )
+                            ),
+
+                        "status":
+                            str(
+                                result.get(
+                                    "status"
+                                )
+                                or
+                                (
+                                    "COMPLETED"
+                                    if result.get(
+                                        "success"
+                                    )
+                                    else
+                                    "FAILED"
+                                )
+                            ),
+                    }
+                )
+
+                return state
+
+            result = (
+                Mastermind()
+                .execute(
+                    command,
+                    request,
+                    self.runtime_id,
+                    owner,
+                )
+            )
+
+            verification = (
+                verify_mastermind_result(
+                    command_type,
+                    result,
+                )
+            )
+
+            state[
+                "stages"
+            ][
+                "mastermind"
+            ] = result
+
+            state[
+                "stages"
+            ][
+                "verification"
+            ] = verification
+
+            state.update(
+                {
+                    "result":
+                        result,
+
+                    "success":
+                        bool(
+                            verification.get(
+                                "success"
+                            )
+                        ),
+
+                    "status":
+                        str(
+                            verification.get(
+                                "status",
+                                "FAILED",
+                            )
+                        ),
+                }
+            )
+
+            if (
+                command_type
+                ==
+                "CREATE_GAME"
+                and
+                verification.get(
+                    "success"
+                )
+            ):
+                state.update(
+                    {
+                        "artifact":
+                            verification.get(
+                                "artifact",
+                                {},
+                            ).get(
+                                "artifact"
+                            ),
+
+                        "game_path":
+                            verification.get(
+                                "publication",
+                                {},
+                            ).get(
+                                "game_path"
+                            ),
+
+                        "public_url":
+                            verification.get(
+                                "publication",
+                                {},
+                            ).get(
+                                "public_url"
+                            ),
+
+                        "published":
+                            True,
+                    }
+                )
+
+            return state
+
+        except Exception as error:
+            state.update(
+                {
+                    "success":
+                        False,
+
+                    "status":
+                        "RUNTIME_EXCEPTION",
+
+                    "error":
+                        f"{type(error).__name__}: {error}",
+
+                    "traceback":
+                        traceback.format_exc(),
+                }
+            )
+
+            return state
+
+        finally:
+            state[
+                "finished_at"
+            ] = now()
+
+            save_json(
+                state_path,
+                state,
+            )
+
+
+def execute_full_factory(
+    command,
+    owner=OWNER,
+    **kwargs,
+):
+    return FullRuntime().execute(
+        command,
+        owner,
+    )
+
+
+def execute_owner_runtime(
+    command,
+    owner=OWNER,
+    **kwargs,
+):
+    return execute_full_factory(
+        command,
+        owner,
+    )
+
+
+def execute(
+    command,
+    owner=OWNER,
+    **kwargs,
+):
+    return execute_full_factory(
+        command,
+        owner,
+    )
+
+
+def run(
+    command,
+    owner=OWNER,
+    **kwargs,
+):
+    return execute_full_factory(
+        command,
+        owner,
+    )
+
+
+def autonomous_status():
+    state = load_json(
+        STATE_FILE,
+        {},
+    )
+
+    pid = state.get(
+        "pid"
+    )
+
+    alive = False
+
+    if (
+        isinstance(
+            pid,
+            int,
+        )
+        and
+        pid > 0
+    ):
+        try:
+            os.kill(
+                pid,
+                0,
+            )
+
+            alive = True
+
+        except Exception:
+            pass
+
+    state[
+        "process_alive"
+    ] = alive
+
+    return state
+
+
+def install_service():
+    if os.geteuid() != 0:
+        return {
+            "success": False,
             "status":
                 "ROOT_REQUIRED",
         }
@@ -3380,58 +4455,48 @@ Environment=PYTHONUNBUFFERED=1
 WantedBy=multi-user.target
 """
 
-    Path(
-        SERVICE
-    ).write_text(
+    SERVICE_FILE.write_text(
         service_text,
         encoding="utf-8",
     )
 
-    daemon_reload = (
-        run_process(
-            [
-                "systemctl",
-                "daemon-reload",
-            ],
-            30,
-        )
+    daemon_reload = run_process(
+        [
+            "systemctl",
+            "daemon-reload",
+        ],
+        30,
     )
 
-    enable = (
-        run_process(
-            [
-                "systemctl",
-                "enable",
-                "--now",
-                "majd-autonomous.service",
-            ],
-            60,
-        )
+    enable = run_process(
+        [
+            "systemctl",
+            "enable",
+            "--now",
+            SERVICE_NAME,
+        ],
+        60,
     )
 
-    status = (
-        run_process(
-            [
-                "systemctl",
-                "--no-pager",
-                "--full",
-                "status",
-                "majd-autonomous.service",
-            ],
-            30,
-        )
+    service_status = run_process(
+        [
+            "systemctl",
+            "--no-pager",
+            "--full",
+            "status",
+            SERVICE_NAME,
+        ],
+        30,
     )
 
     return {
         "success":
-            (
-                daemon_reload[
-                    "success"
-                ]
-                and
-                enable[
-                    "success"
-                ]
+            daemon_reload.get(
+                "success"
+            )
+            and
+            enable.get(
+                "success"
             ),
 
         "daemon_reload":
@@ -3440,26 +4505,21 @@ WantedBy=multi-user.target
         "enable":
             enable,
 
-        "status":
-            status,
+        "service_status":
+            service_status,
     }
 
 
-# ============================================================
-# SIGNALS
-# ============================================================
-
-def sig(
-    signum: int,
-    frame: Any,
+def shutdown_signal(
+    signum,
+    frame,
 ):
-
     global STOP
 
     STOP = True
 
     audit(
-        "SHUTDOWN",
+        "SHUTDOWN_SIGNAL",
         {
             "signal":
                 signum
@@ -3467,20 +4527,15 @@ def sig(
     )
 
 
-# ============================================================
-# CLI
-# ============================================================
-
-def main() -> int:
-
+def main():
     signal.signal(
         signal.SIGTERM,
-        sig,
+        shutdown_signal,
     )
 
     signal.signal(
         signal.SIGINT,
-        sig,
+        shutdown_signal,
     )
 
     parser = (
@@ -3532,7 +4587,6 @@ def main() -> int:
         "--cycle-seconds",
         type=
             int,
-
         default=
             CYCLE_SECONDS,
     )
@@ -3542,75 +4596,28 @@ def main() -> int:
     )
 
     if args.install_service:
-
         result = (
             install_service()
         )
 
-        print(
-            json.dumps(
-                result,
-                ensure_ascii=False,
-                indent=2,
-            )
-        )
-
-        return (
-            0
-            if result.get(
-                "success"
-            )
-            else
-            1
-        )
-
-    if args.service_status:
-
+    elif args.service_status:
         result = run_process(
             [
                 "systemctl",
                 "--no-pager",
                 "--full",
                 "status",
-                "majd-autonomous.service",
+                SERVICE_NAME,
             ],
             30,
         )
 
-        print(
-            json.dumps(
-                result,
-                ensure_ascii=False,
-                indent=2,
-            )
+    elif args.autonomous_status:
+        result = (
+            autonomous_status()
         )
 
-        return (
-            0
-            if result.get(
-                "success"
-            )
-            else
-            1
-        )
-
-    if args.autonomous_status:
-
-        print(
-            json.dumps(
-                load_json(
-                    STATE_FILE,
-                    {},
-                ),
-                ensure_ascii=False,
-                indent=2,
-            )
-        )
-
-        return 0
-
-    if args.once:
-
+    elif args.once:
         result = (
             AutonomousRuntime(
                 args.owner,
@@ -3618,30 +4625,11 @@ def main() -> int:
             ).once()
         )
 
-        print(
-            json.dumps(
-                result,
-                ensure_ascii=False,
-                indent=2,
-                default=str,
-            )
-        )
-
-        return (
-            0
-            if result.get(
-                "success"
-            )
-            else
-            1
-        )
-
-    if (
+    elif (
         args.autonomous
         or
         not args.command
     ):
-
         return (
             AutonomousRuntime(
                 args.owner,
@@ -3649,67 +4637,21 @@ def main() -> int:
             ).forever()
         )
 
-    command = " ".join(
-        args.command
-    ).strip()
-
-    dependencies = (
-        repair_dependencies()
-    )
-
-    try:
-
+    else:
         result = (
-            Mastermind()
-            .execute(
-                command,
-                {
-                    "type":
-                        "GENERAL_OWNER_COMMAND",
-
-                    "raw":
-                        command,
-                },
-                str(
-                    uuid.uuid4()
-                ),
+            execute_full_factory(
+                " ".join(
+                    args.command
+                ).strip(),
                 args.owner,
             )
         )
 
-    except Exception as error:
-
-        result = {
-            "success":
-                False,
-
-            "status":
-                "OWNER_RUNTIME_EXCEPTION",
-
-            "error":
-                str(
-                    error
-                ),
-        }
-
-    output = {
-        "success":
-            bool(
-                result.get(
-                    "success"
-                )
-            ),
-
-        "dependencies":
-            dependencies,
-
-        "result":
-            result,
-    }
-
     print(
         json.dumps(
-            output,
+            jsonable(
+                result
+            ),
             ensure_ascii=False,
             indent=2,
             default=str,
@@ -3718,20 +4660,15 @@ def main() -> int:
 
     return (
         0
-        if output[
+        if result.get(
             "success"
-        ]
+        )
         else
         1
     )
 
 
-# ============================================================
-# ENTRY POINT
-# ============================================================
-
 if __name__ == "__main__":
-
     raise SystemExit(
         main()
     )
