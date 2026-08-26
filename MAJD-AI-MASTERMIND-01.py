@@ -5,51 +5,40 @@
 MAJD GAME FACTORY
 MAJD-AI-MASTERMIND-01.py
 ============================================================
-
 MAJD SOVEREIGN AUTONOMOUS MASTERMIND
-COMPLETE REPLACEMENT BUILD
+COMPLETE REPLACEMENT BUILD — VERSION 4.1.0
 
-المسؤول المركزي عن:
-- استقبال أوامر المالك.
-- اكتشاف ملفات MAJD 01–10 الموجودة فعلياً.
-- اكتشاف واجهات وقدرات المكونات بدون افتراض أسماء غير موجودة.
-- إنشاء Capability Registry.
-- تخطيط الأهداف.
-- اختيار المنفذ الحقيقي المناسب.
-- تنفيذ الأوامر.
-- فحص Python.
-- فحص Imports.
-- فحص Interfaces.
-- اكتشاف الأخطاء.
-- النسخ الاحتياطي.
-- الإصلاح الذاتي.
-- إعادة الاختبار.
-- Rollback عند Regression.
-- تشغيل مصنع الألعاب الحقيقي.
-- التحقق من Artifact.
-- النشر عبر الجسر الرسمي.
-- التحقق من النشر.
-- إدارة المحتوى والإعلام عند توفر المكونات.
-- إدارة Social / Live عند توفر المكونات.
-- Security Monitoring.
-- Content Safety.
-- Electronic Legal Assistant orchestration.
-- Owner Dashboard state.
-- Continuous Monitoring.
-- Audit Logging.
-- منع النجاح الوهمي.
+Central sovereign brain for MAJD-GAME-FACTORY.
 
-قاعدة أساسية:
-أي Capability غير موجودة فعلياً لا تعتبر جاهزة.
-أي Adapter خارجي غير متصل يظهر NOT_CONNECTED أو UNAVAILABLE.
-أي عملية لم يتم التحقق منها لا تعتبر SUCCESS.
+Core rules:
+- Discover MAJD components 01–10 from the real repository.
+- Do not mark a capability operational because a word appears in a file.
+- A capability becomes operational only when a real callable contract exists.
+- Receive owner objectives in Arabic or English.
+- Plan, route, execute, verify, diagnose, repair, retest and monitor.
+- Use real 06 runtime repair/verification capabilities when available.
+- Auto-discover a local AI engine, discover a real model, run a real prompt test,
+  save the verified connection, and reconnect automatically when it fails.
+- Never use --break-system-packages.
+- Backup before code changes and rollback on syntax regression.
+- Never manufacture success.
+- Maintain owner dashboard state, security events and continuous monitoring.
+- Enforce content-safety policy for explicit sexual content and sensitive /
+  prohibited government-site or government-vehicle content.
+- Provide an electronic legal-assistance layer without pretending to be a
+  licensed human lawyer.
+
+No external capability is reported CONNECTED/OPERATIONAL until a real check
+proves it.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import asyncio
 import hashlib
+import html
 import importlib.util
 import inspect
 import json
@@ -61,13 +50,16 @@ import sys
 import threading
 import time
 import traceback
+import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 
 # ============================================================
@@ -76,24 +68,71 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 SYSTEM_NAME = "MAJD-GAME-FACTORY"
 MASTERMIND_NAME = "MAJD-SOVEREIGN-MASTERMIND"
-VERSION = "4.0.0"
-
+VERSION = "4.1.0"
 DEFAULT_OWNER = "MAJD"
 
-MAX_REPAIR_ATTEMPTS = int(
-    os.getenv("MAJD_MAX_REPAIR_ATTEMPTS", "5")
+MAX_REPAIR_ATTEMPTS = max(
+    1,
+    int(
+        os.getenv(
+            "MAJD_MAX_REPAIR_ATTEMPTS",
+            "5",
+        )
+    ),
 )
 
-COMMAND_TIMEOUT = int(
-    os.getenv("MAJD_COMMAND_TIMEOUT", "900")
+COMMAND_TIMEOUT = max(
+    30,
+    int(
+        os.getenv(
+            "MAJD_COMMAND_TIMEOUT",
+            "900",
+        )
+    ),
 )
 
-AI_TIMEOUT = int(
-    os.getenv("MAJD_AI_TIMEOUT", "180")
+AI_TIMEOUT = max(
+    5,
+    int(
+        os.getenv(
+            "MAJD_AI_TIMEOUT",
+            "180",
+        )
+    ),
 )
 
-MONITOR_INTERVAL = int(
-    os.getenv("MAJD_MONITOR_INTERVAL", "300")
+AI_PROBE_TIMEOUT = max(
+    1,
+    int(
+        os.getenv(
+            "MAJD_AI_PROBE_TIMEOUT",
+            "3",
+        )
+    ),
+)
+
+MONITOR_INTERVAL = max(
+    30,
+    int(
+        os.getenv(
+            "MAJD_MONITOR_INTERVAL",
+            "300",
+        )
+    ),
+)
+
+REQUIRE_AI = (
+    os.getenv(
+        "MAJD_REQUIRE_AI",
+        "1",
+    )
+    .strip()
+    .lower()
+    not in {
+        "0",
+        "false",
+        "no",
+    }
 )
 
 
@@ -102,18 +141,69 @@ MONITOR_INTERVAL = int(
 # ============================================================
 
 ROOT_DIR = Path(__file__).resolve().parent
+THIS_FILE = Path(__file__).resolve()
 
 STATE_DIR = ROOT_DIR / "majd_factory_state"
-MASTERMIND_STATE_DIR = STATE_DIR / "mastermind"
-LOG_DIR = STATE_DIR / "logs"
-BACKUP_DIR = STATE_DIR / "backups"
-DASHBOARD_DIR = STATE_DIR / "dashboard"
-SECURITY_DIR = STATE_DIR / "security"
-LEGAL_DIR = STATE_DIR / "legal"
-MONITOR_DIR = STATE_DIR / "monitor"
-REGISTRY_DIR = STATE_DIR / "registry"
 
-OUTPUT_DIR = ROOT_DIR / "majd_game_output"
+MASTERMIND_STATE_DIR = (
+    STATE_DIR
+    /
+    "mastermind"
+)
+
+LOG_DIR = (
+    STATE_DIR
+    /
+    "logs"
+)
+
+BACKUP_DIR = (
+    STATE_DIR
+    /
+    "backups"
+)
+
+DASHBOARD_DIR = (
+    STATE_DIR
+    /
+    "dashboard"
+)
+
+SECURITY_DIR = (
+    STATE_DIR
+    /
+    "security"
+)
+
+LEGAL_DIR = (
+    STATE_DIR
+    /
+    "legal"
+)
+
+MONITOR_DIR = (
+    STATE_DIR
+    /
+    "monitor"
+)
+
+REGISTRY_DIR = (
+    STATE_DIR
+    /
+    "registry"
+)
+
+AI_STATE_DIR = (
+    STATE_DIR
+    /
+    "ai"
+)
+
+OUTPUT_DIR = (
+    ROOT_DIR
+    /
+    "majd_game_output"
+)
 
 for directory in (
     STATE_DIR,
@@ -125,75 +215,91 @@ for directory in (
     LEGAL_DIR,
     MONITOR_DIR,
     REGISTRY_DIR,
+    AI_STATE_DIR,
     OUTPUT_DIR,
 ):
-    directory.mkdir(parents=True, exist_ok=True)
+    directory.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
-
-# ============================================================
-# KNOWN OFFICIAL COMPONENT NUMBERS
-# ============================================================
+AI_CONNECTION_FILE = (
+    AI_STATE_DIR
+    /
+    "connection.json"
+)
 
 OFFICIAL_NUMBERS = tuple(
     f"{number:02d}"
-    for number in range(1, 11)
+    for number
+    in range(
+        1,
+        11,
+    )
 )
 
-THIS_FILE = Path(__file__).resolve()
+KNOWN_CORE_FILES: Dict[
+    str,
+    str,
+] = {
+    "01":
+        "MAJD-AI-MASTERMIND-01.py",
 
-KNOWN_CORE_FILES = {
-    "01": "MAJD-AI-MASTERMIND-01.py",
-    "02": "MAJD-OWNER-COMMAND-CENTER-02.py",
-    "03": "MAJD-REAL-GAME-EXECUTOR-03.py",
-    "04": "MAJD-OFFICIAL-PLATFORM-BRIDGE-04.py",
-    "05": "MAJD-AI-ORCHESTRATOR-05.py",
-    "06": "MAJD-FULL-EXECUTION-RUNTIME-06.py",
+    "02":
+        "MAJD-OWNER-COMMAND-CENTER-02.py",
+
+    "03":
+        "MAJD-REAL-GAME-EXECUTOR-03.py",
+
+    "04":
+        "MAJD-OFFICIAL-PLATFORM-BRIDGE-04.py",
+
+    "05":
+        "MAJD-AI-ORCHESTRATOR-05.py",
+
+    "06":
+        "MAJD-FULL-EXECUTION-RUNTIME-06.py",
 }
 
-AGENT_FILE = ROOT_DIR / "majd_ai_agent.py"
+AGENT_FILE = (
+    ROOT_DIR
+    /
+    "majd_ai_agent.py"
+)
 
 
 # ============================================================
-# LOCAL AI
-# ============================================================
-
-LOCAL_AI_URL = os.getenv(
-    "MAJD_LOCAL_AI_URL",
-    "",
-).strip()
-
-LOCAL_AI_MODEL = os.getenv(
-    "MAJD_LOCAL_AI_MODEL",
-    "majd-sovereign",
-).strip()
-
-
-# ============================================================
-# TIME
+# GENERIC HELPERS
 # ============================================================
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
+    return datetime.now(
+        timezone.utc
+    ).isoformat()
 
-# ============================================================
-# JSON
-# ============================================================
 
 def write_json(
     path: Path,
     value: Any,
 ) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
     temporary = path.with_suffix(
-        path.suffix + ".tmp"
+        path.suffix
+        +
+        ".tmp"
     )
 
     with temporary.open(
         "w",
         encoding="utf-8",
     ) as file:
+
         json.dump(
             value,
             file,
@@ -201,70 +307,115 @@ def write_json(
             indent=2,
             default=str,
         )
-        file.flush()
-        os.fsync(file.fileno())
 
-    temporary.replace(path)
+        file.flush()
+
+        try:
+
+            os.fsync(
+                file.fileno()
+            )
+
+        except OSError:
+
+            pass
+
+    temporary.replace(
+        path
+    )
 
 
 def read_json(
     path: Path,
     default: Any = None,
 ) -> Any:
+
     try:
+
         with path.open(
             "r",
             encoding="utf-8",
         ) as file:
-            return json.load(file)
+
+            return json.load(
+                file
+            )
+
     except Exception:
+
         return default
 
 
-# ============================================================
-# HASH
-# ============================================================
+def sha256_file(
+    path: Path,
+) -> str:
 
-def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
 
-    with path.open("rb") as file:
+    with path.open(
+        "rb"
+    ) as file:
+
         while True:
-            chunk = file.read(1024 * 1024)
+
+            chunk = file.read(
+                1024
+                *
+                1024
+            )
 
             if not chunk:
+
                 break
 
-            digest.update(chunk)
+            digest.update(
+                chunk
+            )
 
     return digest.hexdigest()
 
 
-# ============================================================
-# PATH SAFETY
-# ============================================================
+def is_inside_root(
+    path: Path,
+) -> bool:
 
-def is_inside_root(path: Path) -> bool:
     try:
+
         path.resolve().relative_to(
             ROOT_DIR.resolve()
         )
+
         return True
+
     except Exception:
+
         return False
 
 
 def safe_project_path(
     value: str | Path,
 ) -> Path:
-    candidate = Path(value)
+
+    candidate = Path(
+        value
+    )
 
     if not candidate.is_absolute():
-        candidate = ROOT_DIR / candidate
 
-    candidate = candidate.resolve()
+        candidate = (
+            ROOT_DIR
+            /
+            candidate
+        )
 
-    if not is_inside_root(candidate):
+    candidate = (
+        candidate.resolve()
+    )
+
+    if not is_inside_root(
+        candidate
+    ):
+
         raise PermissionError(
             "Refusing path outside MAJD-GAME-FACTORY"
         )
@@ -272,27 +423,56 @@ def safe_project_path(
     return candidate
 
 
-# ============================================================
-# MODULE LOADER
-# ============================================================
+def truncate(
+    value: Any,
+    limit: int = 6000,
+) -> str:
+
+    text = str(
+        value
+        or
+        ""
+    )
+
+    if len(
+        text
+    ) <= limit:
+
+        return text
+
+    return text[
+        -limit:
+    ]
+
 
 def load_module(
     path: Path,
     name: Optional[str] = None,
 ) -> Any:
-    path = safe_project_path(path)
+
+    path = safe_project_path(
+        path
+    )
 
     if not path.exists():
-        raise FileNotFoundError(path.name)
+
+        raise FileNotFoundError(
+            path.name
+        )
 
     module_name = (
         name
         or
-        f"_majd_dynamic_{uuid.uuid4().hex}"
+        (
+            "_majd_dynamic_"
+            +
+            uuid.uuid4().hex
+        )
     )
 
     specification = (
-        importlib.util.spec_from_file_location(
+        importlib.util
+        .spec_from_file_location(
             module_name,
             str(path),
         )
@@ -300,88 +480,213 @@ def load_module(
 
     if (
         specification is None
-        or specification.loader is None
+        or
+        specification.loader is None
     ):
+
         raise ImportError(
             f"Unable to load {path.name}"
         )
 
     module = (
-        importlib.util.module_from_spec(
+        importlib.util
+        .module_from_spec(
             specification
         )
     )
 
-    sys.modules[module_name] = module
+    sys.modules[
+        module_name
+    ] = module
 
-    specification.loader.exec_module(module)
+    specification.loader.exec_module(
+        module
+    )
 
     return module
 
 
-# ============================================================
-# SUPPORTED CALL
-# ============================================================
+def _resolve_awaitable(
+    value: Any,
+) -> Any:
+
+    if not inspect.isawaitable(
+        value
+    ):
+
+        return value
+
+    try:
+
+        asyncio.get_running_loop()
+
+    except RuntimeError:
+
+        return asyncio.run(
+            value
+        )
+
+    result_box: Dict[
+        str,
+        Any
+    ] = {}
+
+    error_box: Dict[
+        str,
+        BaseException
+    ] = {}
+
+    def runner() -> None:
+
+        try:
+
+            result_box[
+                "value"
+            ] = asyncio.run(
+                value
+            )
+
+        except BaseException as error:
+
+            error_box[
+                "error"
+            ] = error
+
+    thread = threading.Thread(
+        target=runner,
+        daemon=True,
+    )
+
+    thread.start()
+    thread.join()
+
+    if "error" in error_box:
+
+        raise error_box[
+            "error"
+        ]
+
+    return result_box.get(
+        "value"
+    )
+
 
 def call_supported(
     function: Callable[..., Any],
     values: Dict[str, Any],
 ) -> Any:
+
     try:
-        signature = inspect.signature(function)
-    except (TypeError, ValueError):
-        return function(**values)
+
+        signature = inspect.signature(
+            function
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+
+        return _resolve_awaitable(
+            function(
+                **values
+            )
+        )
 
     accepts_kwargs = any(
         parameter.kind
-        == inspect.Parameter.VAR_KEYWORD
+        ==
+        inspect.Parameter.VAR_KEYWORD
         for parameter
         in signature.parameters.values()
     )
 
     kwargs = {
-        key: value
-        for key, value in values.items()
+        key:
+            value
+
+        for key, value
+        in values.items()
+
         if (
             accepts_kwargs
-            or key in signature.parameters
+            or
+            key in signature.parameters
         )
     }
 
-    return function(**kwargs)
+    return _resolve_awaitable(
+        function(
+            **kwargs
+        )
+    )
 
-
-# ============================================================
-# RESULT NORMALIZATION
-# ============================================================
 
 def normalize_result(
     value: Any,
+    component: Optional[str] = None,
 ) -> Dict[str, Any]:
-    if isinstance(value, dict):
-        result = dict(value)
-
-        # Never manufacture success.
-        if "success" not in result:
-            result["success"] = False
-            result.setdefault(
-                "status",
-                "UNVERIFIED_COMPONENT_RESULT",
-            )
-
-        return result
 
     if value is None:
-        return {
-            "success": False,
-            "status": "COMPONENT_RETURNED_NONE",
+
+        result = {
+            "success":
+                False,
+
+            "status":
+                "COMPONENT_RETURNED_NONE",
         }
 
-    return {
-        "success": False,
-        "status": "UNVERIFIED_COMPONENT_RESULT",
-        "result": str(value),
-    }
+    elif isinstance(
+        value,
+        dict,
+    ):
+
+        result = dict(
+            value
+        )
+
+        if result.get(
+            "success"
+        ) is not True:
+
+            result[
+                "success"
+            ] = False
+
+            result.setdefault(
+                "status",
+                "COMPONENT_DID_NOT_CONFIRM_SUCCESS",
+            )
+
+    else:
+
+        result = {
+            "success":
+                False,
+
+            "status":
+                "UNVERIFIED_COMPONENT_RESULT",
+
+            "result_type":
+                type(
+                    value
+                ).__name__,
+
+            "result":
+                truncate(
+                    value
+                ),
+        }
+
+    if component:
+
+        result.setdefault(
+            "component",
+            component,
+        )
+
+    return result
 
 
 # ============================================================
@@ -390,11 +695,17 @@ def normalize_result(
 
 @dataclass
 class CommandResult:
+
     command: List[str]
+
     returncode: int
+
     stdout: str
+
     stderr: str
+
     success: bool
+
     duration_seconds: float
 
 
@@ -408,6 +719,7 @@ class ProcessExecutor:
         "mkfs",
         "fdisk",
         "parted",
+        "dd",
     }
 
     def run(
@@ -415,45 +727,67 @@ class ProcessExecutor:
         command: List[str],
         cwd: Optional[Path] = None,
         timeout: int = COMMAND_TIMEOUT,
+        allow_outside_root: bool = False,
     ) -> CommandResult:
 
         if not command:
+
             return CommandResult(
-                command=[],
-                returncode=1,
-                stdout="",
-                stderr="Empty command",
-                success=False,
-                duration_seconds=0.0,
+                [],
+                1,
+                "",
+                "Empty command",
+                False,
+                0.0,
             )
 
         executable = Path(
-            str(command[0])
+            str(
+                command[0]
+            )
         ).name.lower()
 
         if executable in self.BLOCKED_COMMANDS:
+
             return CommandResult(
-                command=command,
-                returncode=126,
-                stdout="",
-                stderr=(
+                command,
+                126,
+                "",
+                (
                     "Blocked destructive command: "
                     f"{executable}"
                 ),
-                success=False,
-                duration_seconds=0.0,
+                False,
+                0.0,
             )
 
-        working_directory = safe_project_path(
-            cwd or ROOT_DIR
-        )
+        if allow_outside_root:
+
+            working_directory = Path(
+                cwd
+                or
+                ROOT_DIR
+            ).resolve()
+
+        else:
+
+            working_directory = (
+                safe_project_path(
+                    cwd
+                    or
+                    ROOT_DIR
+                )
+            )
 
         started = time.time()
 
         try:
+
             completed = subprocess.run(
                 command,
-                cwd=str(working_directory),
+                cwd=str(
+                    working_directory
+                ),
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -463,33 +797,49 @@ class ProcessExecutor:
             return CommandResult(
                 command=command,
                 returncode=completed.returncode,
-                stdout=completed.stdout or "",
-                stderr=completed.stderr or "",
+                stdout=completed.stdout
+                or
+                "",
+                stderr=completed.stderr
+                or
+                "",
                 success=(
-                    completed.returncode == 0
+                    completed.returncode
+                    ==
+                    0
                 ),
                 duration_seconds=(
-                    time.time() - started
+                    time.time()
+                    -
+                    started
                 ),
             )
 
         except subprocess.TimeoutExpired as error:
+
             return CommandResult(
                 command=command,
                 returncode=124,
                 stdout=(
                     error.stdout
-                    if isinstance(error.stdout, str)
-                    else ""
+                    if isinstance(
+                        error.stdout,
+                        str,
+                    )
+                    else
+                    ""
                 ),
                 stderr="Command timed out.",
                 success=False,
                 duration_seconds=(
-                    time.time() - started
+                    time.time()
+                    -
+                    started
                 ),
             )
 
         except Exception as error:
+
             return CommandResult(
                 command=command,
                 returncode=1,
@@ -500,7 +850,9 @@ class ProcessExecutor:
                 ),
                 success=False,
                 duration_seconds=(
-                    time.time() - started
+                    time.time()
+                    -
+                    started
                 ),
             )
 
@@ -515,34 +867,54 @@ class AuditLogger:
         self,
         operation_id: str,
     ):
-        self.operation_id = operation_id
+
+        self.operation_id = (
+            operation_id
+        )
+
         self.path = (
-            LOG_DIR / f"{operation_id}.jsonl"
+            LOG_DIR
+            /
+            f"{operation_id}.jsonl"
         )
 
     def log(
         self,
         event: str,
-        data: Optional[Dict[str, Any]] = None,
+        data: Optional[
+            Dict[str, Any]
+        ] = None,
     ) -> None:
+
         record = {
-            "time": utc_now(),
-            "operation_id": self.operation_id,
-            "event": event,
-            "data": data or {},
+            "time":
+                utc_now(),
+
+            "operation_id":
+                self.operation_id,
+
+            "event":
+                event,
+
+            "data":
+                data
+                or
+                {},
         }
 
         with self.path.open(
             "a",
             encoding="utf-8",
         ) as file:
+
             file.write(
                 json.dumps(
                     record,
                     ensure_ascii=False,
                     default=str,
                 )
-                + "\n"
+                +
+                "\n"
             )
 
 
@@ -556,10 +928,15 @@ class BackupManager:
         self,
         operation_id: str,
     ):
-        self.operation_id = operation_id
+
+        self.operation_id = (
+            operation_id
+        )
 
         self.root = (
-            BACKUP_DIR / operation_id
+            BACKUP_DIR
+            /
+            operation_id
         )
 
         self.root.mkdir(
@@ -567,19 +944,55 @@ class BackupManager:
             exist_ok=True,
         )
 
-        self.manifest: Dict[str, str] = {}
+        self.manifest_file = (
+            self.root
+            /
+            "manifest.json"
+        )
+
+        self.manifest: Dict[
+            str,
+            str
+        ] = (
+            read_json(
+                self.manifest_file,
+                {},
+            )
+            or
+            {}
+        )
+
+    def _save_manifest(
+        self,
+    ) -> None:
+
+        write_json(
+            self.manifest_file,
+            self.manifest,
+        )
 
     def backup(
         self,
         path: Path,
     ) -> Optional[str]:
-        path = safe_project_path(path)
+
+        path = safe_project_path(
+            path
+        )
 
         if not path.exists():
+
             return None
 
-        relative = path.relative_to(ROOT_DIR)
-        target = self.root / relative
+        relative = path.relative_to(
+            ROOT_DIR
+        )
+
+        target = (
+            self.root
+            /
+            relative
+        )
 
         target.parent.mkdir(
             parents=True,
@@ -587,68 +1000,127 @@ class BackupManager:
         )
 
         if path.is_dir():
-            if target.exists():
-                shutil.rmtree(target)
 
-            shutil.copytree(path, target)
+            if target.exists():
+
+                shutil.rmtree(
+                    target
+                )
+
+            shutil.copytree(
+                path,
+                target,
+            )
 
         else:
-            shutil.copy2(path, target)
 
-        self.manifest[str(relative)] = str(target)
+            shutil.copy2(
+                path,
+                target,
+            )
 
-        return str(target)
+        self.manifest[
+            str(relative)
+        ] = str(
+            target
+        )
+
+        self._save_manifest()
+
+        return str(
+            target
+        )
 
     def restore(
         self,
         path: Path,
     ) -> Dict[str, Any]:
-        path = safe_project_path(path)
 
-        relative = str(
-            path.relative_to(ROOT_DIR)
+        path = safe_project_path(
+            path
         )
 
-        backup_value = self.manifest.get(relative)
+        relative = str(
+            path.relative_to(
+                ROOT_DIR
+            )
+        )
+
+        backup_value = (
+            self.manifest.get(
+                relative
+            )
+        )
 
         if not backup_value:
+
             return {
-                "success": False,
-                "status": "BACKUP_NOT_FOUND",
-                "path": relative,
+                "success":
+                    False,
+
+                "status":
+                    "BACKUP_NOT_FOUND",
+
+                "path":
+                    relative,
             }
 
-        backup = Path(backup_value)
+        backup = Path(
+            backup_value
+        )
 
         if not backup.exists():
+
             return {
-                "success": False,
-                "status": "BACKUP_NOT_FOUND",
-                "path": relative,
+                "success":
+                    False,
+
+                "status":
+                    "BACKUP_NOT_FOUND",
+
+                "path":
+                    relative,
             }
 
         if backup.is_dir():
-            if path.exists():
-                shutil.rmtree(path)
 
-            shutil.copytree(backup, path)
+            if path.exists():
+
+                shutil.rmtree(
+                    path
+                )
+
+            shutil.copytree(
+                backup,
+                path,
+            )
 
         else:
+
             path.parent.mkdir(
                 parents=True,
                 exist_ok=True,
             )
-            shutil.copy2(backup, path)
+
+            shutil.copy2(
+                backup,
+                path,
+            )
 
         return {
-            "success": True,
-            "status": "ROLLBACK_COMPLETED",
-            "path": relative,
+            "success":
+                True,
+
+            "status":
+                "ROLLBACK_COMPLETED",
+
+            "path":
+                relative,
         }
 
 
 # ============================================================
-# STATIC PYTHON DISCOVERY
+# STATIC DISCOVERY
 # ============================================================
 
 class StaticPythonDiscovery:
@@ -658,14 +1130,28 @@ class StaticPythonDiscovery:
         path: Path,
     ) -> Dict[str, Any]:
 
-        result: Dict[str, Any] = {
-            "functions": [],
-            "async_functions": [],
-            "classes": [],
-            "imports": [],
+        result: Dict[
+            str,
+            Any
+        ] = {
+            "functions":
+                [],
+
+            "async_functions":
+                [],
+
+            "classes":
+                [],
+
+            "imports":
+                [],
+
+            "constants":
+                {},
         }
 
         try:
+
             source = path.read_text(
                 encoding="utf-8"
             )
@@ -676,11 +1162,15 @@ class StaticPythonDiscovery:
             )
 
             for node in tree.body:
+
                 if isinstance(
                     node,
                     ast.FunctionDef,
                 ):
-                    result["functions"].append(
+
+                    result[
+                        "functions"
+                    ].append(
                         node.name
                     )
 
@@ -688,15 +1178,21 @@ class StaticPythonDiscovery:
                     node,
                     ast.AsyncFunctionDef,
                 ):
+
                     result[
                         "async_functions"
-                    ].append(node.name)
+                    ].append(
+                        node.name
+                    )
 
                 elif isinstance(
                     node,
                     ast.ClassDef,
                 ):
-                    result["classes"].append(
+
+                    result[
+                        "classes"
+                    ].append(
                         node.name
                     )
 
@@ -704,26 +1200,82 @@ class StaticPythonDiscovery:
                     node,
                     ast.Import,
                 ):
-                    for item in node.names:
-                        result["imports"].append(
-                            item.name
-                        )
+
+                    result[
+                        "imports"
+                    ].extend(
+                        item.name
+                        for item
+                        in node.names
+                    )
+
+                elif (
+                    isinstance(
+                        node,
+                        ast.ImportFrom,
+                    )
+                    and
+                    node.module
+                ):
+
+                    result[
+                        "imports"
+                    ].append(
+                        node.module
+                    )
 
                 elif isinstance(
                     node,
-                    ast.ImportFrom,
+                    ast.Assign,
                 ):
-                    if node.module:
-                        result["imports"].append(
-                            node.module
-                        )
 
-            result["success"] = True
+                    for target in (
+                        node.targets
+                    ):
+
+                        if (
+                            isinstance(
+                                target,
+                                ast.Name,
+                            )
+                            and
+                            target.id
+                            in {
+                                "CAPABILITIES",
+                                "MAJD_CAPABILITIES",
+                                "COMPONENT_CAPABILITIES",
+                            }
+                        ):
+
+                            try:
+
+                                result[
+                                    "constants"
+                                ][
+                                    target.id
+                                ] = ast.literal_eval(
+                                    node.value
+                                )
+
+                            except Exception:
+
+                                pass
+
+            result[
+                "success"
+            ] = True
 
         except Exception as error:
-            result["success"] = False
-            result["error"] = (
-                f"{type(error).__name__}: {error}"
+
+            result[
+                "success"
+            ] = False
+
+            result[
+                "error"
+            ] = (
+                f"{type(error).__name__}: "
+                f"{error}"
             )
 
         return result
@@ -735,29 +1287,62 @@ class StaticPythonDiscovery:
 
 @dataclass
 class ComponentRecord:
+
     number: str
+
     filename: str
+
     path: str
+
     exists: bool
+
     size: int = 0
-    sha256: Optional[str] = None
+
+    sha256: Optional[
+        str
+    ] = None
+
     importable: bool = False
-    static_functions: List[str] = field(
+
+    static_functions: List[
+        str
+    ] = field(
         default_factory=list
     )
-    static_async_functions: List[str] = field(
+
+    static_async_functions: List[
+        str
+    ] = field(
         default_factory=list
     )
-    static_classes: List[str] = field(
+
+    static_classes: List[
+        str
+    ] = field(
         default_factory=list
     )
-    runtime_callables: List[str] = field(
+
+    runtime_callables: List[
+        str
+    ] = field(
         default_factory=list
     )
-    capabilities: List[str] = field(
+
+    declared_capabilities: List[
+        str
+    ] = field(
         default_factory=list
     )
-    error: Optional[str] = None
+
+    detected_capabilities: List[
+        str
+    ] = field(
+        default_factory=list
+    )
+
+    error: Optional[
+        str
+    ] = None
 
 
 # ============================================================
@@ -766,137 +1351,164 @@ class ComponentRecord:
 
 class ComponentDiscovery:
 
-    FILE_NUMBER_PATTERN = re.compile(
-        r"(?:^|[-_])([0-9]{2})(?:\.py$|[-_])",
-        re.IGNORECASE,
+    FILE_NUMBER_PATTERN = (
+        re.compile(
+            (
+                r"(?:^|[-_])"
+                r"([0-9]{2})"
+                r"(?:\.py$|[-_])"
+            ),
+            re.IGNORECASE,
+        )
     )
-
-    IGNORE = {
-        ".git",
-        "__pycache__",
-        "node_modules",
-        ".venv",
-        "venv",
-        "majd_factory_state",
-        "majd_game_output",
-    }
-
-    CAPABILITY_WORDS = {
-        "game": "GAME",
-        "executor": "EXECUTION",
-        "execute": "EXECUTION",
-        "publish": "PUBLISH",
-        "platform": "PLATFORM",
-        "owner": "OWNER_COMMAND",
-        "command": "OWNER_COMMAND",
-        "orchestrator": "ORCHESTRATION",
-        "orchestrate": "ORCHESTRATION",
-        "runtime": "RUNTIME",
-        "content": "CONTENT",
-        "media": "MEDIA",
-        "video": "VIDEO",
-        "movie": "MOVIE",
-        "film": "MOVIE",
-        "series": "SERIES",
-        "audio": "AUDIO",
-        "voice": "VOICE",
-        "music": "MUSIC",
-        "image": "IMAGE",
-        "social": "SOCIAL",
-        "live": "LIVE",
-        "stream": "LIVE",
-        "agency": "AGENCY",
-        "payment": "PAYMENTS",
-        "wallet": "WALLET",
-        "ads": "ADS",
-        "advert": "ADS",
-        "dashboard": "DASHBOARD",
-        "security": "SECURITY",
-        "legal": "LEGAL",
-        "contract": "LEGAL",
-        "monitor": "MONITORING",
-        "health": "HEALTH",
-        "repair": "REPAIR",
-        "diagnose": "DIAGNOSTICS",
-        "test": "TESTING",
-        "verify": "VERIFICATION",
-        "build": "BUILD",
-    }
 
     def discover_files(
         self,
-    ) -> Dict[str, List[Path]]:
+    ) -> Dict[
+        str,
+        List[Path]
+    ]:
 
         discovered: Dict[
             str,
             List[Path]
         ] = {
-            number: []
-            for number in OFFICIAL_NUMBERS
+            number:
+                []
+
+            for number
+            in OFFICIAL_NUMBERS
         }
 
-        for path in ROOT_DIR.glob("*.py"):
+        for path in ROOT_DIR.glob(
+            "*.py"
+        ):
 
             if not path.is_file():
+
                 continue
 
-            match = self.FILE_NUMBER_PATTERN.search(
-                path.name
+            match = (
+                self.FILE_NUMBER_PATTERN
+                .search(
+                    path.name
+                )
             )
 
-            if not match:
-                continue
+            if (
+                match
+                and
+                match.group(
+                    1
+                )
+                in discovered
+            ):
 
-            number = match.group(1)
-
-            if number in discovered:
-                discovered[number].append(
+                discovered[
+                    match.group(
+                        1
+                    )
+                ].append(
                     path.resolve()
                 )
 
         for number, filename in (
             KNOWN_CORE_FILES.items()
         ):
+
             path = (
-                ROOT_DIR / filename
+                ROOT_DIR
+                /
+                filename
             ).resolve()
 
             if (
-                number in discovered
-                and path.exists()
-                and path not in discovered[number]
+                number
+                in discovered
+                and
+                path.exists()
+                and
+                path
+                not in discovered[
+                    number
+                ]
             ):
-                discovered[number].insert(
+
+                discovered[
+                    number
+                ].insert(
                     0,
                     path,
                 )
 
+        for number in discovered:
+
+            discovered[
+                number
+            ] = sorted(
+                discovered[
+                    number
+                ],
+                key=lambda path: (
+                    0
+                    if path.name
+                    ==
+                    KNOWN_CORE_FILES.get(
+                        number
+                    )
+                    else
+                    1,
+                    path.name,
+                ),
+            )
+
         return discovered
 
-    def infer_capabilities(
-        self,
-        filename: str,
-        functions: Iterable[str],
-        classes: Iterable[str],
+    @staticmethod
+    def _capabilities_from_declaration(
+        value: Any,
     ) -> List[str]:
 
-        text = " ".join(
-            [
-                filename,
-                *functions,
-                *classes,
-            ]
-        ).lower()
-
-        capabilities: Set[str] = set()
-
-        for word, capability in (
-            self.CAPABILITY_WORDS.items()
+        if isinstance(
+            value,
+            dict,
         ):
-            if word in text:
-                capabilities.add(capability)
 
-        return sorted(capabilities)
+            values = (
+                value.keys()
+            )
+
+        elif isinstance(
+            value,
+            (
+                list,
+                tuple,
+                set,
+            ),
+        ):
+
+            values = value
+
+        else:
+
+            return []
+
+        return sorted(
+            {
+                str(
+                    item
+                )
+                .strip()
+                .upper()
+
+                for item
+                in values
+
+                if str(
+                    item
+                ).strip()
+            }
+        )
 
     def inspect_file(
         self,
@@ -906,7 +1518,10 @@ class ComponentDiscovery:
     ) -> ComponentRecord:
 
         static = (
-            StaticPythonDiscovery.discover(path)
+            StaticPythonDiscovery
+            .discover(
+                path
+            )
         )
 
         record = ComponentRecord(
@@ -917,17 +1532,24 @@ class ComponentDiscovery:
             size=(
                 path.stat().st_size
                 if path.exists()
-                else 0
+                else
+                0
             ),
             sha256=(
-                sha256_file(path)
+                sha256_file(
+                    path
+                )
                 if path.exists()
-                else None
+                else
+                None
             ),
         )
 
         record.static_functions = list(
-            static.get("functions", [])
+            static.get(
+                "functions",
+                [],
+            )
         )
 
         record.static_async_functions = list(
@@ -938,24 +1560,76 @@ class ComponentDiscovery:
         )
 
         record.static_classes = list(
-            static.get("classes", [])
+            static.get(
+                "classes",
+                [],
+            )
         )
 
-        if not static.get("success"):
-            record.error = static.get("error")
+        for value in (
+            static.get(
+                "constants"
+            )
+            or
+            {}
+        ).values():
+
+            record.declared_capabilities.extend(
+                self._capabilities_from_declaration(
+                    value
+                )
+            )
+
+        record.declared_capabilities = sorted(
+            set(
+                record.declared_capabilities
+            )
+        )
+
+        if not static.get(
+            "success"
+        ):
+
+            record.error = (
+                static.get(
+                    "error"
+                )
+            )
+
+        if number == "01":
+
+            record.importable = True
+
+            record.runtime_callables = sorted(
+                set(
+                    record.static_functions
+                    +
+                    record.static_async_functions
+                )
+            )
+
+            return record
 
         if (
             runtime_import
-            and number != "01"
-            and static.get("success")
+            and
+            static.get(
+                "success"
+            )
         ):
+
             try:
+
                 module = load_module(
                     path,
                     (
-                        f"_majd_discovery_"
-                        f"{number}_"
-                        f"{uuid.uuid4().hex}"
+                        "_majd_discovery_"
+                        +
+                        number
+                        +
+                        "_"
+                        +
+                        uuid.uuid4().hex
                     ),
                 )
 
@@ -963,10 +1637,18 @@ class ComponentDiscovery:
 
                 record.runtime_callables = sorted(
                     name
-                    for name in dir(module)
+
+                    for name
+                    in dir(
+                        module
+                    )
+
                     if (
-                        not name.startswith("_")
-                        and callable(
+                        not name.startswith(
+                            "_"
+                        )
+                        and
+                        callable(
                             getattr(
                                 module,
                                 name,
@@ -976,29 +1658,40 @@ class ComponentDiscovery:
                     )
                 )
 
+                for constant_name in (
+                    "CAPABILITIES",
+                    "MAJD_CAPABILITIES",
+                    "COMPONENT_CAPABILITIES",
+                ):
+
+                    if hasattr(
+                        module,
+                        constant_name,
+                    ):
+
+                        record.declared_capabilities.extend(
+                            self._capabilities_from_declaration(
+                                getattr(
+                                    module,
+                                    constant_name,
+                                )
+                            )
+                        )
+
+                record.declared_capabilities = sorted(
+                    set(
+                        record.declared_capabilities
+                    )
+                )
+
             except Exception as error:
+
                 record.importable = False
+
                 record.error = (
                     f"{type(error).__name__}: "
                     f"{error}"
                 )
-
-        elif number == "01":
-            record.importable = True
-            record.runtime_callables = list(
-                record.static_functions
-            )
-
-        record.capabilities = (
-            self.infer_capabilities(
-                record.filename,
-                (
-                    record.runtime_callables
-                    or record.static_functions
-                ),
-                record.static_classes,
-            )
-        )
 
         return record
 
@@ -1007,7 +1700,9 @@ class ComponentDiscovery:
         runtime_import: bool = True,
     ) -> Dict[str, Any]:
 
-        files = self.discover_files()
+        files = (
+            self.discover_files()
+        )
 
         components: Dict[
             str,
@@ -1015,36 +1710,54 @@ class ComponentDiscovery:
         ] = {}
 
         for number in OFFICIAL_NUMBERS:
-            records = []
 
-            for path in files[number]:
-                records.append(
-                    asdict(
-                        self.inspect_file(
-                            number,
-                            path,
-                            runtime_import=runtime_import,
-                        )
+            components[
+                number
+            ] = [
+                asdict(
+                    self.inspect_file(
+                        number,
+                        path,
+                        runtime_import=
+                            runtime_import,
                     )
                 )
 
-            components[number] = records
+                for path
+                in files[
+                    number
+                ]
+            ]
 
         missing = [
             number
-            for number in OFFICIAL_NUMBERS
-            if not components[number]
+
+            for number
+            in OFFICIAL_NUMBERS
+
+            if not components[
+                number
+            ]
         ]
 
         result = {
-            "success": True,
-            "generated_at": utc_now(),
-            "components": components,
-            "missing_numbers": missing,
+            "success":
+                not missing,
+
+            "generated_at":
+                utc_now(),
+
+            "components":
+                components,
+
+            "missing_numbers":
+                missing,
         }
 
         write_json(
-            REGISTRY_DIR / "components.json",
+            REGISTRY_DIR
+            /
+            "components.json",
             result,
         )
 
@@ -1052,10 +1765,21 @@ class ComponentDiscovery:
 
 
 # ============================================================
-# CAPABILITY REGISTRY
+# TRUSTED CAPABILITY REGISTRY
 # ============================================================
 
 class CapabilityRegistry:
+
+    """
+    No keyword/filename inference.
+
+    Capability becomes registered only through:
+    1. explicit component declaration, or
+    2. an exact callable contract.
+
+    run()/execute() alone does NOT turn an audit file into
+    PAYMENTS, ADS, SOCIAL, etc.
+    """
 
     GENERIC_ENTRYPOINTS = (
         "execute_request",
@@ -1066,67 +1790,205 @@ class CapabilityRegistry:
         "run",
     )
 
-    CAPABILITY_ENTRYPOINTS = {
+    CAPABILITY_CONTRACTS: Dict[
+        str,
+        Tuple[str, ...]
+    ] = {
         "GAME": (
             "execute_game_request",
             "create_game",
             "build_game",
             "generate_game",
         ),
+
         "PUBLISH": (
             "publish_game",
             "publish",
             "send_game",
             "send_to_majd",
         ),
+
         "CONTENT": (
             "create_content",
             "generate_content",
             "process_content",
         ),
+
         "MEDIA": (
             "create_media",
             "generate_media",
             "process_media",
+            "render_media",
         ),
+
+        "VIDEO": (
+            "create_video",
+            "generate_video",
+            "render_video",
+            "process_video",
+        ),
+
+        "IMAGE": (
+            "create_image",
+            "generate_image",
+            "render_image",
+            "process_image",
+        ),
+
+        "AUDIO": (
+            "create_audio",
+            "generate_audio",
+            "process_audio",
+        ),
+
+        "VOICE": (
+            "create_voice",
+            "generate_voice",
+            "synthesize_voice",
+        ),
+
+        "MUSIC": (
+            "create_music",
+            "generate_music",
+        ),
+
         "SOCIAL": (
             "publish_social",
             "process_social",
             "social_publish",
+            "publish_post",
         ),
+
         "LIVE": (
             "start_live",
             "process_live",
-            "stream",
+            "live_stream",
+            "stream_live",
         ),
+
         "PAYMENTS": (
             "process_payment",
             "execute_payment",
+            "create_payment",
+            "payment_status",
         ),
+
+        "WALLET": (
+            "wallet_balance",
+            "wallet_credit",
+            "wallet_debit",
+            "process_wallet",
+        ),
+
         "ADS": (
             "process_ad",
             "publish_ad",
             "create_ad",
+            "serve_ad",
         ),
+
         "LEGAL": (
             "review_contract",
             "generate_contract",
             "legal_review",
         ),
+
         "SECURITY": (
             "security_check",
             "scan_security",
+            "security_status",
         ),
+
+        "CONTENT_SAFETY": (
+            "moderate_content",
+            "content_safety_check",
+            "moderate_media",
+            "moderate_live",
+        ),
+
         "MONITORING": (
             "health",
             "health_check",
             "status",
             "monitor",
+            "capability_snapshot",
         ),
+
         "REPAIR": (
             "repair",
             "repair_system",
             "auto_repair",
+            "repair_dependencies",
+            "recover_docker",
+        ),
+
+        "DIAGNOSTICS": (
+            "diagnose",
+            "inspect_company_direct",
+            "inspect_platform",
+            "dependency_state",
+        ),
+
+        "TESTING": (
+            "verify_syntax",
+            "verify_core",
+            "run_tests",
+            "test",
+        ),
+
+        "VERIFICATION": (
+            "verify_artifact",
+            "verify_published",
+            "verify_mastermind_result",
+            "verify",
+        ),
+
+        "BUILD": (
+            "build",
+            "build_queue",
+            "select_batch",
+        ),
+
+        "PLATFORM": (
+            "inspect_platform",
+            "publish_game",
+            "send_to_majd",
+        ),
+
+        "RUNTIME": (
+            "runtime_status",
+            "runtime_execute",
+            "run_process",
+            "recover_docker",
+        ),
+
+        "OWNER_COMMAND": (
+            "execute_owner_command",
+            "process_owner_command",
+            "owner_command",
+        ),
+
+        "ORCHESTRATION": (
+            "orchestrate",
+            "plan_and_execute",
+            "execute_objective",
+        ),
+
+        "DASHBOARD": (
+            "dashboard_status",
+            "owner_dashboard",
+            "dashboard_snapshot",
+        ),
+
+        "HEALTH": (
+            "health",
+            "health_check",
+            "capability_status",
+        ),
+
+        "DOCKER": (
+            "docker_state",
+            "recover_docker",
         ),
     }
 
@@ -1134,16 +1996,119 @@ class CapabilityRegistry:
         self,
         discovery: ComponentDiscovery,
     ):
-        self.discovery = discovery
+
+        self.discovery = (
+            discovery
+        )
+
         self.registry: Dict[
             str,
             List[Dict[str, Any]]
         ] = {}
 
-    def build(self) -> Dict[str, Any]:
+        self.report: Dict[
+            str,
+            Any
+        ] = {}
 
-        report = self.discovery.discover(
-            runtime_import=True
+    @staticmethod
+    def _safe_capability_snapshot(
+        module: Any,
+    ) -> List[str]:
+
+        for name in (
+            "capability_snapshot",
+            "get_capabilities",
+            "capabilities",
+        ):
+
+            function = getattr(
+                module,
+                name,
+                None,
+            )
+
+            if not callable(
+                function
+            ):
+
+                continue
+
+            try:
+
+                value = call_supported(
+                    function,
+                    {},
+                )
+
+            except Exception:
+
+                continue
+
+            if isinstance(
+                value,
+                dict,
+            ):
+
+                if "capabilities" in value:
+
+                    value = (
+                        value[
+                            "capabilities"
+                        ]
+                    )
+
+                elif "available" in value:
+
+                    value = (
+                        value[
+                            "available"
+                        ]
+                    )
+
+                else:
+
+                    value = list(
+                        value.keys()
+                    )
+
+            if isinstance(
+                value,
+                (
+                    list,
+                    tuple,
+                    set,
+                ),
+            ):
+
+                return sorted(
+                    {
+                        str(
+                            item
+                        )
+                        .strip()
+                        .upper()
+
+                        for item
+                        in value
+
+                        if str(
+                            item
+                        ).strip()
+                    }
+                )
+
+        return []
+
+    def build(
+        self,
+    ) -> Dict[str, Any]:
+
+        report = (
+            self.discovery
+            .discover(
+                runtime_import=True
+            )
         )
 
         registry: Dict[
@@ -1151,101 +2116,429 @@ class CapabilityRegistry:
             List[Dict[str, Any]]
         ] = {}
 
+        detected: Set[
+            str
+        ] = set()
+
+        operational: Set[
+            str
+        ] = set()
+
         for number, records in (
-            report["components"].items()
+            report[
+                "components"
+            ].items()
         ):
+
             for record in records:
 
                 callables = set(
                     record.get(
-                        "runtime_callables",
-                        [],
+                        "runtime_callables"
                     )
-                    or record.get(
-                        "static_functions",
-                        [],
-                    )
-                )
-
-                capabilities = set(
+                    or
                     record.get(
-                        "capabilities",
-                        [],
+                        "static_functions"
                     )
+                    or
+                    []
                 )
 
-                for capability in capabilities:
-
-                    preferred = (
-                        self.CAPABILITY_ENTRYPOINTS
-                        .get(
-                            capability,
-                            (),
-                        )
+                declared = set(
+                    record.get(
+                        "declared_capabilities"
                     )
+                    or
+                    []
+                )
 
-                    entrypoints = [
+                if (
+                    record.get(
+                        "importable"
+                    )
+                    and
+                    number != "01"
+                ):
+
+                    try:
+
+                        module = load_module(
+                            Path(
+                                record[
+                                    "path"
+                                ]
+                            ),
+                            (
+                                "_majd_caps_"
+                                +
+                                number
+                                +
+                                "_"
+                                +
+                                uuid.uuid4().hex
+                            ),
+                        )
+
+                        declared.update(
+                            self._safe_capability_snapshot(
+                                module
+                            )
+                        )
+
+                    except Exception:
+
+                        pass
+
+                exact_matches: Dict[
+                    str,
+                    List[str]
+                ] = {}
+
+                for capability, contract_names in (
+                    self.CAPABILITY_CONTRACTS.items()
+                ):
+
+                    matches = [
                         name
-                        for name in preferred
-                        if name in callables
+
+                        for name
+                        in contract_names
+
+                        if name
+                        in callables
                     ]
 
-                    entrypoints.extend(
-                        name
-                        for name
-                        in self.GENERIC_ENTRYPOINTS
-                        if (
-                            name in callables
-                            and name not in entrypoints
+                    if matches:
+
+                        exact_matches[
+                            capability
+                        ] = matches
+
+                        detected.add(
+                            capability
+                        )
+
+                for capability in sorted(
+                    declared
+                    |
+                    set(
+                        exact_matches.keys()
+                    )
+                ):
+
+                    capability = (
+                        capability.upper()
+                    )
+
+                    preferred = list(
+                        exact_matches.get(
+                            capability,
+                            [],
                         )
                     )
+
+                    generic = [
+                        name
+
+                        for name
+                        in self.GENERIC_ENTRYPOINTS
+
+                        if name
+                        in callables
+                    ]
+
+                    entrypoints = (
+                        preferred
+                        or
+                        (
+                            generic
+                            if capability
+                            in declared
+                            else
+                            []
+                        )
+                    )
+
+                    provider = {
+                        "number":
+                            number,
+
+                        "filename":
+                            record[
+                                "filename"
+                            ],
+
+                        "path":
+                            record[
+                                "path"
+                            ],
+
+                        "entrypoints":
+                            entrypoints,
+
+                        "exact_contracts":
+                            preferred,
+
+                        "declared":
+                            capability
+                            in declared,
+
+                        "importable":
+                            bool(
+                                record.get(
+                                    "importable"
+                                )
+                            ),
+
+                        "operational":
+                            bool(
+                                record.get(
+                                    "importable"
+                                )
+                                and
+                                entrypoints
+                            ),
+                    }
 
                     registry.setdefault(
                         capability,
                         [],
                     ).append(
-                        {
-                            "number": number,
-                            "filename": record[
-                                "filename"
-                            ],
-                            "path": record["path"],
-                            "entrypoints": entrypoints,
-                            "importable": record.get(
-                                "importable",
-                                False,
-                            ),
-                        }
+                        provider
                     )
 
-        self.registry = registry
+                    detected.add(
+                        capability
+                    )
 
-        result = {
-            "success": True,
-            "generated_at": utc_now(),
-            "capabilities": registry,
-            "available": sorted(
-                registry.keys()
-            ),
+                    if provider[
+                        "operational"
+                    ]:
+
+                        operational.add(
+                            capability
+                        )
+
+        self.registry = (
+            registry
+        )
+
+        self.report = {
+            "success":
+                True,
+
+            "generated_at":
+                utc_now(),
+
+            "capabilities":
+                registry,
+
+            "detected":
+                sorted(
+                    detected
+                ),
+
+            "operational":
+                sorted(
+                    operational
+                ),
+
+            "unavailable":
+                sorted(
+                    detected
+                    -
+                    operational
+                ),
+
+            "missing_component_numbers":
+                report.get(
+                    "missing_numbers",
+                    [],
+                ),
         }
 
         write_json(
-            REGISTRY_DIR / "capabilities.json",
-            result,
+            REGISTRY_DIR
+            /
+            "capabilities.json",
+            self.report,
         )
 
-        return result
+        return self.report
 
     def providers(
         self,
         capability: str,
+        operational_only: bool = True,
     ) -> List[Dict[str, Any]]:
-        return list(
+
+        providers = list(
             self.registry.get(
                 capability.upper(),
                 [],
             )
         )
+
+        if operational_only:
+
+            providers = [
+                provider
+
+                for provider
+                in providers
+
+                if provider.get(
+                    "operational"
+                )
+            ]
+
+        return providers
+
+    def generic_providers(
+        self,
+        numbers: Sequence[str] = (
+            "02",
+            "05",
+            "06",
+        ),
+    ) -> List[Dict[str, Any]]:
+
+        report = (
+            self.discovery
+            .discover(
+                runtime_import=True
+            )
+        )
+
+        providers: List[
+            Dict[str, Any]
+        ] = []
+
+        for number in numbers:
+
+            for record in (
+                report[
+                    "components"
+                ].get(
+                    number,
+                    [],
+                )
+            ):
+
+                callables = set(
+                    record.get(
+                        "runtime_callables"
+                    )
+                    or
+                    []
+                )
+
+                entrypoints = [
+                    name
+
+                    for name
+                    in self.GENERIC_ENTRYPOINTS
+
+                    if name
+                    in callables
+                ]
+
+                if (
+                    record.get(
+                        "importable"
+                    )
+                    and
+                    entrypoints
+                ):
+
+                    providers.append(
+                        {
+                            "number":
+                                number,
+
+                            "filename":
+                                record[
+                                    "filename"
+                                ],
+
+                            "path":
+                                record[
+                                    "path"
+                                ],
+
+                            "entrypoints":
+                                entrypoints,
+
+                            "importable":
+                                True,
+
+                            "operational":
+                                True,
+
+                            "generic":
+                                True,
+                        }
+                    )
+
+        return providers
+
+
+# ============================================================
+# PYTHON ENVIRONMENT
+# ============================================================
+
+class PythonEnvironment:
+
+    @staticmethod
+    def project_python(
+        self=None,
+    ) -> Optional[Path]:
+
+        candidates = (
+            ROOT_DIR
+            /
+            ".venv"
+            /
+            "bin"
+            /
+            "python",
+
+            ROOT_DIR
+            /
+            "venv"
+            /
+            "bin"
+            /
+            "python",
+
+            ROOT_DIR
+            /
+            ".venv"
+            /
+            "Scripts"
+            /
+            "python.exe",
+
+            ROOT_DIR
+            /
+            "venv"
+            /
+            "Scripts"
+            /
+            "python.exe",
+        )
+
+        for candidate in candidates:
+
+            if (
+                candidate.exists()
+                and
+                candidate.is_file()
+            ):
+
+                return candidate
+
+        return None
 
 
 # ============================================================
@@ -1258,7 +2551,23 @@ class PythonChecker:
         self,
         executor: ProcessExecutor,
     ):
-        self.executor = executor
+
+        self.executor = (
+            executor
+        )
+
+    def python_binary(
+        self,
+    ) -> str:
+
+        return str(
+            PythonEnvironment
+            .project_python()
+            or
+            Path(
+                sys.executable
+            )
+        )
 
     def compile_file(
         self,
@@ -1267,7 +2576,7 @@ class PythonChecker:
 
         return self.executor.run(
             [
-                sys.executable,
+                self.python_binary(),
                 "-m",
                 "py_compile",
                 str(path),
@@ -1279,29 +2588,58 @@ class PythonChecker:
         self,
     ) -> Dict[str, Any]:
 
-        checked = []
-        failed = []
+        checked: List[
+            Dict[str, Any]
+        ] = []
+
+        failed: List[
+            Dict[str, Any]
+        ] = []
 
         for path in sorted(
-            ROOT_DIR.glob("*.py")
+            ROOT_DIR.glob(
+                "*.py"
+            )
         ):
-            result = self.compile_file(path)
+
+            result = (
+                self.compile_file(
+                    path
+                )
+            )
 
             item = {
-                "file": path.name,
-                "success": result.success,
-                "stderr": result.stderr[-6000:],
+                "file":
+                    path.name,
+
+                "success":
+                    result.success,
+
+                "stderr":
+                    truncate(
+                        result.stderr
+                    ),
             }
 
-            checked.append(item)
+            checked.append(
+                item
+            )
 
             if not result.success:
-                failed.append(item)
+
+                failed.append(
+                    item
+                )
 
         return {
-            "success": not failed,
-            "checked": checked,
-            "failed": failed,
+            "success":
+                not failed,
+
+            "checked":
+                checked,
+
+            "failed":
+                failed,
         }
 
 
@@ -1312,12 +2650,23 @@ class PythonChecker:
 class DependencyManager:
 
     PYTHON_IMPORT_MAP = {
-        "PIL": "pillow",
-        "yaml": "pyyaml",
-        "cv2": "opencv-python",
-        "sklearn": "scikit-learn",
-        "fastapi": "fastapi",
-        "uvicorn": "uvicorn",
+        "PIL":
+            "pillow",
+
+        "yaml":
+            "pyyaml",
+
+        "cv2":
+            "opencv-python",
+
+        "sklearn":
+            "scikit-learn",
+
+        "fastapi":
+            "fastapi",
+
+        "uvicorn":
+            "uvicorn",
     }
 
     def __init__(
@@ -1325,25 +2674,9 @@ class DependencyManager:
         executor: ProcessExecutor,
         logger: AuditLogger,
     ):
+
         self.executor = executor
         self.logger = logger
-
-    def detect_virtual_python(
-        self,
-    ) -> Optional[Path]:
-
-        candidates = [
-            ROOT_DIR / ".venv" / "bin" / "python",
-            ROOT_DIR / "venv" / "bin" / "python",
-            ROOT_DIR / ".venv" / "Scripts" / "python.exe",
-            ROOT_DIR / "venv" / "Scripts" / "python.exe",
-        ]
-
-        for candidate in candidates:
-            if candidate.exists():
-                return candidate
-
-        return None
 
     def repair_missing_python_module(
         self,
@@ -1351,62 +2684,80 @@ class DependencyManager:
     ) -> Dict[str, Any]:
 
         match = re.search(
-            r"No module named ['\"]([^'\"]+)['\"]",
+            (
+                r"No module named "
+                r"['\"]([^'\"]+)['\"]"
+            ),
             error_text,
             re.IGNORECASE,
         )
 
         if not match:
+
             return {
-                "success": False,
-                "status": (
-                    "DEPENDENCY_NAME_NOT_DETECTED"
-                ),
+                "success":
+                    False,
+
+                "status":
+                    "DEPENDENCY_NAME_NOT_DETECTED",
             }
 
         module = (
-            match.group(1)
-            .split(".")[0]
+            match.group(
+                1
+            )
+            .split(
+                "."
+            )[
+                0
+            ]
         )
 
         package = (
-            self.PYTHON_IMPORT_MAP.get(
+            self.PYTHON_IMPORT_MAP
+            .get(
                 module,
                 module,
             )
         )
 
         python_binary = (
-            self.detect_virtual_python()
+            PythonEnvironment
+            .project_python()
         )
 
         if python_binary is None:
+
             return {
-                "success": False,
-                "status": (
-                    "VIRTUAL_ENVIRONMENT_REQUIRED"
-                ),
-                "module": module,
-                "package": package,
-                "message": (
-                    "Dependency repair refused "
-                    "because no project virtual "
-                    "environment was detected."
-                ),
+                "success":
+                    False,
+
+                "status":
+                    "VIRTUAL_ENVIRONMENT_REQUIRED",
+
+                "module":
+                    module,
+
+                "package":
+                    package,
             }
 
         self.logger.log(
             "DEPENDENCY_REPAIR_STARTED",
             {
-                "module": module,
-                "package": package,
-                "python": str(python_binary),
+                "module":
+                    module,
+
+                "package":
+                    package,
             },
         )
 
         result = self.executor.run(
             [
-                str(python_binary),
+                str(
+                    python_binary
+                ),
                 "-m",
                 "pip",
                 "install",
@@ -1416,118 +2767,9 @@ class DependencyManager:
             timeout=600,
         )
 
-        return asdict(result)
-
-
-# ============================================================
-# LOCAL AI ADAPTER
-# ============================================================
-
-class LocalAIAdapter:
-
-    def __init__(
-        self,
-        logger: AuditLogger,
-    ):
-        self.logger = logger
-
-    @property
-    def available(self) -> bool:
-        return bool(LOCAL_AI_URL)
-
-    def status(self) -> Dict[str, Any]:
-        return {
-            "configured": bool(LOCAL_AI_URL),
-            "model": (
-                LOCAL_AI_MODEL
-                if LOCAL_AI_URL
-                else None
-            ),
-            "status": (
-                "CONFIGURED"
-                if LOCAL_AI_URL
-                else "NOT_CONNECTED"
-            ),
-        }
-
-    def ask(
-        self,
-        system_prompt: str,
-        user_prompt: str,
-    ) -> Optional[str]:
-
-        if not self.available:
-            return None
-
-        endpoint = (
-            LOCAL_AI_URL.rstrip("/")
-            + "/v1/chat/completions"
+        return asdict(
+            result
         )
-
-        payload = {
-            "model": LOCAL_AI_MODEL,
-            "temperature": 0.1,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": system_prompt,
-                },
-                {
-                    "role": "user",
-                    "content": user_prompt,
-                },
-            ],
-        }
-
-        request = urllib.request.Request(
-            endpoint,
-            data=json.dumps(
-                payload
-            ).encode("utf-8"),
-            headers={
-                "Content-Type":
-                    "application/json",
-            },
-            method="POST",
-        )
-
-        try:
-            with urllib.request.urlopen(
-                request,
-                timeout=AI_TIMEOUT,
-            ) as response:
-                body = json.loads(
-                    response.read().decode(
-                        "utf-8"
-                    )
-                )
-
-            choices = (
-                body.get("choices")
-                or []
-            )
-
-            if not choices:
-                return None
-
-            return (
-                choices[0]
-                .get("message", {})
-                .get("content")
-            )
-
-        except Exception as error:
-            self.logger.log(
-                "LOCAL_AI_ERROR",
-                {
-                    "error": (
-                        f"{type(error).__name__}: "
-                        f"{error}"
-                    )
-                },
-            )
-
-            return None
 
 
 # ============================================================
@@ -1542,6 +2784,7 @@ class CodeManager:
         logger: AuditLogger,
         checker: PythonChecker,
     ):
+
         self.backup = backup
         self.logger = logger
         self.checker = checker
@@ -1552,59 +2795,140 @@ class CodeManager:
         content: str,
     ) -> Dict[str, Any]:
 
-        path = safe_project_path(path)
+        path = safe_project_path(
+            path
+        )
 
-        if path.suffix.lower() != ".py":
+        if (
+            path.suffix.lower()
+            !=
+            ".py"
+        ):
+
             return {
-                "success": False,
-                "status": "NON_PYTHON_REPAIR_REFUSED",
+                "success":
+                    False,
+
+                "status":
+                    "NON_PYTHON_REPAIR_REFUSED",
+
+                "path":
+                    str(
+                        path
+                    ),
             }
 
-        backup_path = self.backup.backup(path)
-
-        before_hash = (
-            sha256_file(path)
-            if path.exists()
-            else None
+        temporary = (
+            path.with_name(
+                path.name
+                +
+                f".{uuid.uuid4().hex}.majd-new.py"
+            )
         )
 
-        path.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        path.write_text(
+        temporary.write_text(
             content,
             encoding="utf-8",
         )
 
-        compile_result = (
-            self.checker.compile_file(path)
+        compile_new = (
+            self.checker
+            .compile_file(
+                temporary
+            )
         )
 
-        if not compile_result.success:
-            rollback = self.backup.restore(path)
+        if not compile_new.success:
+
+            temporary.unlink(
+                missing_ok=True
+            )
 
             return {
-                "success": False,
-                "status": (
-                    "REPAIR_REGRESSION_ROLLED_BACK"
-                ),
-                "compile": asdict(
-                    compile_result
-                ),
-                "rollback": rollback,
+                "success":
+                    False,
+
+                "status":
+                    "REPLACEMENT_SYNTAX_INVALID",
+
+                "stderr":
+                    truncate(
+                        compile_new.stderr
+                    ),
             }
 
-        after_hash = sha256_file(path)
+        backup_path = (
+            self.backup
+            .backup(
+                path
+            )
+        )
+
+        before_hash = (
+            sha256_file(
+                path
+            )
+            if path.exists()
+            else
+            None
+        )
+
+        temporary.replace(
+            path
+        )
+
+        compile_live = (
+            self.checker
+            .compile_file(
+                path
+            )
+        )
+
+        if not compile_live.success:
+
+            rollback = (
+                self.backup
+                .restore(
+                    path
+                )
+            )
+
+            return {
+                "success":
+                    False,
+
+                "status":
+                    "REPAIR_REGRESSION_ROLLED_BACK",
+
+                "compile":
+                    asdict(
+                        compile_live
+                    ),
+
+                "rollback":
+                    rollback,
+            }
 
         result = {
-            "success": True,
-            "status": "FILE_REPLACED_AND_COMPILED",
-            "path": str(path),
-            "backup": backup_path,
-            "before_sha256": before_hash,
-            "after_sha256": after_hash,
+            "success":
+                True,
+
+            "status":
+                "FILE_REPLACED_AND_COMPILED",
+
+            "path":
+                str(path),
+
+            "backup":
+                backup_path,
+
+            "before_sha256":
+                before_hash,
+
+            "after_sha256":
+                sha256_file(
+                    path
+                ),
         }
 
         self.logger.log(
@@ -1613,6 +2937,1875 @@ class CodeManager:
         )
 
         return result
+
+
+# ============================================================
+# AUTO AI DISCOVERY / CONNECTION
+# ============================================================
+
+@dataclass
+class AIConnection:
+
+    protocol: str
+
+    base_url: str
+
+    model: str
+
+    verified_at: str
+
+    test_response: str
+
+
+class AutoAIConnector:
+
+    """
+    Discovers local OpenAI-compatible or Ollama engines.
+    Connection is accepted only after:
+    - endpoint responds,
+    - model list is real,
+    - model selected,
+    - real MAJD_OK prompt succeeds.
+    """
+
+    def __init__(
+        self,
+        logger: AuditLogger,
+        executor: ProcessExecutor,
+    ):
+
+        self.logger = logger
+        self.executor = executor
+
+        self.attempts: List[
+            Dict[str, Any]
+        ] = []
+
+        self.connection: Optional[
+            AIConnection
+        ] = None
+
+        self.api_key = (
+            os.getenv(
+                "MAJD_LOCAL_AI_API_KEY",
+                "",
+            ).strip()
+        )
+
+        saved = (
+            read_json(
+                AI_CONNECTION_FILE,
+                {},
+            )
+            or
+            {}
+        )
+
+        if (
+            saved.get(
+                "base_url"
+            )
+            and
+            saved.get(
+                "model"
+            )
+            and
+            saved.get(
+                "protocol"
+            )
+        ):
+
+            try:
+
+                self.connection = (
+                    AIConnection(
+                        protocol=str(
+                            saved[
+                                "protocol"
+                            ]
+                        ),
+                        base_url=str(
+                            saved[
+                                "base_url"
+                            ]
+                        ),
+                        model=str(
+                            saved[
+                                "model"
+                            ]
+                        ),
+                        verified_at=str(
+                            saved.get(
+                                "verified_at"
+                            )
+                            or
+                            ""
+                        ),
+                        test_response=str(
+                            saved.get(
+                                "test_response"
+                            )
+                            or
+                            ""
+                        ),
+                    )
+                )
+
+            except Exception:
+
+                self.connection = None
+
+    def _headers(
+        self,
+    ) -> Dict[str, str]:
+
+        headers = {
+            "Content-Type":
+                "application/json",
+        }
+
+        if self.api_key:
+
+            headers[
+                "Authorization"
+            ] = (
+                "Bearer "
+                +
+                self.api_key
+            )
+
+        return headers
+
+    def _request_json(
+        self,
+        url: str,
+        method: str = "GET",
+        payload: Optional[
+            Dict[str, Any]
+        ] = None,
+        timeout: Optional[int] = None,
+    ) -> Dict[str, Any]:
+
+        data = (
+            None
+            if payload is None
+            else
+            json.dumps(
+                payload
+            ).encode(
+                "utf-8"
+            )
+        )
+
+        request = urllib.request.Request(
+            url,
+            data=data,
+            headers=self._headers(),
+            method=method,
+        )
+
+        with urllib.request.urlopen(
+            request,
+            timeout=(
+                timeout
+                or
+                AI_PROBE_TIMEOUT
+            ),
+        ) as response:
+
+            body = (
+                response.read()
+                .decode(
+                    "utf-8",
+                    errors="replace",
+                )
+            )
+
+            if not body.strip():
+
+                return {}
+
+            return json.loads(
+                body
+            )
+
+    @staticmethod
+    def _normalize_base(
+        url: str,
+    ) -> str:
+
+        return str(
+            url
+            or
+            ""
+        ).strip().rstrip(
+            "/"
+        )
+
+    def _docker_ports(
+        self,
+    ) -> List[int]:
+
+        result = self.executor.run(
+            [
+                "docker",
+                "ps",
+                "--format",
+                "{{.Ports}}",
+            ],
+            cwd=ROOT_DIR,
+            timeout=10,
+            allow_outside_root=True,
+        )
+
+        if not result.success:
+
+            return []
+
+        ports: Set[
+            int
+        ] = set()
+
+        for match in re.finditer(
+            (
+                r"(?:"
+                r"0\.0\.0\.0:"
+                r"|"
+                r"127\.0\.0\.1:"
+                r"|"
+                r":::"
+                r")"
+                r"(\d+)"
+                r"->"
+            ),
+            result.stdout,
+        ):
+
+            try:
+
+                ports.add(
+                    int(
+                        match.group(
+                            1
+                        )
+                    )
+                )
+
+            except ValueError:
+
+                pass
+
+        return sorted(
+            ports
+        )
+
+    def candidate_endpoints(
+        self,
+    ) -> List[
+        Tuple[str, str]
+    ]:
+
+        candidates: List[
+            Tuple[str, str]
+        ] = []
+
+        def add(
+            protocol: str,
+            base: str,
+        ) -> None:
+
+            base = (
+                self._normalize_base(
+                    base
+                )
+            )
+
+            if (
+                base
+                and
+                (
+                    protocol,
+                    base,
+                )
+                not in candidates
+            ):
+
+                candidates.append(
+                    (
+                        protocol,
+                        base,
+                    )
+                )
+
+        env_url = (
+            os.getenv(
+                "MAJD_LOCAL_AI_URL",
+                "",
+            ).strip()
+        )
+
+        if env_url:
+
+            lowered = (
+                env_url.lower()
+            )
+
+            if (
+                "/api"
+                in lowered
+                and
+                "/v1"
+                not in lowered
+            ):
+
+                add(
+                    "ollama",
+                    env_url.split(
+                        "/api",
+                        1,
+                    )[
+                        0
+                    ],
+                )
+
+            else:
+
+                base = (
+                    env_url[
+                        :-3
+                    ]
+                    if env_url.endswith(
+                        "/v1"
+                    )
+                    else
+                    env_url
+                )
+
+                add(
+                    "openai",
+                    base,
+                )
+
+        if self.connection:
+
+            add(
+                self.connection.protocol,
+                self.connection.base_url,
+            )
+
+        add(
+            "ollama",
+            "http://127.0.0.1:11434",
+        )
+
+        for port in (
+            1234,
+            8001,
+            8080,
+            5000,
+            3001,
+            9000,
+        ):
+
+            add(
+                "openai",
+                (
+                    "http://127.0.0.1:"
+                    +
+                    str(
+                        port
+                    )
+                ),
+            )
+
+        for port in (
+            self._docker_ports()
+        ):
+
+            if (
+                1
+                <=
+                port
+                <=
+                65535
+            ):
+
+                base = (
+                    "http://127.0.0.1:"
+                    +
+                    str(
+                        port
+                    )
+                )
+
+                add(
+                    "openai",
+                    base,
+                )
+
+                add(
+                    "ollama",
+                    base,
+                )
+
+        return candidates
+
+    def _openai_models(
+        self,
+        base: str,
+    ) -> List[str]:
+
+        body = (
+            self._request_json(
+                base.rstrip(
+                    "/"
+                )
+                +
+                "/v1/models"
+            )
+        )
+
+        data = (
+            body.get(
+                "data"
+            )
+            or
+            []
+        )
+
+        models = []
+
+        for item in data:
+
+            if (
+                isinstance(
+                    item,
+                    dict,
+                )
+                and
+                item.get(
+                    "id"
+                )
+            ):
+
+                models.append(
+                    str(
+                        item[
+                            "id"
+                        ]
+                    )
+                )
+
+        return models
+
+    def _ollama_models(
+        self,
+        base: str,
+    ) -> List[str]:
+
+        body = (
+            self._request_json(
+                base.rstrip(
+                    "/"
+                )
+                +
+                "/api/tags"
+            )
+        )
+
+        models = []
+
+        for item in (
+            body.get(
+                "models"
+            )
+            or
+            []
+        ):
+
+            if isinstance(
+                item,
+                dict,
+            ):
+
+                model = (
+                    item.get(
+                        "model"
+                    )
+                    or
+                    item.get(
+                        "name"
+                    )
+                )
+
+                if model:
+
+                    models.append(
+                        str(
+                            model
+                        )
+                    )
+
+        return models
+
+    def _openai_test(
+        self,
+        base: str,
+        model: str,
+    ) -> str:
+
+        body = (
+            self._request_json(
+                (
+                    base.rstrip(
+                        "/"
+                    )
+                    +
+                    "/v1/chat/completions"
+                ),
+                method="POST",
+                timeout=min(
+                    AI_TIMEOUT,
+                    30,
+                ),
+                payload={
+                    "model":
+                        model,
+
+                    "temperature":
+                        0,
+
+                    "max_tokens":
+                        32,
+
+                    "messages": [
+                        {
+                            "role":
+                                "system",
+
+                            "content":
+                                (
+                                    "You are the MAJD "
+                                    "local AI health checker."
+                                ),
+                        },
+                        {
+                            "role":
+                                "user",
+
+                            "content":
+                                "Reply exactly MAJD_OK",
+                        },
+                    ],
+                },
+            )
+        )
+
+        choices = (
+            body.get(
+                "choices"
+            )
+            or
+            []
+        )
+
+        if not choices:
+
+            return ""
+
+        return str(
+            choices[
+                0
+            ]
+            .get(
+                "message",
+                {},
+            )
+            .get(
+                "content"
+            )
+            or
+            ""
+        ).strip()
+
+    def _ollama_test(
+        self,
+        base: str,
+        model: str,
+    ) -> str:
+
+        body = (
+            self._request_json(
+                (
+                    base.rstrip(
+                        "/"
+                    )
+                    +
+                    "/api/chat"
+                ),
+                method="POST",
+                timeout=min(
+                    AI_TIMEOUT,
+                    30,
+                ),
+                payload={
+                    "model":
+                        model,
+
+                    "stream":
+                        False,
+
+                    "messages": [
+                        {
+                            "role":
+                                "system",
+
+                            "content":
+                                (
+                                    "You are the MAJD "
+                                    "local AI health checker."
+                                ),
+                        },
+                        {
+                            "role":
+                                "user",
+
+                            "content":
+                                "Reply exactly MAJD_OK",
+                        },
+                    ],
+                },
+            )
+        )
+
+        return str(
+            body.get(
+                "message",
+                {},
+            ).get(
+                "content"
+            )
+            or
+            ""
+        ).strip()
+
+    def _choose_model(
+        self,
+        models: List[str],
+    ) -> Optional[str]:
+
+        requested = (
+            os.getenv(
+                "MAJD_LOCAL_AI_MODEL",
+                "",
+            ).strip()
+        )
+
+        if (
+            requested
+            and
+            requested
+            in models
+        ):
+
+            return requested
+
+        if requested:
+
+            for model in models:
+
+                if (
+                    requested.lower()
+                    in
+                    model.lower()
+                ):
+
+                    return model
+
+        if models:
+
+            return models[
+                0
+            ]
+
+        return None
+
+    def _verify_candidate(
+        self,
+        protocol: str,
+        base: str,
+    ) -> Optional[
+        AIConnection
+    ]:
+
+        started = time.time()
+
+        attempt: Dict[
+            str,
+            Any
+        ] = {
+            "protocol":
+                protocol,
+
+            "base_url":
+                base,
+
+            "time":
+                utc_now(),
+        }
+
+        try:
+
+            if protocol == "openai":
+
+                models = (
+                    self._openai_models(
+                        base
+                    )
+                )
+
+            else:
+
+                models = (
+                    self._ollama_models(
+                        base
+                    )
+                )
+
+            attempt[
+                "models"
+            ] = models[
+                :20
+            ]
+
+            model = (
+                self._choose_model(
+                    models
+                )
+            )
+
+            if not model:
+
+                attempt.update(
+                    {
+                        "success":
+                            False,
+
+                        "status":
+                            "NO_MODELS",
+                    }
+                )
+
+                self.attempts.append(
+                    attempt
+                )
+
+                return None
+
+            if protocol == "openai":
+
+                response = (
+                    self._openai_test(
+                        base,
+                        model,
+                    )
+                )
+
+            else:
+
+                response = (
+                    self._ollama_test(
+                        base,
+                        model,
+                    )
+                )
+
+            verified = (
+                "MAJD_OK"
+                in
+                response.upper()
+            )
+
+            attempt.update(
+                {
+                    "success":
+                        verified,
+
+                    "status":
+                        (
+                            "VERIFIED"
+                            if verified
+                            else
+                            "REAL_PROMPT_TEST_FAILED"
+                        ),
+
+                    "model":
+                        model,
+
+                    "response":
+                        truncate(
+                            response,
+                            300,
+                        ),
+
+                    "duration_seconds":
+                        round(
+                            (
+                                time.time()
+                                -
+                                started
+                            ),
+                            3,
+                        ),
+                }
+            )
+
+            self.attempts.append(
+                attempt
+            )
+
+            if not verified:
+
+                return None
+
+            return AIConnection(
+                protocol=protocol,
+                base_url=base,
+                model=model,
+                verified_at=utc_now(),
+                test_response=response,
+            )
+
+        except Exception as error:
+
+            attempt.update(
+                {
+                    "success":
+                        False,
+
+                    "status":
+                        "PROBE_FAILED",
+
+                    "error":
+                        (
+                            f"{type(error).__name__}: "
+                            f"{error}"
+                        ),
+
+                    "duration_seconds":
+                        round(
+                            (
+                                time.time()
+                                -
+                                started
+                            ),
+                            3,
+                        ),
+                }
+            )
+
+            self.attempts.append(
+                attempt
+            )
+
+            return None
+
+    def ensure_connected(
+        self,
+        force: bool = False,
+    ) -> Dict[str, Any]:
+
+        self.attempts = []
+
+        if (
+            self.connection
+            and
+            not force
+        ):
+
+            verified = (
+                self._verify_candidate(
+                    self.connection.protocol,
+                    self.connection.base_url,
+                )
+            )
+
+            if (
+                verified
+                and
+                verified.model
+                ==
+                self.connection.model
+            ):
+
+                self.connection = (
+                    verified
+                )
+
+                self._save()
+
+                return self.status()
+
+        for protocol, base in (
+            self.candidate_endpoints()
+        ):
+
+            connection = (
+                self._verify_candidate(
+                    protocol,
+                    base,
+                )
+            )
+
+            if connection:
+
+                self.connection = (
+                    connection
+                )
+
+                self._save()
+
+                self.logger.log(
+                    "AI_CONNECTED",
+                    {
+                        "protocol":
+                            connection.protocol,
+
+                        "base_url":
+                            connection.base_url,
+
+                        "model":
+                            connection.model,
+                    },
+                )
+
+                return self.status()
+
+        self.connection = None
+
+        write_json(
+            AI_CONNECTION_FILE,
+            {
+                "status":
+                    "NOT_CONNECTED",
+
+                "updated_at":
+                    utc_now(),
+
+                "attempts":
+                    self.attempts[
+                        -20:
+                    ],
+            },
+        )
+
+        return self.status()
+
+    def _save(
+        self,
+    ) -> None:
+
+        if not self.connection:
+
+            return
+
+        write_json(
+            AI_CONNECTION_FILE,
+            {
+                **asdict(
+                    self.connection
+                ),
+
+                "status":
+                    "CONNECTED",
+
+                "updated_at":
+                    utc_now(),
+            },
+        )
+
+    def status(
+        self,
+    ) -> Dict[str, Any]:
+
+        if not self.connection:
+
+            return {
+                "configured":
+                    False,
+
+                "connected":
+                    False,
+
+                "model":
+                    None,
+
+                "protocol":
+                    None,
+
+                "base_url":
+                    None,
+
+                "status":
+                    "NOT_CONNECTED",
+
+                "attempts":
+                    self.attempts[
+                        -20:
+                    ],
+            }
+
+        return {
+            "configured":
+                True,
+
+            "connected":
+                True,
+
+            "model":
+                self.connection.model,
+
+            "protocol":
+                self.connection.protocol,
+
+            "base_url":
+                self.connection.base_url,
+
+            "verified_at":
+                self.connection.verified_at,
+
+            "status":
+                "CONNECTED",
+
+            "attempts":
+                self.attempts[
+                    -20:
+                ],
+        }
+
+    def chat(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+    ) -> Optional[str]:
+
+        if not self.connection:
+
+            self.ensure_connected(
+                force=False
+            )
+
+        if not self.connection:
+
+            return None
+
+        try:
+
+            if (
+                self.connection.protocol
+                ==
+                "openai"
+            ):
+
+                body = self._request_json(
+                    (
+                        self.connection.base_url
+                        .rstrip(
+                            "/"
+                        )
+                        +
+                        "/v1/chat/completions"
+                    ),
+                    method="POST",
+                    timeout=AI_TIMEOUT,
+                    payload={
+                        "model":
+                            self.connection.model,
+
+                        "temperature":
+                            0.1,
+
+                        "messages": [
+                            {
+                                "role":
+                                    "system",
+
+                                "content":
+                                    system_prompt,
+                            },
+                            {
+                                "role":
+                                    "user",
+
+                                "content":
+                                    user_prompt,
+                            },
+                        ],
+                    },
+                )
+
+                choices = (
+                    body.get(
+                        "choices"
+                    )
+                    or
+                    []
+                )
+
+                if not choices:
+
+                    return None
+
+                return str(
+                    choices[
+                        0
+                    ]
+                    .get(
+                        "message",
+                        {},
+                    )
+                    .get(
+                        "content"
+                    )
+                    or
+                    ""
+                )
+
+            body = self._request_json(
+                (
+                    self.connection.base_url
+                    .rstrip(
+                        "/"
+                    )
+                    +
+                    "/api/chat"
+                ),
+                method="POST",
+                timeout=AI_TIMEOUT,
+                payload={
+                    "model":
+                        self.connection.model,
+
+                    "stream":
+                        False,
+
+                    "messages": [
+                        {
+                            "role":
+                                "system",
+
+                            "content":
+                                system_prompt,
+                        },
+                        {
+                            "role":
+                                "user",
+
+                            "content":
+                                user_prompt,
+                        },
+                    ],
+                },
+            )
+
+            return str(
+                body.get(
+                    "message",
+                    {},
+                ).get(
+                    "content"
+                )
+                or
+                ""
+            ) or None
+
+        except Exception as error:
+
+            self.logger.log(
+                "AI_CHAT_ERROR",
+                {
+                    "error":
+                        (
+                            f"{type(error).__name__}: "
+                            f"{error}"
+                        )
+                },
+            )
+
+            self.connection = None
+
+            status = (
+                self.ensure_connected(
+                    force=True
+                )
+            )
+
+            if not status.get(
+                "connected"
+            ):
+
+                return None
+
+            try:
+
+                if (
+                    self.connection
+                    and
+                    self.connection.protocol
+                    ==
+                    "openai"
+                ):
+
+                    body = (
+                        self._request_json(
+                            (
+                                self.connection.base_url
+                                .rstrip(
+                                    "/"
+                                )
+                                +
+                                "/v1/chat/completions"
+                            ),
+                            method="POST",
+                            timeout=AI_TIMEOUT,
+                            payload={
+                                "model":
+                                    self.connection.model,
+
+                                "temperature":
+                                    0.1,
+
+                                "messages": [
+                                    {
+                                        "role":
+                                            "system",
+
+                                        "content":
+                                            system_prompt,
+                                    },
+                                    {
+                                        "role":
+                                            "user",
+
+                                        "content":
+                                            user_prompt,
+                                    },
+                                ],
+                            },
+                        )
+                    )
+
+                    choices = (
+                        body.get(
+                            "choices"
+                        )
+                        or
+                        []
+                    )
+
+                    if choices:
+
+                        return str(
+                            choices[
+                                0
+                            ]
+                            .get(
+                                "message",
+                                {},
+                            )
+                            .get(
+                                "content"
+                            )
+                            or
+                            ""
+                        )
+
+                elif self.connection:
+
+                    body = self._request_json(
+                        (
+                            self.connection.base_url
+                            .rstrip(
+                                "/"
+                            )
+                            +
+                            "/api/chat"
+                        ),
+                        method="POST",
+                        timeout=AI_TIMEOUT,
+                        payload={
+                            "model":
+                                self.connection.model,
+
+                            "stream":
+                                False,
+
+                            "messages": [
+                                {
+                                    "role":
+                                        "system",
+
+                                    "content":
+                                        system_prompt,
+                                },
+                                {
+                                    "role":
+                                        "user",
+
+                                    "content":
+                                        user_prompt,
+                                },
+                            ],
+                        },
+                    )
+
+                    return str(
+                        body.get(
+                            "message",
+                            {},
+                        ).get(
+                            "content"
+                        )
+                        or
+                        ""
+                    ) or None
+
+            except Exception:
+
+                return None
+
+        return None
+
+
+# ============================================================
+# LOCAL AI ADAPTER
+# ============================================================
+
+class LocalAIAdapter:
+
+    def __init__(
+        self,
+        connector: AutoAIConnector,
+        logger: AuditLogger,
+    ):
+
+        self.connector = (
+            connector
+        )
+
+        self.logger = (
+            logger
+        )
+
+    @property
+    def available(
+        self,
+    ) -> bool:
+
+        return bool(
+            self.connector.connection
+        )
+
+    def ensure_connected(
+        self,
+        force: bool = False,
+    ) -> Dict[str, Any]:
+
+        return (
+            self.connector
+            .ensure_connected(
+                force=force
+            )
+        )
+
+    def status(
+        self,
+    ) -> Dict[str, Any]:
+
+        return (
+            self.connector
+            .status()
+        )
+
+    def ask(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+    ) -> Optional[str]:
+
+        return (
+            self.connector
+            .chat(
+                system_prompt,
+                user_prompt,
+            )
+        )
+
+
+# ============================================================
+# COMPONENT EXECUTOR
+# ============================================================
+
+class ComponentExecutor:
+
+    def execute_provider(
+        self,
+        provider: Dict[str, Any],
+        command: str,
+        request: Dict[str, Any],
+        job_id: str,
+        owner: str = DEFAULT_OWNER,
+    ) -> Dict[str, Any]:
+
+        path = Path(
+            provider[
+                "path"
+            ]
+        )
+
+        try:
+
+            module = load_module(
+                path,
+                (
+                    "_majd_execute_"
+                    +
+                    uuid.uuid4().hex
+                ),
+            )
+
+        except Exception as error:
+
+            return {
+                "success":
+                    False,
+
+                "status":
+                    "COMPONENT_LOAD_FAILED",
+
+                "component":
+                    provider,
+
+                "error":
+                    (
+                        f"{type(error).__name__}: "
+                        f"{error}"
+                    ),
+
+                "traceback":
+                    truncate(
+                        traceback.format_exc()
+                    ),
+            }
+
+        for name in (
+            provider.get(
+                "entrypoints"
+            )
+            or
+            []
+        ):
+
+            function = getattr(
+                module,
+                name,
+                None,
+            )
+
+            if not callable(
+                function
+            ):
+
+                continue
+
+            try:
+
+                value = call_supported(
+                    function,
+                    {
+                        "command":
+                            command,
+
+                        "request":
+                            request,
+
+                        "payload":
+                            request,
+
+                        "job_id":
+                            job_id,
+
+                        "operation_id":
+                            job_id,
+
+                        "owner":
+                            owner,
+
+                        "output_root":
+                            str(
+                                OUTPUT_DIR
+                            ),
+                    },
+                )
+
+                result = normalize_result(
+                    value,
+                    provider.get(
+                        "filename"
+                    ),
+                )
+
+                result.setdefault(
+                    "entrypoint",
+                    name,
+                )
+
+                return result
+
+            except Exception as error:
+
+                return {
+                    "success":
+                        False,
+
+                    "status":
+                        "COMPONENT_EXECUTION_FAILED",
+
+                    "component":
+                        provider.get(
+                            "filename"
+                        ),
+
+                    "entrypoint":
+                        name,
+
+                    "error":
+                        (
+                            f"{type(error).__name__}: "
+                            f"{error}"
+                        ),
+
+                    "traceback":
+                        truncate(
+                            traceback.format_exc()
+                        ),
+                }
+
+        return {
+            "success":
+                False,
+
+            "status":
+                "COMPONENT_ENTRYPOINT_MISSING",
+
+            "component":
+                provider.get(
+                    "filename"
+                ),
+        }
+
+
+# ============================================================
+# REAL RUNTIME 06 BRIDGE
+# ============================================================
+
+class Runtime06Bridge:
+
+    def __init__(
+        self,
+        discovery: ComponentDiscovery,
+        logger: AuditLogger,
+    ):
+
+        self.discovery = (
+            discovery
+        )
+
+        self.logger = (
+            logger
+        )
+
+    def _modules(
+        self,
+    ) -> List[
+        Tuple[
+            Dict[str, Any],
+            Any,
+        ]
+    ]:
+
+        report = (
+            self.discovery
+            .discover(
+                runtime_import=True
+            )
+        )
+
+        result: List[
+            Tuple[
+                Dict[str, Any],
+                Any,
+            ]
+        ] = []
+
+        for record in (
+            report[
+                "components"
+            ].get(
+                "06",
+                [],
+            )
+        ):
+
+            if not record.get(
+                "importable"
+            ):
+
+                continue
+
+            try:
+
+                module = load_module(
+                    Path(
+                        record[
+                            "path"
+                        ]
+                    ),
+                    (
+                        "_majd_runtime06_"
+                        +
+                        uuid.uuid4().hex
+                    ),
+                )
+
+                result.append(
+                    (
+                        record,
+                        module,
+                    )
+                )
+
+            except Exception:
+
+                continue
+
+        return result
+
+    def call_first(
+        self,
+        names: Sequence[str],
+        values: Dict[str, Any],
+    ) -> Dict[str, Any]:
+
+        for record, module in (
+            self._modules()
+        ):
+
+            for name in names:
+
+                function = getattr(
+                    module,
+                    name,
+                    None,
+                )
+
+                if not callable(
+                    function
+                ):
+
+                    continue
+
+                try:
+
+                    value = call_supported(
+                        function,
+                        values,
+                    )
+
+                    result = (
+                        normalize_result(
+                            value,
+                            record[
+                                "filename"
+                            ],
+                        )
+                    )
+
+                    result.setdefault(
+                        "entrypoint",
+                        name,
+                    )
+
+                    self.logger.log(
+                        "RUNTIME06_RESULT",
+                        result,
+                    )
+
+                    return result
+
+                except Exception as error:
+
+                    return {
+                        "success":
+                            False,
+
+                        "status":
+                            "RUNTIME06_EXCEPTION",
+
+                        "entrypoint":
+                            name,
+
+                        "error":
+                            (
+                                f"{type(error).__name__}: "
+                                f"{error}"
+                            ),
+                    }
+
+        return {
+            "success":
+                False,
+
+            "status":
+                "RUNTIME06_INTERFACE_NOT_FOUND",
+
+            "expected":
+                list(
+                    names
+                ),
+        }
+
+    def repair(
+        self,
+        failure: Dict[str, Any],
+        diagnosis: Dict[str, Any],
+    ) -> Dict[str, Any]:
+
+        repair_type = str(
+            diagnosis.get(
+                "type"
+            )
+            or
+            ""
+        )
+
+        if (
+            repair_type
+            ==
+            "MISSING_PYTHON_MODULE"
+        ):
+
+            names = (
+                "repair_dependencies",
+            )
+
+        elif (
+            "DOCKER"
+            in
+            json.dumps(
+                failure,
+                default=str,
+            ).upper()
+        ):
+
+            names = (
+                "recover_docker",
+            )
+
+        else:
+
+            names = (
+                "execute",
+                "run",
+            )
+
+        return self.call_first(
+            names,
+            {
+                "command":
+                    (
+                        "Repair this verified MAJD "
+                        "failure and return a real result"
+                    ),
+
+                "request":
+                    failure,
+
+                "payload":
+                    failure,
+
+                "failure":
+                    failure,
+
+                "diagnosis":
+                    diagnosis,
+
+                "owner":
+                    DEFAULT_OWNER,
+            },
+        )
+
+    def verification(
+        self,
+    ) -> Dict[str, Any]:
+
+        checks: Dict[
+            str,
+            Any
+        ] = {}
+
+        for key, names in {
+            "core": (
+                "verify_core",
+            ),
+
+            "syntax": (
+                "verify_syntax",
+            ),
+
+            "platform": (
+                "inspect_platform",
+            ),
+
+            "capabilities": (
+                "capability_snapshot",
+            ),
+        }.items():
+
+            checks[
+                key
+            ] = self.call_first(
+                names,
+                {},
+            )
+
+        success = all(
+            (
+                item.get(
+                    "success"
+                )
+                is True
+            )
+            or
+            (
+                item.get(
+                    "status"
+                )
+                ==
+                "RUNTIME06_INTERFACE_NOT_FOUND"
+            )
+
+            for item
+            in checks.values()
+        )
+
+        return {
+            "success":
+                success,
+
+            "checks":
+                checks,
+        }
 
 
 # ============================================================
@@ -1632,57 +4825,137 @@ class DiagnosticEngine:
             default=str,
         )
 
-        lowered = text.lower()
+        lowered = (
+            text.lower()
+        )
 
         if (
-            "no module named" in lowered
-            or "modulenotfounderror" in lowered
+            "no module named"
+            in lowered
+            or
+            "modulenotfounderror"
+            in lowered
         ):
+
             return {
-                "type": "MISSING_PYTHON_MODULE",
-                "repairable": True,
-                "details": text[-10000:],
+                "type":
+                    "MISSING_PYTHON_MODULE",
+
+                "repairable":
+                    True,
+
+                "details":
+                    text[
+                        -10000:
+                    ],
             }
 
-        if (
-            "syntaxerror" in lowered
-            or "indentationerror" in lowered
-            or "taberror" in lowered
+        if any(
+            token in lowered
+
+            for token in (
+                "syntaxerror",
+                "indentationerror",
+                "taberror",
+            )
         ):
+
             return {
-                "type": "PYTHON_SYNTAX_ERROR",
-                "repairable": True,
-                "details": text[-10000:],
+                "type":
+                    "PYTHON_SYNTAX_ERROR",
+
+                "repairable":
+                    True,
+
+                "details":
+                    text[
+                        -10000:
+                    ],
             }
 
         if "interface" in lowered:
+
             return {
-                "type": "INTERFACE_MISMATCH",
-                "repairable": True,
-                "details": text[-10000:],
+                "type":
+                    "INTERFACE_MISMATCH",
+
+                "repairable":
+                    True,
+
+                "details":
+                    text[
+                        -10000:
+                    ],
             }
 
         if "artifact" in lowered:
+
             return {
-                "type": "ARTIFACT_FAILURE",
-                "repairable": True,
-                "details": text[-10000:],
+                "type":
+                    "ARTIFACT_FAILURE",
+
+                "repairable":
+                    True,
+
+                "details":
+                    text[
+                        -10000:
+                    ],
             }
 
         if (
-            "publish" in lowered
-            or "publication" in lowered
+            "publish"
+            in lowered
+            or
+            "publication"
+            in lowered
         ):
+
             return {
-                "type": "PUBLICATION_FAILURE",
-                "repairable": True,
-                "details": text[-10000:],
+                "type":
+                    "PUBLICATION_FAILURE",
+
+                "repairable":
+                    True,
+
+                "details":
+                    text[
+                        -10000:
+                    ],
+            }
+
+        if (
+            "docker"
+            in lowered
+            or
+            "container"
+            in lowered
+        ):
+
+            return {
+                "type":
+                    "DOCKER_FAILURE",
+
+                "repairable":
+                    True,
+
+                "details":
+                    text[
+                        -10000:
+                    ],
             }
 
         return {
-            "type": "UNKNOWN",
-            "repairable": False,
-            "details": text[-10000:],
+            "type":
+                "UNKNOWN",
+
+            "repairable":
+                True,
+
+            "details":
+                text[
+                    -10000:
+                ],
         }
 
 
@@ -1697,23 +4970,286 @@ class AutonomousRepairEngine:
         operation_id: str,
         logger: AuditLogger,
         checker: PythonChecker,
+        ai: LocalAIAdapter,
+        runtime06: Runtime06Bridge,
     ):
-        self.operation_id = operation_id
-        self.logger = logger
-        self.executor = ProcessExecutor()
-        self.backup = BackupManager(
+
+        self.operation_id = (
             operation_id
         )
-        self.dependencies = DependencyManager(
-            self.executor,
-            logger,
+
+        self.logger = (
+            logger
         )
-        self.ai = LocalAIAdapter(logger)
-        self.code = CodeManager(
-            self.backup,
-            logger,
-            checker,
+
+        self.executor = (
+            ProcessExecutor()
         )
+
+        self.backup = (
+            BackupManager(
+                operation_id
+            )
+        )
+
+        self.dependencies = (
+            DependencyManager(
+                self.executor,
+                logger,
+            )
+        )
+
+        self.ai = (
+            ai
+        )
+
+        self.runtime06 = (
+            runtime06
+        )
+
+        self.code = (
+            CodeManager(
+                self.backup,
+                logger,
+                checker,
+            )
+        )
+
+    def _ai_code_repair(
+        self,
+        diagnosis: Dict[str, Any],
+        failure: Dict[str, Any],
+    ) -> Dict[str, Any]:
+
+        if not self.ai.available:
+
+            self.ai.ensure_connected(
+                force=False
+            )
+
+        if not self.ai.available:
+
+            return {
+                "success":
+                    False,
+
+                "status":
+                    "CODE_REPAIR_ENGINE_UNAVAILABLE",
+
+                "ai":
+                    self.ai.status(),
+            }
+
+        relevant_files = [
+            {
+                "path":
+                    path.name,
+
+                "sha256":
+                    sha256_file(
+                        path
+                    ),
+
+                "size":
+                    path.stat().st_size,
+            }
+
+            for path in ROOT_DIR.glob(
+                "*.py"
+            )
+
+            if path.is_file()
+        ]
+
+        prompt = (
+            "Repair the verified MAJD-GAME-FACTORY failure. "
+            "Return JSON only.\n"
+            "{\"success\":true,\"changes\":["
+            "{\"path\":\"relative.py\","
+            "\"content\":\"COMPLETE FILE CONTENT\"}]}\n"
+            "Rules: complete-file replacement only; "
+            "stay inside project root; preserve working interfaces; "
+            "never claim success without a real applied change; "
+            "do not rewrite MAJD-AI-MASTERMIND-01.py while it is executing.\n\n"
+            "FAILURE:\n"
+            +
+            json.dumps(
+                failure,
+                ensure_ascii=False,
+                default=str,
+            )
+            +
+            "\nDIAGNOSIS:\n"
+            +
+            json.dumps(
+                diagnosis,
+                ensure_ascii=False,
+                default=str,
+            )
+            +
+            "\nFILES:\n"
+            +
+            json.dumps(
+                relevant_files,
+                ensure_ascii=False,
+            )
+        )
+
+        answer = self.ai.ask(
+            (
+                "You are the MAJD sovereign code repair engine. "
+                "Be conservative and return JSON only."
+            ),
+            prompt,
+        )
+
+        if not answer:
+
+            return {
+                "success":
+                    False,
+
+                "status":
+                    "AI_REPAIR_EMPTY",
+            }
+
+        try:
+
+            cleaned = re.sub(
+                r"^```(?:json)?\s*",
+                "",
+                answer.strip(),
+            )
+
+            cleaned = re.sub(
+                r"\s*```$",
+                "",
+                cleaned,
+            )
+
+            data = json.loads(
+                cleaned
+            )
+
+        except Exception as error:
+
+            return {
+                "success":
+                    False,
+
+                "status":
+                    "AI_REPAIR_RESPONSE_INVALID",
+
+                "error":
+                    str(
+                        error
+                    ),
+            }
+
+        applied: List[
+            Dict[str, Any]
+        ] = []
+
+        for change in (
+            data.get(
+                "changes"
+            )
+            or
+            []
+        ):
+
+            relative = str(
+                change.get(
+                    "path"
+                )
+                or
+                ""
+            ).strip()
+
+            content = (
+                change.get(
+                    "content"
+                )
+            )
+
+            if (
+                not relative
+                or
+                not isinstance(
+                    content,
+                    str,
+                )
+                or
+                not content.strip()
+            ):
+
+                continue
+
+            target = safe_project_path(
+                ROOT_DIR
+                /
+                relative
+            )
+
+            if (
+                target.resolve()
+                ==
+                THIS_FILE
+            ):
+
+                applied.append(
+                    {
+                        "success":
+                            False,
+
+                        "status":
+                            "SELF_REWRITE_REQUIRES_CONTROLLED_RESTART",
+
+                        "path":
+                            relative,
+                    }
+                )
+
+                continue
+
+            applied.append(
+                self.code
+                .replace_python_file(
+                    target,
+                    content,
+                )
+            )
+
+        success = (
+            bool(
+                applied
+            )
+            and
+            all(
+                item.get(
+                    "success"
+                )
+
+                for item
+                in applied
+            )
+        )
+
+        return {
+            "success":
+                success,
+
+            "status":
+                (
+                    "AI_CODE_REPAIR_APPLIED"
+                    if success
+                    else
+                    "AI_REPAIR_INCOMPLETE"
+                ),
+
+            "changes":
+                applied,
+        }
 
     def repair(
         self,
@@ -1721,10 +5257,47 @@ class AutonomousRepairEngine:
         failure: Dict[str, Any],
     ) -> Dict[str, Any]:
 
-        repair_type = diagnosis.get("type")
+        repair_type = str(
+            diagnosis.get(
+                "type"
+            )
+            or
+            ""
+        )
 
-        if repair_type == "MISSING_PYTHON_MODULE":
-            return (
+        runtime_result = (
+            self.runtime06
+            .repair(
+                failure,
+                diagnosis,
+            )
+        )
+
+        if (
+            runtime_result.get(
+                "success"
+            )
+            is True
+        ):
+
+            return {
+                "success":
+                    True,
+
+                "status":
+                    "RUNTIME06_REPAIR_COMPLETED",
+
+                "runtime06":
+                    runtime_result,
+            }
+
+        if (
+            repair_type
+            ==
+            "MISSING_PYTHON_MODULE"
+        ):
+
+            dependency = (
                 self.dependencies
                 .repair_missing_python_module(
                     json.dumps(
@@ -1735,180 +5308,48 @@ class AutonomousRepairEngine:
                 )
             )
 
-        if repair_type not in {
-            "PYTHON_SYNTAX_ERROR",
-            "INTERFACE_MISMATCH",
-            "ARTIFACT_FAILURE",
-            "PUBLICATION_FAILURE",
-        }:
-            return {
-                "success": False,
-                "status": (
-                    "AUTOMATIC_REPAIR_NOT_AVAILABLE"
-                ),
-                "diagnosis": diagnosis,
-            }
-
-        if not self.ai.available:
-            return {
-                "success": False,
-                "status": (
-                    "CODE_REPAIR_ENGINE_UNAVAILABLE"
-                ),
-                "ai": self.ai.status(),
-                "diagnosis": diagnosis,
-            }
-
-        relevant_files = []
-
-        for path in ROOT_DIR.glob("*.py"):
-            if path.is_file():
-                relevant_files.append(
-                    {
-                        "path": path.name,
-                        "sha256": sha256_file(path),
-                        "size": path.stat().st_size,
-                    }
-                )
-
-        prompt = (
-            "Repair the MAJD-GAME-FACTORY failure.\n"
-            "Return JSON only.\n"
-            "Schema:\n"
-            "{"
-            "\"success\":true,"
-            "\"changes\":["
-            "{"
-            "\"path\":\"relative.py\","
-            "\"content\":\"COMPLETE FILE CONTENT\""
-            "}"
-            "]"
-            "}\n"
-            "Rules:\n"
-            "- Complete-file replacement only.\n"
-            "- Never modify outside project root.\n"
-            "- Never claim success without changes.\n"
-            "- Preserve existing working interfaces.\n\n"
-            "FAILURE:\n"
-            + json.dumps(
-                failure,
-                ensure_ascii=False,
-                default=str,
-            )
-            + "\nDIAGNOSIS:\n"
-            + json.dumps(
-                diagnosis,
-                ensure_ascii=False,
-                default=str,
-            )
-            + "\nFILES:\n"
-            + json.dumps(
-                relevant_files,
-                ensure_ascii=False,
-            )
-        )
-
-        answer = self.ai.ask(
-            (
-                "You are MAJD Sovereign autonomous "
-                "repair engine. Apply conservative "
-                "complete-file repairs and never "
-                "manufacture success."
-            ),
-            prompt,
-        )
-
-        if not answer:
-            return {
-                "success": False,
-                "status": "AI_REPAIR_EMPTY",
-            }
-
-        try:
-            cleaned = answer.strip()
-
-            cleaned = re.sub(
-                r"^```(?:json)?\s*",
-                "",
-                cleaned,
-            )
-
-            cleaned = re.sub(
-                r"\s*```$",
-                "",
-                cleaned,
-            )
-
-            data = json.loads(cleaned)
-
-        except Exception as error:
-            return {
-                "success": False,
-                "status": (
-                    "AI_REPAIR_RESPONSE_INVALID"
-                ),
-                "error": str(error),
-            }
-
-        applied = []
-
-        for change in (
-            data.get("changes")
-            or []
-        ):
-            relative = str(
-                change.get("path")
-                or ""
-            ).strip()
-
-            content = change.get("content")
-
-            if (
-                not relative
-                or not isinstance(content, str)
-                or not content.strip()
+            if dependency.get(
+                "success"
             ):
-                continue
 
-            target = safe_project_path(
-                ROOT_DIR / relative
+                return {
+                    "success":
+                        True,
+
+                    "status":
+                        "DEPENDENCY_REPAIRED",
+
+                    "dependency":
+                        dependency,
+                }
+
+        ai_result = (
+            self._ai_code_repair(
+                diagnosis,
+                failure,
             )
-
-            # Do not let 01 rewrite itself while it is
-            # currently executing.
-            if target.resolve() == THIS_FILE:
-                applied.append(
-                    {
-                        "success": False,
-                        "status": (
-                            "SELF_REWRITE_REQUIRES_"
-                            "CONTROLLED_RESTART"
-                        ),
-                        "path": relative,
-                    }
-                )
-                continue
-
-            applied.append(
-                self.code.replace_python_file(
-                    target,
-                    content,
-                )
-            )
-
-        success = bool(applied) and all(
-            item.get("success")
-            for item in applied
         )
 
         return {
-            "success": success,
-            "status": (
-                "AI_CODE_REPAIR_APPLIED"
-                if success
-                else "AI_REPAIR_INCOMPLETE"
-            ),
-            "changes": applied,
+            "success":
+                (
+                    ai_result.get(
+                        "success"
+                    )
+                    is True
+                ),
+
+            "status":
+                ai_result.get(
+                    "status",
+                    "AUTONOMOUS_REPAIR_FAILED",
+                ),
+
+            "runtime06":
+                runtime_result,
+
+            "ai_repair":
+                ai_result,
         }
 
 
@@ -1918,7 +5359,7 @@ class AutonomousRepairEngine:
 
 class ContentSafetyPolicy:
 
-    SEXUAL_TERMS = {
+    EXPLICIT_SEXUAL_TERMS = {
         "porn",
         "pornography",
         "explicit sex",
@@ -1938,6 +5379,8 @@ class ContentSafetyPolicy:
         "موقع أمني حساس",
         "مركبة حكومية حساسة",
         "سيارة حكومية حساسة",
+        "تصوير موقع حكومي محظور",
+        "تصوير سيارة حكومية محظور",
     }
 
     def inspect_text(
@@ -1946,44 +5389,211 @@ class ContentSafetyPolicy:
     ) -> Dict[str, Any]:
 
         normalized = str(
-            text or ""
+            text
+            or
+            ""
         ).lower()
 
-        violations = []
+        violations: List[
+            Dict[str, str]
+        ] = []
 
         if any(
-            term.lower() in normalized
-            for term in self.SEXUAL_TERMS
+            term.lower()
+            in normalized
+
+            for term
+            in self.EXPLICIT_SEXUAL_TERMS
         ):
+
             violations.append(
                 {
                     "policy":
                         "EXPLICIT_SEXUAL_CONTENT",
-                    "action": "BLOCK",
+
+                    "action":
+                        "BLOCK",
                 }
             )
 
         if any(
-            term.lower() in normalized
+            term.lower()
+            in normalized
+
             for term
             in self.SENSITIVE_GOVERNMENT_TERMS
         ):
+
             violations.append(
                 {
                     "policy":
                         "SENSITIVE_GOVERNMENT_CONTENT",
-                    "action": "BLOCK_REVIEW",
+
+                    "action":
+                        "BLOCK",
                 }
             )
 
         return {
-            "success": not violations,
-            "status": (
-                "CONTENT_ALLOWED"
-                if not violations
-                else "CONTENT_BLOCKED"
-            ),
-            "violations": violations,
+            "success":
+                not violations,
+
+            "status":
+                (
+                    "CONTENT_ALLOWED"
+                    if not violations
+                    else
+                    "CONTENT_BLOCKED"
+                ),
+
+            "violations":
+                violations,
+        }
+
+    def inspect_request(
+        self,
+        command: str,
+        request_type: str,
+        payload: Dict[str, Any],
+        registry: CapabilityRegistry,
+        executor: ComponentExecutor,
+        job_id: str,
+        owner: str,
+    ) -> Dict[str, Any]:
+
+        text_result = (
+            self.inspect_text(
+                command
+                +
+                "\n"
+                +
+                json.dumps(
+                    payload,
+                    ensure_ascii=False,
+                    default=str,
+                )
+            )
+        )
+
+        if not text_result.get(
+            "success"
+        ):
+
+            return text_result
+
+        needs_media_moderation = (
+            request_type
+            in {
+                "SOCIAL",
+                "LIVE",
+            }
+            or
+            any(
+                payload.get(
+                    key
+                )
+
+                for key in (
+                    "image",
+                    "image_path",
+                    "video",
+                    "video_path",
+                    "media",
+                    "asset",
+                    "stream_url",
+                )
+            )
+        )
+
+        if not needs_media_moderation:
+
+            return {
+                "success":
+                    True,
+
+                "status":
+                    "CONTENT_ALLOWED",
+
+                "text":
+                    text_result,
+            }
+
+        providers = (
+            registry.providers(
+                "CONTENT_SAFETY"
+            )
+        )
+
+        if not providers:
+
+            return {
+                "success":
+                    False,
+
+                "status":
+                    "CONTENT_SAFETY_ADAPTER_REQUIRED",
+
+                "message":
+                    (
+                        "Visual/live publication is blocked until "
+                        "a real moderation adapter is operational."
+                    ),
+            }
+
+        failures = []
+
+        for provider in providers:
+
+            result = (
+                executor.execute_provider(
+                    provider,
+                    command,
+                    payload,
+                    job_id,
+                    owner,
+                )
+            )
+
+            if (
+                result.get(
+                    "success"
+                )
+                is True
+            ):
+
+                return {
+                    "success":
+                        True,
+
+                    "status":
+                        "CONTENT_SAFETY_VERIFIED",
+
+                    "provider":
+                        provider,
+
+                    "result":
+                        result,
+                }
+
+            failures.append(
+                {
+                    "provider":
+                        provider,
+
+                    "result":
+                        result,
+                }
+            )
+
+        return {
+            "success":
+                False,
+
+            "status":
+                "CONTENT_SAFETY_CHECK_FAILED",
+
+            "failures":
+                failures,
         }
 
 
@@ -1993,13 +5603,63 @@ class ContentSafetyPolicy:
 
 class SecurityCenter:
 
+    SUSPICIOUS_PATTERNS = (
+        re.compile(
+            r"failed password",
+            re.IGNORECASE,
+        ),
+
+        re.compile(
+            r"invalid user",
+            re.IGNORECASE,
+        ),
+
+        re.compile(
+            r"authentication failure",
+            re.IGNORECASE,
+        ),
+
+        re.compile(
+            r"\b401\b"
+        ),
+
+        re.compile(
+            r"\b403\b"
+        ),
+
+        re.compile(
+            r"sql injection",
+            re.IGNORECASE,
+        ),
+
+        re.compile(
+            r"path traversal",
+            re.IGNORECASE,
+        ),
+
+        re.compile(
+            r"\.\./\.\./"
+        ),
+    )
+
     def __init__(
         self,
         logger: AuditLogger,
+        executor: ProcessExecutor,
     ):
-        self.logger = logger
+
+        self.logger = (
+            logger
+        )
+
+        self.executor = (
+            executor
+        )
+
         self.events_file = (
-            SECURITY_DIR / "events.jsonl"
+            SECURITY_DIR
+            /
+            "events.jsonl"
         )
 
     def record(
@@ -2016,28 +5676,51 @@ class SecurityCenter:
     ) -> Dict[str, Any]:
 
         event = {
-            "id": str(uuid.uuid4()),
-            "time": utc_now(),
-            "event_type": event_type,
-            "severity": severity.upper(),
-            "source": source,
-            "target": target,
-            "action": action,
-            "result": result,
-            "details": details or {},
+            "id":
+                str(
+                    uuid.uuid4()
+                ),
+
+            "time":
+                utc_now(),
+
+            "event_type":
+                event_type,
+
+            "severity":
+                severity.upper(),
+
+            "source":
+                source,
+
+            "target":
+                target,
+
+            "action":
+                action,
+
+            "result":
+                result,
+
+            "details":
+                details
+                or
+                {},
         }
 
         with self.events_file.open(
             "a",
             encoding="utf-8",
         ) as file:
+
             file.write(
                 json.dumps(
                     event,
                     ensure_ascii=False,
                     default=str,
                 )
-                + "\n"
+                +
+                "\n"
             )
 
         self.logger.log(
@@ -2053,21 +5736,250 @@ class SecurityCenter:
     ) -> List[Dict[str, Any]]:
 
         if not self.events_file.exists():
+
             return []
 
-        lines = self.events_file.read_text(
-            encoding="utf-8"
-        ).splitlines()
+        result: List[
+            Dict[str, Any]
+        ] = []
 
-        result = []
+        for line in (
+            self.events_file
+            .read_text(
+                encoding="utf-8",
+                errors="replace",
+            )
+            .splitlines()[
+                -limit:
+            ]
+        ):
 
-        for line in lines[-limit:]:
             try:
+
                 result.append(
-                    json.loads(line)
+                    json.loads(
+                        line
+                    )
                 )
+
             except Exception:
-                continue
+
+                pass
+
+        return result
+
+    def _read_auth_log(
+        self,
+    ) -> str:
+
+        path = Path(
+            "/var/log/auth.log"
+        )
+
+        if (
+            not path.exists()
+            or
+            not os.access(
+                path,
+                os.R_OK,
+            )
+        ):
+
+            return ""
+
+        try:
+
+            lines = (
+                path.read_text(
+                    encoding="utf-8",
+                    errors="replace",
+                )
+                .splitlines()
+            )
+
+            return "\n".join(
+                lines[
+                    -1000:
+                ]
+            )
+
+        except Exception:
+
+            return ""
+
+    def scan(
+        self,
+    ) -> Dict[str, Any]:
+
+        sources: Dict[
+            str,
+            str
+        ] = {}
+
+        auth = (
+            self._read_auth_log()
+        )
+
+        if auth:
+
+            sources[
+                "auth.log"
+            ] = auth
+
+        journal = (
+            self.executor.run(
+                [
+                    "journalctl",
+                    "--since",
+                    "-10 minutes",
+                    "-n",
+                    "700",
+                    "--no-pager",
+                ],
+                cwd=ROOT_DIR,
+                timeout=15,
+                allow_outside_root=True,
+            )
+        )
+
+        if (
+            journal.success
+            and
+            journal.stdout
+        ):
+
+            sources[
+                "journalctl"
+            ] = journal.stdout
+
+        findings: List[
+            Dict[str, Any]
+        ] = []
+
+        seen_lines: Set[
+            str
+        ] = set()
+
+        for source_name, text in (
+            sources.items()
+        ):
+
+            for line in text.splitlines():
+
+                if line in seen_lines:
+
+                    continue
+
+                for pattern in (
+                    self.SUSPICIOUS_PATTERNS
+                ):
+
+                    if pattern.search(
+                        line
+                    ):
+
+                        seen_lines.add(
+                            line
+                        )
+
+                        findings.append(
+                            {
+                                "source":
+                                    source_name,
+
+                                "pattern":
+                                    pattern.pattern,
+
+                                "line":
+                                    truncate(
+                                        line,
+                                        800,
+                                    ),
+                            }
+                        )
+
+                        break
+
+        listeners = (
+            self.executor.run(
+                [
+                    "ss",
+                    "-ltnp",
+                ],
+                cwd=ROOT_DIR,
+                timeout=10,
+                allow_outside_root=True,
+            )
+        )
+
+        result = {
+            "success":
+                True,
+
+            "status":
+                "SECURITY_SCAN_COMPLETED",
+
+            "time":
+                utc_now(),
+
+            "suspicious_count":
+                len(
+                    findings
+                ),
+
+            "findings":
+                findings[
+                    -100:
+                ],
+
+            "listeners":
+                (
+                    truncate(
+                        listeners.stdout,
+                        12000,
+                    )
+                    if listeners.success
+                    else
+                    None
+                ),
+        }
+
+        if findings:
+
+            self.record(
+                "SUSPICIOUS_ACTIVITY_DETECTED",
+                (
+                    "HIGH"
+                    if len(
+                        findings
+                    ) >= 10
+                    else
+                    "MEDIUM"
+                ),
+                action=(
+                    "LOG_AND_ISOLATE_AT_EDGE_IF_"
+                    "SECURITY_PROVIDER_SUPPORTS_IT"
+                ),
+                result="DETECTED",
+                details={
+                    "count":
+                        len(
+                            findings
+                        ),
+
+                    "findings":
+                        findings[
+                            -20:
+                        ],
+                },
+            )
+
+        write_json(
+            SECURITY_DIR
+            /
+            "latest-scan.json",
+            result,
+        )
 
         return result
 
@@ -2079,11 +5991,9 @@ class SecurityCenter:
 class ElectronicLegalAssistant:
 
     DISCLAIMER = (
-        "MAJD Electronic Legal Assistant is an AI "
-        "assistance capability and is not a human "
-        "licensed lawyer. Matters requiring formal "
-        "legal approval must be reviewed by an "
-        "appropriately qualified legal professional."
+        "MAJD Electronic Legal Assistant provides AI drafting/review "
+        "assistance. It is not a human licensed lawyer and does not "
+        "replace formal legal approval where required."
     )
 
     def __init__(
@@ -2091,8 +6001,14 @@ class ElectronicLegalAssistant:
         ai: LocalAIAdapter,
         logger: AuditLogger,
     ):
-        self.ai = ai
-        self.logger = logger
+
+        self.ai = (
+            ai
+        )
+
+        self.logger = (
+            logger
+        )
 
     def execute(
         self,
@@ -2101,24 +6017,33 @@ class ElectronicLegalAssistant:
     ) -> Dict[str, Any]:
 
         if not self.ai.available:
+
+            self.ai.ensure_connected(
+                force=False
+            )
+
+        if not self.ai.available:
+
             return {
-                "success": False,
-                "status": "LEGAL_AI_NOT_CONNECTED",
-                "disclaimer": self.DISCLAIMER,
+                "success":
+                    False,
+
+                "status":
+                    "LEGAL_AI_NOT_CONNECTED",
+
+                "disclaimer":
+                    self.DISCLAIMER,
             }
 
         prompt = (
-            "Act as MAJD Electronic Legal Assistant.\n"
-            "Assist with contract drafting/review, "
-            "terms, privacy, developer agreements, "
-            "creator agreements, agency agreements, "
-            "advertising, sponsorship and IP review.\n"
-            "Do not claim to be a licensed lawyer.\n"
-            "Flag matters requiring formal legal "
-            "approval.\n\n"
+            "Assist MAJD with contract drafting/review, terms, privacy, "
+            "developer/creator/agency agreements, advertising, sponsorship "
+            "and intellectual-property review. Flag items needing formal "
+            "legal approval.\n\n"
             f"COMMAND:\n{command}\n\n"
             "PAYLOAD:\n"
-            + json.dumps(
+            +
+            json.dumps(
                 payload,
                 ensure_ascii=False,
                 default=str,
@@ -2127,36 +6052,49 @@ class ElectronicLegalAssistant:
 
         answer = self.ai.ask(
             (
-                "You are an electronic legal "
-                "assistance system for MAJD. "
-                "Provide analysis and drafting "
-                "assistance, not licensed legal "
-                "representation."
+                "You are the MAJD electronic legal assistance system. "
+                "Do not claim to be a licensed human lawyer."
             ),
             prompt,
         )
 
         if not answer:
+
             return {
-                "success": False,
-                "status": "LEGAL_AI_EMPTY",
-                "disclaimer": self.DISCLAIMER,
+                "success":
+                    False,
+
+                "status":
+                    "LEGAL_AI_EMPTY",
+
+                "disclaimer":
+                    self.DISCLAIMER,
             }
 
         result = {
-            "success": True,
-            "status": (
-                "LEGAL_ASSISTANCE_COMPLETED"
-            ),
-            "result": answer,
-            "disclaimer": self.DISCLAIMER,
+            "success":
+                True,
+
+            "status":
+                "LEGAL_ASSISTANCE_COMPLETED",
+
+            "result":
+                answer,
+
+            "disclaimer":
+                self.DISCLAIMER,
         }
 
         self.logger.log(
             "LEGAL_ASSISTANCE",
             {
-                "command": command,
-                "status": result["status"],
+                "command":
+                    command,
+
+                "status":
+                    result[
+                        "status"
+                    ],
             },
         )
 
@@ -2184,7 +6122,7 @@ class ArtifactVerifier:
     ) -> Optional[Path]:
 
         containers = [
-            result,
+            result
         ]
 
         for key in (
@@ -2193,28 +6131,60 @@ class ArtifactVerifier:
             "output",
             "game",
         ):
-            nested = result.get(key)
 
-            if isinstance(nested, dict):
-                containers.append(nested)
+            nested = (
+                result.get(
+                    key
+                )
+            )
+
+            if isinstance(
+                nested,
+                dict,
+            ):
+
+                containers.append(
+                    nested
+                )
 
         for container in containers:
+
             for key in self.KEYS:
-                value = container.get(key)
+
+                value = (
+                    container.get(
+                        key
+                    )
+                )
 
                 if not value:
+
                     continue
 
-                path = Path(str(value))
+                path = Path(
+                    str(
+                        value
+                    )
+                )
 
                 if not path.is_absolute():
-                    path = (
-                        ROOT_DIR / path
-                    ).resolve()
-                else:
-                    path = path.resolve()
 
-                if is_inside_root(path):
+                    path = (
+                        ROOT_DIR
+                        /
+                        path
+                    ).resolve()
+
+                else:
+
+                    path = (
+                        path.resolve()
+                    )
+
+                if is_inside_root(
+                    path
+                ):
+
                     return path
 
         return None
@@ -2224,64 +6194,369 @@ class ArtifactVerifier:
         result: Dict[str, Any],
     ) -> Dict[str, Any]:
 
-        artifact = self.extract(result)
+        artifact = (
+            self.extract(
+                result
+            )
+        )
 
         if artifact is None:
+
             return {
-                "success": False,
-                "status": "ARTIFACT_MISSING",
+                "success":
+                    False,
+
+                "status":
+                    "ARTIFACT_MISSING",
             }
 
         if not artifact.exists():
+
             return {
-                "success": False,
-                "status": "ARTIFACT_NOT_FOUND",
-                "artifact": str(artifact),
+                "success":
+                    False,
+
+                "status":
+                    "ARTIFACT_NOT_FOUND",
+
+                "artifact":
+                    str(
+                        artifact
+                    ),
             }
 
         if not artifact.is_dir():
+
             return {
-                "success": False,
-                "status": (
-                    "ARTIFACT_NOT_DIRECTORY"
-                ),
-                "artifact": str(artifact),
+                "success":
+                    False,
+
+                "status":
+                    "ARTIFACT_NOT_DIRECTORY",
+
+                "artifact":
+                    str(
+                        artifact
+                    ),
             }
 
         files = [
             item
-            for item in artifact.rglob("*")
+
+            for item
+            in artifact.rglob(
+                "*"
+            )
+
             if item.is_file()
         ]
 
-        if not files:
-            return {
-                "success": False,
-                "status": "ARTIFACT_EMPTY",
-                "artifact": str(artifact),
-            }
+        index = (
+            artifact
+            /
+            "index.html"
+        )
 
-        index = artifact / "index.html"
+        if not files:
+
+            return {
+                "success":
+                    False,
+
+                "status":
+                    "ARTIFACT_EMPTY",
+
+                "artifact":
+                    str(
+                        artifact
+                    ),
+            }
 
         if (
             not index.exists()
-            or not index.is_file()
-            or index.stat().st_size <= 0
+            or
+            not index.is_file()
+            or
+            index.stat().st_size
+            <=
+            0
         ):
+
             return {
-                "success": False,
-                "status": (
-                    "PLAYABLE_INDEX_NOT_FOUND"
-                ),
-                "artifact": str(artifact),
+                "success":
+                    False,
+
+                "status":
+                    "PLAYABLE_INDEX_NOT_FOUND",
+
+                "artifact":
+                    str(
+                        artifact
+                    ),
             }
 
         return {
-            "success": True,
-            "status": "ARTIFACT_VERIFIED",
-            "artifact": str(artifact),
-            "index": str(index),
-            "file_count": len(files),
+            "success":
+                True,
+
+            "status":
+                "ARTIFACT_VERIFIED",
+
+            "artifact":
+                str(
+                    artifact
+                ),
+
+            "index":
+                str(
+                    index
+                ),
+
+            "file_count":
+                len(
+                    files
+                ),
+        }
+
+
+# ============================================================
+# PUBLICATION VERIFIER
+# ============================================================
+
+class PublicationVerifier:
+
+    def verify(
+        self,
+        published: Dict[str, Any],
+    ) -> Dict[str, Any]:
+
+        if (
+            published.get(
+                "success"
+            )
+            is not True
+        ):
+
+            return {
+                "success":
+                    False,
+
+                "status":
+                    "PUBLISHER_REPORTED_FAILURE",
+            }
+
+        directory_value = (
+            published.get(
+                "published_directory"
+            )
+            or
+            published.get(
+                "publish_dir"
+            )
+            or
+            published.get(
+                "destination"
+            )
+        )
+
+        directory_result: Optional[
+            Dict[str, Any]
+        ] = None
+
+        if directory_value:
+
+            directory = Path(
+                str(
+                    directory_value
+                )
+            )
+
+            if not directory.is_absolute():
+
+                directory = (
+                    ROOT_DIR
+                    /
+                    directory
+                ).resolve()
+
+            else:
+
+                directory = (
+                    directory.resolve()
+                )
+
+            if (
+                is_inside_root(
+                    directory
+                )
+                and
+                directory.exists()
+                and
+                directory.is_dir()
+            ):
+
+                index = (
+                    directory
+                    /
+                    "index.html"
+                )
+
+                if (
+                    index.exists()
+                    and
+                    index.is_file()
+                    and
+                    index.stat().st_size
+                    >
+                    0
+                ):
+
+                    directory_result = {
+                        "published_directory":
+                            str(
+                                directory
+                            ),
+
+                        "index":
+                            str(
+                                index
+                            ),
+                    }
+
+        url = (
+            published.get(
+                "public_url"
+            )
+        )
+
+        url_result: Optional[
+            Dict[str, Any]
+        ] = None
+
+        if url:
+
+            try:
+
+                parsed = (
+                    urllib.parse
+                    .urlparse(
+                        str(
+                            url
+                        )
+                    )
+                )
+
+                if parsed.scheme in {
+                    "http",
+                    "https",
+                }:
+
+                    request = (
+                        urllib.request.Request(
+                            str(
+                                url
+                            ),
+                            method="GET",
+                            headers={
+                                "User-Agent":
+                                    "MAJD-Publication-Verifier/4.1",
+                            },
+                        )
+                    )
+
+                    with urllib.request.urlopen(
+                        request,
+                        timeout=10,
+                    ) as response:
+
+                        status = int(
+                            getattr(
+                                response,
+                                "status",
+                                200,
+                            )
+                        )
+
+                        body = response.read(
+                            4096
+                        )
+
+                    if (
+                        200
+                        <=
+                        status
+                        <
+                        400
+                        and
+                        body
+                    ):
+
+                        url_result = {
+                            "public_url":
+                                str(
+                                    url
+                                ),
+
+                            "http_status":
+                                status,
+
+                            "body_bytes_checked":
+                                len(
+                                    body
+                                ),
+                        }
+
+            except Exception as error:
+
+                url_result = {
+                    "public_url":
+                        str(
+                            url
+                        ),
+
+                    "error":
+                        (
+                            f"{type(error).__name__}: "
+                            f"{error}"
+                        ),
+                }
+
+        success = (
+            bool(
+                directory_result
+            )
+            or
+            bool(
+                url_result
+                and
+                url_result.get(
+                    "http_status"
+                )
+            )
+        )
+
+        return {
+            "success":
+                success,
+
+            "status":
+                (
+                    "REAL_PUBLICATION_VERIFIED"
+                    if success
+                    else
+                    "PUBLICATION_NOT_VERIFIED"
+                ),
+
+            "filesystem":
+                directory_result,
+
+            "http":
+                url_result,
+
+            "game_path":
+                published.get(
+                    "game_path"
+                ),
         }
 
 
@@ -2292,9 +6567,23 @@ class ArtifactVerifier:
 class CommandClassifier:
 
     RULES: Tuple[
-        Tuple[str, Tuple[str, ...]],
+        Tuple[
+            str,
+            Tuple[str, ...]
+        ],
         ...
     ] = (
+        (
+            "CONNECT_AI",
+            (
+                "اربط الذكاء",
+                "ربط الذكاء",
+                "اكتشف محرك الذكاء",
+                "connect ai",
+                "discover ai engine",
+            ),
+        ),
+
         (
             "CREATE_GAME",
             (
@@ -2308,6 +6597,7 @@ class CommandClassifier:
                 "make game",
             ),
         ),
+
         (
             "REPAIR",
             (
@@ -2324,6 +6614,7 @@ class CommandClassifier:
                 "debug",
             ),
         ),
+
         (
             "INSPECT",
             (
@@ -2337,6 +6628,7 @@ class CommandClassifier:
                 "validate",
             ),
         ),
+
         (
             "LEGAL",
             (
@@ -2353,6 +6645,7 @@ class CommandClassifier:
                 "terms",
             ),
         ),
+
         (
             "SECURITY",
             (
@@ -2366,6 +6659,7 @@ class CommandClassifier:
                 "intrusion",
             ),
         ),
+
         (
             "CONTENT",
             (
@@ -2381,6 +6675,7 @@ class CommandClassifier:
                 "image",
             ),
         ),
+
         (
             "SOCIAL",
             (
@@ -2388,12 +6683,14 @@ class CommandClassifier:
                 "سناب",
                 "يوتيوب",
                 "تويتر",
+                "منصة x",
                 "social",
                 "tiktok",
                 "snapchat",
                 "youtube",
             ),
         ),
+
         (
             "LIVE",
             (
@@ -2403,6 +6700,7 @@ class CommandClassifier:
                 "livestream",
             ),
         ),
+
         (
             "PAYMENTS",
             (
@@ -2415,6 +6713,7 @@ class CommandClassifier:
                 "wallet",
             ),
         ),
+
         (
             "ADS",
             (
@@ -2426,6 +6725,7 @@ class CommandClassifier:
                 "ads",
             ),
         ),
+
         (
             "STATUS",
             (
@@ -2445,34 +6745,52 @@ class CommandClassifier:
     ) -> Dict[str, Any]:
 
         lowered = str(
-            command or ""
+            command
+            or
+            ""
         ).lower()
 
-        scores: Dict[str, int] = {}
+        scores: Dict[
+            str,
+            int
+        ] = {}
 
-        for command_type, phrases in self.RULES:
+        for command_type, phrases in (
+            self.RULES
+        ):
+
             score = sum(
                 1
-                for phrase in phrases
-                if phrase.lower() in lowered
+
+                for phrase
+                in phrases
+
+                if phrase.lower()
+                in lowered
             )
 
             if score:
-                scores[command_type] = score
 
-        if scores:
-            selected = max(
+                scores[
+                    command_type
+                ] = score
+
+        selected = (
+            max(
                 scores,
                 key=scores.get,
             )
-        else:
-            selected = (
-                "GENERAL_OWNER_COMMAND"
-            )
+            if scores
+            else
+            "GENERAL_OWNER_COMMAND"
+        )
 
         return {
-            "type": selected,
-            "scores": scores,
+            "type":
+                selected,
+
+            "scores":
+                scores,
         }
 
 
@@ -2483,52 +6801,74 @@ class CommandClassifier:
 class CapabilityRouter:
 
     TYPE_TO_CAPABILITIES = {
-        "CREATE_GAME": [
-            "GAME",
-            "EXECUTION",
-        ],
-        "CONTENT": [
-            "CONTENT",
-            "MEDIA",
-        ],
-        "SOCIAL": [
-            "SOCIAL",
-            "CONTENT",
-        ],
-        "LIVE": [
-            "LIVE",
-            "MEDIA",
-        ],
-        "PAYMENTS": [
-            "PAYMENTS",
-        ],
-        "ADS": [
-            "ADS",
-        ],
-        "SECURITY": [
-            "SECURITY",
-        ],
-        "REPAIR": [
-            "REPAIR",
-            "DIAGNOSTICS",
-        ],
-        "INSPECT": [
-            "HEALTH",
-            "TESTING",
-            "VERIFICATION",
-        ],
-        "STATUS": [
-            "DASHBOARD",
-            "MONITORING",
-            "HEALTH",
-        ],
+        "CREATE_GAME":
+            [
+                "GAME",
+            ],
+
+        "CONTENT":
+            [
+                "CONTENT",
+                "MEDIA",
+            ],
+
+        "SOCIAL":
+            [
+                "SOCIAL",
+                "CONTENT",
+            ],
+
+        "LIVE":
+            [
+                "LIVE",
+                "MEDIA",
+            ],
+
+        "PAYMENTS":
+            [
+                "PAYMENTS",
+                "WALLET",
+            ],
+
+        "ADS":
+            [
+                "ADS",
+            ],
+
+        "SECURITY":
+            [
+                "SECURITY",
+            ],
+
+        "REPAIR":
+            [
+                "REPAIR",
+                "DIAGNOSTICS",
+            ],
+
+        "INSPECT":
+            [
+                "HEALTH",
+                "TESTING",
+                "VERIFICATION",
+            ],
+
+        "STATUS":
+            [
+                "DASHBOARD",
+                "MONITORING",
+                "HEALTH",
+            ],
     }
 
     def __init__(
         self,
         registry: CapabilityRegistry,
     ):
-        self.registry = registry
+
+        self.registry = (
+            registry
+        )
 
     def route(
         self,
@@ -2536,161 +6876,86 @@ class CapabilityRouter:
     ) -> Dict[str, Any]:
 
         desired = (
-            self.TYPE_TO_CAPABILITIES.get(
+            self.TYPE_TO_CAPABILITIES
+            .get(
                 command_type,
                 [],
             )
         )
 
-        candidates = []
+        candidates: List[
+            Dict[str, Any]
+        ] = []
+
+        seen: Set[
+            Tuple[
+                str,
+                Tuple[str, ...]
+            ]
+        ] = set()
 
         for capability in desired:
+
             for provider in (
                 self.registry.providers(
                     capability
                 )
             ):
-                if (
-                    provider.get("importable")
-                    and provider.get(
-                        "entrypoints"
-                    )
-                ):
-                    candidates.append(
-                        {
-                            "capability":
-                                capability,
-                            **provider,
-                        }
-                    )
 
-        return {
-            "success": bool(candidates),
-            "desired_capabilities": desired,
-            "candidates": candidates,
-            "status": (
-                "ROUTE_FOUND"
-                if candidates
-                else "NO_CAPABILITY_ROUTE"
-            ),
-        }
+                key = (
+                    provider[
+                        "path"
+                    ],
+                    tuple(
+                        provider.get(
+                            "entrypoints"
+                        )
+                        or
+                        []
+                    ),
+                )
 
+                if key in seen:
 
-# ============================================================
-# COMPONENT EXECUTOR
-# ============================================================
+                    continue
 
-class ComponentExecutor:
+                seen.add(
+                    key
+                )
 
-    def execute_provider(
-        self,
-        provider: Dict[str, Any],
-        command: str,
-        request: Dict[str, Any],
-        job_id: str,
-    ) -> Dict[str, Any]:
-
-        path = Path(provider["path"])
-
-        try:
-            module = load_module(
-                path,
-                (
-                    "_majd_execute_"
-                    + uuid.uuid4().hex
-                ),
-            )
-
-        except Exception as error:
-            return {
-                "success": False,
-                "status": (
-                    "COMPONENT_LOAD_FAILED"
-                ),
-                "component": provider,
-                "error": (
-                    f"{type(error).__name__}: "
-                    f"{error}"
-                ),
-                "traceback":
-                    traceback.format_exc(),
-            }
-
-        entrypoints = (
-            provider.get("entrypoints")
-            or []
-        )
-
-        for name in entrypoints:
-
-            function = getattr(
-                module,
-                name,
-                None,
-            )
-
-            if not callable(function):
-                continue
-
-            try:
-                value = call_supported(
-                    function,
+                candidates.append(
                     {
-                        "command": command,
-                        "request": request,
-                        "payload": request,
-                        "job_id": job_id,
-                        "owner": DEFAULT_OWNER,
-                        "output_root":
-                            str(OUTPUT_DIR),
-                    },
+                        "capability":
+                            capability,
+
+                        **provider,
+                    }
                 )
-
-                result = normalize_result(
-                    value
-                )
-
-                result.setdefault(
-                    "component",
-                    provider["filename"],
-                )
-
-                result.setdefault(
-                    "entrypoint",
-                    name,
-                )
-
-                return result
-
-            except Exception as error:
-                return {
-                    "success": False,
-                    "status": (
-                        "COMPONENT_EXECUTION_FAILED"
-                    ),
-                    "component":
-                        provider["filename"],
-                    "entrypoint": name,
-                    "error": (
-                        f"{type(error).__name__}: "
-                        f"{error}"
-                    ),
-                    "traceback":
-                        traceback.format_exc(),
-                }
 
         return {
-            "success": False,
-            "status": (
-                "COMPONENT_ENTRYPOINT_MISSING"
-            ),
-            "component":
-                provider["filename"],
+            "success":
+                bool(
+                    candidates
+                ),
+
+            "desired_capabilities":
+                desired,
+
+            "candidates":
+                candidates,
+
+            "status":
+                (
+                    "ROUTE_FOUND"
+                    if candidates
+                    else
+                    "NO_OPERATIONAL_CAPABILITY_ROUTE"
+                ),
         }
 
 
 # ============================================================
-# OFFICIAL GAME PIPELINE
+# GAME PIPELINE
 # ============================================================
 
 class GamePipeline:
@@ -2700,194 +6965,256 @@ class GamePipeline:
         registry: CapabilityRegistry,
         executor: ComponentExecutor,
     ):
-        self.registry = registry
-        self.executor = executor
-        self.verifier = ArtifactVerifier()
 
-    def _select_executor(
-        self,
-    ) -> Optional[Dict[str, Any]]:
-
-        providers = (
-            self.registry.providers("GAME")
-            + self.registry.providers(
-                "EXECUTION"
-            )
+        self.registry = (
+            registry
         )
 
-        # Prefer official 03 if discovered.
-        providers.sort(
+        self.executor = (
+            executor
+        )
+
+        self.artifact_verifier = (
+            ArtifactVerifier()
+        )
+
+        self.publication_verifier = (
+            PublicationVerifier()
+        )
+
+    @staticmethod
+    def _prefer_number(
+        providers: List[
+            Dict[str, Any]
+        ],
+        number: str,
+    ) -> List[Dict[str, Any]]:
+
+        return sorted(
+            providers,
             key=lambda item: (
                 0
-                if item.get("number") == "03"
-                else 1
-            )
+                if item.get(
+                    "number"
+                )
+                ==
+                number
+                else
+                1,
+                item.get(
+                    "filename",
+                    "",
+                ),
+            ),
         )
-
-        for provider in providers:
-            if (
-                provider.get("importable")
-                and provider.get("entrypoints")
-            ):
-                return provider
-
-        return None
-
-    def _select_publisher(
-        self,
-    ) -> Optional[Dict[str, Any]]:
-
-        providers = (
-            self.registry.providers(
-                "PUBLISH"
-            )
-        )
-
-        providers.sort(
-            key=lambda item: (
-                0
-                if item.get("number") == "04"
-                else 1
-            )
-        )
-
-        for provider in providers:
-            if (
-                provider.get("importable")
-                and provider.get("entrypoints")
-            ):
-                return provider
-
-        return None
 
     def run(
         self,
         command: str,
         request: Dict[str, Any],
         job_id: str,
+        owner: str,
     ) -> Dict[str, Any]:
 
-        executor_provider = (
-            self._select_executor()
+        executors = (
+            self._prefer_number(
+                self.registry.providers(
+                    "GAME"
+                ),
+                "03",
+            )
         )
 
-        if executor_provider is None:
+        if not executors:
+
             return {
-                "success": False,
-                "status": (
-                    "REAL_GAME_EXECUTOR_UNAVAILABLE"
-                ),
+                "success":
+                    False,
+
+                "status":
+                    "REAL_GAME_EXECUTOR_UNAVAILABLE",
             }
 
-        build = self.executor.execute_provider(
-            executor_provider,
-            command,
-            request,
-            job_id,
+        build = (
+            self.executor
+            .execute_provider(
+                executors[
+                    0
+                ],
+                command,
+                request,
+                job_id,
+                owner,
+            )
         )
 
-        if not build.get("success"):
+        if not build.get(
+            "success"
+        ):
+
             return {
-                "success": False,
-                "status": (
-                    "REAL_GAME_EXECUTION_FAILED"
-                ),
-                "executor": build,
+                "success":
+                    False,
+
+                "status":
+                    "REAL_GAME_EXECUTION_FAILED",
+
+                "executor":
+                    build,
             }
 
-        artifact = self.verifier.verify(build)
+        artifact = (
+            self.artifact_verifier
+            .verify(
+                build
+            )
+        )
 
-        if not artifact.get("success"):
+        if not artifact.get(
+            "success"
+        ):
+
             return {
-                "success": False,
-                "status": (
-                    "ARTIFACT_VERIFICATION_FAILED"
-                ),
-                "executor": build,
+                "success":
+                    False,
+
+                "status":
+                    "ARTIFACT_VERIFICATION_FAILED",
+
+                "executor":
+                    build,
+
                 "artifact_verification":
                     artifact,
             }
 
-        publisher = self._select_publisher()
-
-        if publisher is None:
-            return {
-                "success": False,
-                "status": (
-                    "OFFICIAL_PLATFORM_BRIDGE_UNAVAILABLE"
+        publishers = (
+            self._prefer_number(
+                self.registry.providers(
+                    "PUBLISH"
                 ),
+                "04",
+            )
+        )
+
+        if not publishers:
+
+            return {
+                "success":
+                    False,
+
+                "status":
+                    "OFFICIAL_PLATFORM_BRIDGE_UNAVAILABLE",
+
                 "artifact":
                     artifact,
             }
 
-        publish_request = dict(request)
+        publish_request = dict(
+            request
+        )
 
         publish_request.update(
             {
                 "artifact":
-                    artifact["artifact"],
+                    artifact[
+                        "artifact"
+                    ],
+
                 "artifact_path":
-                    artifact["artifact"],
+                    artifact[
+                        "artifact"
+                    ],
+
                 "game_dir":
-                    artifact["artifact"],
+                    artifact[
+                        "artifact"
+                    ],
+
                 "build_path":
-                    artifact["artifact"],
+                    artifact[
+                        "artifact"
+                    ],
             }
         )
 
         published = (
-            self.executor.execute_provider(
-                publisher,
+            self.executor
+            .execute_provider(
+                publishers[
+                    0
+                ],
                 command,
                 publish_request,
                 job_id,
+                owner,
             )
         )
 
-        if not published.get("success"):
+        if not published.get(
+            "success"
+        ):
+
             return {
-                "success": False,
-                "status": (
-                    "OFFICIAL_PLATFORM_PUBLISH_FAILED"
-                ),
+                "success":
+                    False,
+
+                "status":
+                    "OFFICIAL_PLATFORM_PUBLISH_FAILED",
+
                 "artifact":
                     artifact,
+
                 "publisher":
                     published,
             }
 
-        # Publishing success must contain evidence.
-        evidence = any(
-            published.get(key)
-            for key in (
-                "public_url",
-                "published_directory",
-                "game_path",
-                "receipt",
-                "publication",
+        publication = (
+            self.publication_verifier
+            .verify(
+                published
             )
         )
 
-        if not evidence:
+        if not publication.get(
+            "success"
+        ):
+
             return {
-                "success": False,
-                "status": (
-                    "PUBLICATION_NOT_VERIFIED"
-                ),
+                "success":
+                    False,
+
+                "status":
+                    "FINAL_PUBLICATION_VALIDATION_FAILED",
+
                 "artifact":
                     artifact,
+
                 "publisher":
                     published,
+
+                "publication":
+                    publication,
             }
 
         return {
-            "success": True,
-            "status": (
-                "GAME_BUILT_AND_PUBLISHED"
-            ),
-            "artifact": artifact,
-            "executor": build,
-            "publisher": published,
+            "success":
+                True,
+
+            "status":
+                "GAME_BUILT_AND_PUBLISHED",
+
+            "artifact":
+                artifact,
+
+            "executor":
+                build,
+
+            "publisher":
+                published,
+
+            "publication":
+                publication,
         }
 
 
@@ -2901,9 +7228,15 @@ class OwnerDashboard:
         self,
         security: SecurityCenter,
     ):
-        self.security = security
+
+        self.security = (
+            security
+        )
+
         self.path = (
-            DASHBOARD_DIR / "owner-status.json"
+            DASHBOARD_DIR
+            /
+            "owner-status.json"
         )
 
     def update(
@@ -2911,14 +7244,22 @@ class OwnerDashboard:
         **values: Any,
     ) -> Dict[str, Any]:
 
-        current = read_json(
-            self.path,
-            {},
-        ) or {}
+        current = (
+            read_json(
+                self.path,
+                {},
+            )
+            or
+            {}
+        )
 
-        current.update(values)
+        current.update(
+            values
+        )
 
-        current["updated_at"] = utc_now()
+        current[
+            "updated_at"
+        ] = utc_now()
 
         write_json(
             self.path,
@@ -2931,18 +7272,382 @@ class OwnerDashboard:
         self,
     ) -> Dict[str, Any]:
 
-        data = read_json(
-            self.path,
-            {},
-        ) or {}
-
-        data["security_events"] = (
-            self.security.recent(50)
+        data = (
+            read_json(
+                self.path,
+                {},
+            )
+            or
+            {}
         )
 
-        data["updated_at"] = utc_now()
+        data[
+            "security_events"
+        ] = self.security.recent(
+            100
+        )
+
+        data[
+            "security_latest_scan"
+        ] = (
+            read_json(
+                SECURITY_DIR
+                /
+                "latest-scan.json",
+                {},
+            )
+            or
+            {}
+        )
+
+        data[
+            "monitor_latest"
+        ] = (
+            read_json(
+                MONITOR_DIR
+                /
+                "latest.json",
+                {},
+            )
+            or
+            {}
+        )
+
+        data[
+            "ai_connection"
+        ] = (
+            read_json(
+                AI_CONNECTION_FILE,
+                {},
+            )
+            or
+            {}
+        )
+
+        data[
+            "capability_registry"
+        ] = (
+            read_json(
+                REGISTRY_DIR
+                /
+                "capabilities.json",
+                {},
+            )
+            or
+            {}
+        )
+
+        data[
+            "updated_at"
+        ] = utc_now()
 
         return data
+
+
+# ============================================================
+# DASHBOARD HTML
+# ============================================================
+
+DASHBOARD_HTML = """
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MAJD Sovereign Owner Dashboard</title>
+<style>
+body{
+    font-family:system-ui,-apple-system,sans-serif;
+    background:#0b1020;
+    color:#eef2ff;
+    margin:0;
+    padding:20px
+}
+h1{margin-top:0}
+.grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+    gap:12px
+}
+.card{
+    background:#151c32;
+    border:1px solid #2a365f;
+    border-radius:14px;
+    padding:14px
+}
+.ok{color:#51e39b}
+.bad{color:#ff7d8d}
+.warn{color:#ffd166}
+pre{
+    white-space:pre-wrap;
+    word-break:break-word;
+    font-size:12px
+}
+.muted{color:#9aa7c7}
+</style>
+</head>
+<body>
+<h1>لوحة مالك مجد السيادية</h1>
+<div id="updated" class="muted"></div>
+
+<div class="grid">
+
+<div class="card">
+<h3>حالة العقل</h3>
+<pre id="brain"></pre>
+</div>
+
+<div class="card">
+<h3>الذكاء الاصطناعي</h3>
+<pre id="ai"></pre>
+</div>
+
+<div class="card">
+<h3>القدرات التشغيلية</h3>
+<pre id="caps"></pre>
+</div>
+
+<div class="card">
+<h3>الأمن</h3>
+<pre id="security"></pre>
+</div>
+
+<div class="card">
+<h3>آخر نتيجة</h3>
+<pre id="result"></pre>
+</div>
+
+<div class="card">
+<h3>المراقبة</h3>
+<pre id="monitor"></pre>
+</div>
+
+</div>
+
+<script>
+async function refresh(){
+    try{
+        const r=await fetch('/api/status',{cache:'no-store'});
+        const d=await r.json();
+
+        document.getElementById('updated').textContent=
+            'آخر تحديث: '+(d.updated_at||'');
+
+        document.getElementById('brain').textContent=
+            JSON.stringify({
+                status:d.status,
+                operation_id:d.operation_id,
+                command:d.command,
+                command_type:d.command_type
+            },null,2);
+
+        document.getElementById('ai').textContent=
+            JSON.stringify(d.ai_connection||{},null,2);
+
+        const c=d.capability_registry||{};
+
+        document.getElementById('caps').textContent=
+            JSON.stringify({
+                operational:c.operational,
+                unavailable:c.unavailable,
+                missing_component_numbers:c.missing_component_numbers
+            },null,2);
+
+        document.getElementById('security').textContent=
+            JSON.stringify({
+                latest_scan:d.security_latest_scan,
+                events:(d.security_events||[]).slice(-10)
+            },null,2);
+
+        document.getElementById('result').textContent=
+            JSON.stringify(d.result||{},null,2);
+
+        document.getElementById('monitor').textContent=
+            JSON.stringify(d.monitor_latest||{},null,2);
+
+    }catch(e){
+        document.getElementById('brain').textContent=String(e)
+    }
+}
+refresh();
+setInterval(refresh,3000);
+</script>
+</body>
+</html>
+"""
+
+
+# ============================================================
+# DASHBOARD HTTP SERVER
+# ============================================================
+
+class DashboardServer:
+
+    def __init__(
+        self,
+        dashboard: OwnerDashboard,
+        host: str = "127.0.0.1",
+        port: int = 8765,
+    ):
+
+        self.dashboard = (
+            dashboard
+        )
+
+        self.host = (
+            host
+        )
+
+        self.port = int(
+            port
+        )
+
+    def serve_forever(
+        self,
+    ) -> None:
+
+        dashboard = (
+            self.dashboard
+        )
+
+        class Handler(
+            BaseHTTPRequestHandler
+        ):
+
+            def _send(
+                self,
+                status: int,
+                content_type: str,
+                body: bytes,
+            ) -> None:
+
+                self.send_response(
+                    status
+                )
+
+                self.send_header(
+                    "Content-Type",
+                    content_type,
+                )
+
+                self.send_header(
+                    "Cache-Control",
+                    "no-store",
+                )
+
+                self.send_header(
+                    "Content-Length",
+                    str(
+                        len(
+                            body
+                        )
+                    ),
+                )
+
+                self.end_headers()
+
+                self.wfile.write(
+                    body
+                )
+
+            def do_GET(
+                self,
+            ) -> None:
+
+                if (
+                    self.path
+                    ==
+                    "/"
+                    or
+                    self.path.startswith(
+                        "/?"
+                    )
+                ):
+
+                    self._send(
+                        200,
+                        "text/html; charset=utf-8",
+                        DASHBOARD_HTML.encode(
+                            "utf-8"
+                        ),
+                    )
+
+                    return
+
+                if self.path == "/health":
+
+                    body = json.dumps(
+                        {
+                            "success":
+                                True,
+
+                            "status":
+                                "healthy",
+
+                            "service":
+                                "majd-owner-dashboard",
+
+                            "version":
+                                VERSION,
+                        }
+                    ).encode(
+                        "utf-8"
+                    )
+
+                    self._send(
+                        200,
+                        "application/json; charset=utf-8",
+                        body,
+                    )
+
+                    return
+
+                if self.path == "/api/status":
+
+                    body = json.dumps(
+                        dashboard.snapshot(),
+                        ensure_ascii=False,
+                        default=str,
+                    ).encode(
+                        "utf-8"
+                    )
+
+                    self._send(
+                        200,
+                        "application/json; charset=utf-8",
+                        body,
+                    )
+
+                    return
+
+                self._send(
+                    404,
+                    "application/json; charset=utf-8",
+                    (
+                        b'{"success":false,'
+                        b'"status":"NOT_FOUND"}'
+                    ),
+                )
+
+            def log_message(
+                self,
+                format: str,
+                *args: Any,
+            ) -> None:
+
+                return
+
+        server = (
+            ThreadingHTTPServer(
+                (
+                    self.host,
+                    self.port,
+                ),
+                Handler,
+            )
+        )
+
+        server.serve_forever()
 
 
 # ============================================================
@@ -2951,14 +7656,21 @@ class OwnerDashboard:
 
 @dataclass
 class MastermindState:
+
     operation_id: str
+
     owner: str
+
     command: str
+
     started_at: str
+
     updated_at: str
+
     status: str
 
     success: bool = False
+
     attempts: int = 0
 
     command_type: str = (
@@ -2981,7 +7693,9 @@ class MastermindState:
         Dict[str, Any]
     ] = None
 
-    error: Optional[str] = None
+    error: Optional[
+        str
+    ] = None
 
 
 # ============================================================
@@ -2993,71 +7707,120 @@ class Mastermind:
     def __init__(
         self,
         owner: str = DEFAULT_OWNER,
-        max_repair_attempts: int = (
-            MAX_REPAIR_ATTEMPTS
-        ),
+        max_repair_attempts: int = MAX_REPAIR_ATTEMPTS,
+        auto_connect_ai: bool = True,
     ):
 
-        self.owner = owner
+        self.owner = (
+            owner
+        )
 
         self.max_repair_attempts = max(
             1,
-            int(max_repair_attempts),
+            int(
+                max_repair_attempts
+            ),
         )
 
         self.operation_id = str(
             uuid.uuid4()
         )
 
-        self.logger = AuditLogger(
-            self.operation_id
+        self.logger = (
+            AuditLogger(
+                self.operation_id
+            )
         )
 
-        self.process = ProcessExecutor()
-
-        self.python_checker = PythonChecker(
-            self.process
+        self.process = (
+            ProcessExecutor()
         )
 
-        self.discovery = ComponentDiscovery()
+        self.python_checker = (
+            PythonChecker(
+                self.process
+            )
+        )
 
-        self.registry = CapabilityRegistry(
-            self.discovery
+        self.discovery = (
+            ComponentDiscovery()
+        )
+
+        self.registry = (
+            CapabilityRegistry(
+                self.discovery
+            )
         )
 
         self.registry.build()
 
-        self.router = CapabilityRouter(
-            self.registry
+        self.router = (
+            CapabilityRouter(
+                self.registry
+            )
         )
 
         self.component_executor = (
             ComponentExecutor()
         )
 
-        self.game_pipeline = GamePipeline(
-            self.registry,
-            self.component_executor,
+        self.game_pipeline = (
+            GamePipeline(
+                self.registry,
+                self.component_executor,
+            )
         )
 
-        self.classifier = CommandClassifier()
+        self.classifier = (
+            CommandClassifier()
+        )
 
-        self.diagnostics = DiagnosticEngine()
+        self.diagnostics = (
+            DiagnosticEngine()
+        )
+
+        self.ai_connector = (
+            AutoAIConnector(
+                self.logger,
+                self.process,
+            )
+        )
+
+        self.ai = (
+            LocalAIAdapter(
+                self.ai_connector,
+                self.logger,
+            )
+        )
+
+        if auto_connect_ai:
+
+            self.ai.ensure_connected(
+                force=False
+            )
+
+        self.runtime06 = (
+            Runtime06Bridge(
+                self.discovery,
+                self.logger,
+            )
+        )
 
         self.repair_engine = (
             AutonomousRepairEngine(
                 self.operation_id,
                 self.logger,
                 self.python_checker,
+                self.ai,
+                self.runtime06,
             )
         )
 
-        self.ai = LocalAIAdapter(
-            self.logger
-        )
-
-        self.security = SecurityCenter(
-            self.logger
+        self.security = (
+            SecurityCenter(
+                self.logger,
+                self.process,
+            )
         )
 
         self.legal = (
@@ -3071,29 +7834,40 @@ class Mastermind:
             ContentSafetyPolicy()
         )
 
-        self.dashboard = OwnerDashboard(
-            self.security
+        self.dashboard = (
+            OwnerDashboard(
+                self.security
+            )
         )
 
     # --------------------------------------------------------
     # STATE
     # --------------------------------------------------------
 
-    def _state_path(self) -> Path:
+    def _state_path(
+        self,
+    ) -> Path:
+
         return (
             MASTERMIND_STATE_DIR
-            / f"{self.operation_id}.json"
+            /
+            f"{self.operation_id}.json"
         )
 
     def _save_state(
         self,
         state: MastermindState,
     ) -> None:
-        state.updated_at = utc_now()
+
+        state.updated_at = (
+            utc_now()
+        )
 
         write_json(
             self._state_path(),
-            asdict(state),
+            asdict(
+                state
+            ),
         )
 
     def _event(
@@ -3104,19 +7878,28 @@ class Mastermind:
     ) -> None:
 
         event = {
-            "time": utc_now(),
-            "type": event_type,
-            "data": data,
+            "time":
+                utc_now(),
+
+            "type":
+                event_type,
+
+            "data":
+                data,
         }
 
-        state.events.append(event)
+        state.events.append(
+            event
+        )
 
         self.logger.log(
             event_type,
             data,
         )
 
-        self._save_state(state)
+        self._save_state(
+            state
+        )
 
     # --------------------------------------------------------
     # REGISTRY
@@ -3126,15 +7909,22 @@ class Mastermind:
         self,
     ) -> Dict[str, Any]:
 
-        result = self.registry.build()
-
-        self.router = CapabilityRouter(
+        result = (
             self.registry
+            .build()
         )
 
-        self.game_pipeline = GamePipeline(
-            self.registry,
-            self.component_executor,
+        self.router = (
+            CapabilityRouter(
+                self.registry
+            )
+        )
+
+        self.game_pipeline = (
+            GamePipeline(
+                self.registry,
+                self.component_executor,
+            )
         )
 
         return result
@@ -3152,69 +7942,166 @@ class Mastermind:
             .compile_project()
         )
 
-        component_report = (
-            self.discovery.discover(
+        components = (
+            self.discovery
+            .discover(
                 runtime_import=True
             )
         )
 
-        registry_report = (
+        registry = (
             self.refresh_registry()
         )
 
-        import_failures = []
+        ai_status = (
+            self.ai.status()
+        )
 
-        for records in (
-            component_report[
-                "components"
-            ].values()
-        ):
-            for record in records:
-                if (
-                    record["number"] != "01"
-                    and not record.get(
+        runtime06 = (
+            self.runtime06
+            .verification()
+        )
+
+        import_failures: List[
+            Dict[str, Any]
+        ] = []
+
+        for number in OFFICIAL_NUMBERS:
+
+            records = (
+                components[
+                    "components"
+                ].get(
+                    number,
+                    [],
+                )
+            )
+
+            if (
+                records
+                and
+                not any(
+                    record.get(
                         "importable"
                     )
-                ):
-                    import_failures.append(
-                        {
-                            "file":
-                                record["filename"],
-                            "error":
-                                record.get("error"),
-                        }
-                    )
+                    for record
+                    in records
+                )
+            ):
 
-        # 01 itself is mandatory.
-        has_01 = bool(
-            component_report[
-                "components"
-            ].get("01")
+                import_failures.append(
+                    {
+                        "number":
+                            number,
+
+                        "files":
+                            [
+                                record.get(
+                                    "filename"
+                                )
+                                for record
+                                in records
+                            ],
+
+                        "errors":
+                            [
+                                record.get(
+                                    "error"
+                                )
+                                for record
+                                in records
+                                if record.get(
+                                    "error"
+                                )
+                            ],
+                    }
+                )
+
+        missing = (
+            components.get(
+                "missing_numbers",
+                [],
+            )
+        )
+
+        ai_ok = (
+            ai_status.get(
+                "connected"
+            )
+            is True
+            or
+            not REQUIRE_AI
         )
 
         success = bool(
-            has_01
-            and compile_report.get("success")
-            and not import_failures
+            not missing
+            and
+            compile_report.get(
+                "success"
+            )
+            is True
+            and
+            not import_failures
+            and
+            ai_ok
         )
 
-        return {
-            "success": success,
-            "status": (
+        if missing:
+
+            status = (
+                "FACTORY_COMPONENTS_MISSING"
+            )
+
+        elif not compile_report.get(
+            "success"
+        ):
+
+            status = (
+                "FACTORY_PYTHON_INVALID"
+            )
+
+        elif import_failures:
+
+            status = (
+                "FACTORY_IMPORT_FAILURE"
+            )
+
+        elif not ai_ok:
+
+            status = (
+                "FACTORY_AI_NOT_CONNECTED"
+            )
+
+        else:
+
+            status = (
                 "FACTORY_VERIFIED"
-                if success
-                else "FACTORY_CHECK_FAILED"
-            ),
+            )
+
+        return {
+            "success":
+                success,
+
+            "status":
+                status,
+
             "python_compile":
                 compile_report,
+
             "components":
-                component_report,
+                components,
+
             "capability_registry":
-                registry_report,
+                registry,
+
             "import_failures":
                 import_failures,
+
             "ai":
-                self.ai.status(),
+                ai_status,
+
+            "runtime06":
+                runtime06,
         }
 
     # --------------------------------------------------------
@@ -3229,7 +8116,11 @@ class Mastermind:
         ] = None,
     ) -> Dict[str, Any]:
 
-        data = dict(request or {})
+        data = dict(
+            request
+            or
+            {}
+        )
 
         data.setdefault(
             "request",
@@ -3242,14 +8133,17 @@ class Mastermind:
         )
 
         classification = (
-            self.classifier.classify(
+            self.classifier
+            .classify(
                 command
             )
         )
 
         data.setdefault(
             "type",
-            classification["type"],
+            classification[
+                "type"
+            ],
         )
 
         data.setdefault(
@@ -3277,9 +8171,9 @@ class Mastermind:
             True,
         )
 
-        data["classification"] = (
-            classification
-        )
+        data[
+            "classification"
+        ] = classification
 
         return data
 
@@ -3293,8 +8187,11 @@ class Mastermind:
     ) -> List[Dict[str, Any]]:
 
         request_type = str(
-            request.get("type")
-            or "GENERAL_OWNER_COMMAND"
+            request.get(
+                "type"
+            )
+            or
+            "GENERAL_OWNER_COMMAND"
         ).upper()
 
         common = [
@@ -3303,46 +8200,84 @@ class Mastermind:
             "PLAN",
         ]
 
-        if request_type == "CREATE_GAME":
-            stages = common + [
-                "BUILD",
-                "VERIFY_ARTIFACT",
-                "PUBLISH",
-                "VERIFY_PUBLICATION",
+        if (
+            request_type
+            ==
+            "CONNECT_AI"
+        ):
+
+            stages = [
+                "DISCOVER_AI",
+                "HEALTH_CHECK",
+                "DISCOVER_MODELS",
+                "REAL_PROMPT_TEST",
+                "SAVE_CONNECTION",
             ]
+
+        elif (
+            request_type
+            ==
+            "CREATE_GAME"
+        ):
+
+            stages = (
+                common
+                +
+                [
+                    "BUILD",
+                    "VERIFY_ARTIFACT",
+                    "PUBLISH",
+                    "VERIFY_PUBLICATION",
+                ]
+            )
 
         elif request_type in {
             "REPAIR",
             "INSPECT",
         }:
-            stages = common + [
-                "DIAGNOSE",
-                "BACKUP",
-                "REPAIR",
-                "TEST",
-                "VERIFY",
-                "RETRY_IF_REQUIRED",
-            ]
+
+            stages = (
+                common
+                +
+                [
+                    "DIAGNOSE",
+                    "BACKUP",
+                    "REPAIR",
+                    "TEST",
+                    "VERIFY",
+                    "RETRY_IF_REQUIRED",
+                ]
+            )
 
         else:
-            stages = common + [
-                "ROUTE",
-                "EXECUTE",
-                "VERIFY",
-                "REPAIR_IF_REQUIRED",
-                "FINAL_VERIFY",
-            ]
+
+            stages = (
+                common
+                +
+                [
+                    "ROUTE",
+                    "EXECUTE",
+                    "VERIFY",
+                    "REPAIR_IF_REQUIRED",
+                    "FINAL_VERIFY",
+                ]
+            )
 
         return [
             {
-                "stage": stage,
-                "status": "PENDING",
+                "stage":
+                    stage,
+
+                "status":
+                    "PENDING",
             }
-            for stage in stages
+
+            for stage
+            in stages
         ]
 
     # --------------------------------------------------------
-    # REPAIR
+    # REPAIR FAILURE
     # --------------------------------------------------------
 
     def repair_failure(
@@ -3352,7 +8287,8 @@ class Mastermind:
     ) -> Dict[str, Any]:
 
         diagnosis = (
-            self.diagnostics.diagnose(
+            self.diagnostics
+            .diagnose(
                 failure
             )
         )
@@ -3363,18 +8299,6 @@ class Mastermind:
             diagnosis,
         )
 
-        if not diagnosis.get(
-            "repairable"
-        ):
-            return {
-                "success": False,
-                "status": (
-                    "FAILURE_NOT_AUTOMATICALLY_"
-                    "REPAIRABLE"
-                ),
-                "diagnosis": diagnosis,
-            }
-
         self.dashboard.update(
             status="REPAIRING",
             operation_id=self.operation_id,
@@ -3382,7 +8306,8 @@ class Mastermind:
         )
 
         repair = (
-            self.repair_engine.repair(
+            self.repair_engine
+            .repair(
                 diagnosis,
                 failure,
             )
@@ -3397,7 +8322,7 @@ class Mastermind:
         return repair
 
     # --------------------------------------------------------
-    # INSPECT / REPAIR COMMAND
+    # REPAIR CYCLE
     # --------------------------------------------------------
 
     def run_repair_cycle(
@@ -3405,17 +8330,28 @@ class Mastermind:
         state: MastermindState,
     ) -> Dict[str, Any]:
 
-        attempts = []
+        attempts: List[
+            Dict[str, Any]
+        ] = []
 
         for attempt in range(
             1,
-            self.max_repair_attempts + 1,
+            self.max_repair_attempts
+            +
+            1,
         ):
 
-            state.attempts = attempt
-            state.status = "DIAGNOSING"
+            state.attempts = (
+                attempt
+            )
 
-            self._save_state(state)
+            state.status = (
+                "DIAGNOSING"
+            )
+
+            self._save_state(
+                state
+            )
 
             self.dashboard.update(
                 status="DIAGNOSING",
@@ -3433,32 +8369,52 @@ class Mastermind:
                 inspection,
             )
 
-            if inspection.get("success"):
+            if inspection.get(
+                "success"
+            ):
+
                 return {
-                    "success": True,
-                    "status": (
-                        "FACTORY_VERIFIED"
-                    ),
-                    "attempt": attempt,
-                    "inspection": inspection,
-                    "attempts": attempts,
+                    "success":
+                        True,
+
+                    "status":
+                        "FACTORY_VERIFIED",
+
+                    "attempt":
+                        attempt,
+
+                    "inspection":
+                        inspection,
+
+                    "attempts":
+                        attempts,
                 }
 
             failure = {
-                "stage": "FACTORY_INSPECTION",
-                "result": inspection,
+                "stage":
+                    "FACTORY_INSPECTION",
+
+                "result":
+                    inspection,
             }
 
-            repair = self.repair_failure(
-                failure,
-                state,
+            repair = (
+                self.repair_failure(
+                    failure,
+                    state,
+                )
             )
 
             attempts.append(
                 {
-                    "attempt": attempt,
-                    "failure": failure,
-                    "repair": repair,
+                    "attempt":
+                        attempt,
+
+                    "failure":
+                        failure,
+
+                    "repair":
+                        repair,
                 }
             )
 
@@ -3468,7 +8424,25 @@ class Mastermind:
                 attempt=attempt,
             )
 
-            recheck = self.inspect_factory()
+            if (
+                inspection.get(
+                    "ai",
+                    {},
+                ).get(
+                    "connected"
+                )
+                is not True
+            ):
+
+                self.ai.ensure_connected(
+                    force=True
+                )
+
+            self.refresh_registry()
+
+            recheck = (
+                self.inspect_factory()
+            )
 
             self._event(
                 state,
@@ -3476,43 +8450,46 @@ class Mastermind:
                 recheck,
             )
 
-            if recheck.get("success"):
-                return {
-                    "success": True,
-                    "status": (
-                        "REPAIR_VERIFIED"
-                    ),
-                    "attempt": attempt,
-                    "repair": repair,
-                    "inspection": recheck,
-                    "attempts": attempts,
-                }
+            if recheck.get(
+                "success"
+            ):
 
-            if not repair.get("success"):
                 return {
-                    "success": False,
-                    "status": repair.get(
-                        "status",
-                        "AUTONOMOUS_REPAIR_FAILED",
-                    ),
-                    "repair": repair,
-                    "inspection": recheck,
-                    "attempts": attempts,
+                    "success":
+                        True,
+
+                    "status":
+                        "REPAIR_VERIFIED",
+
+                    "attempt":
+                        attempt,
+
+                    "repair":
+                        repair,
+
+                    "inspection":
+                        recheck,
+
+                    "attempts":
+                        attempts,
                 }
 
         return {
-            "success": False,
-            "status": (
-                "MAX_AUTONOMOUS_REPAIR_"
-                "ATTEMPTS_REACHED"
-            ),
-            "attempts": attempts,
+            "success":
+                False,
+
+            "status":
+                "MAX_AUTONOMOUS_REPAIR_ATTEMPTS_REACHED",
+
+            "attempts":
+                attempts,
+
             "inspection":
                 self.inspect_factory(),
         }
 
     # --------------------------------------------------------
-    # GENERIC CAPABILITY
+    # ROUTED CAPABILITY
     # --------------------------------------------------------
 
     def execute_routed(
@@ -3523,12 +8500,18 @@ class Mastermind:
     ) -> Dict[str, Any]:
 
         command_type = str(
-            request.get("type")
-            or "GENERAL_OWNER_COMMAND"
+            request.get(
+                "type"
+            )
+            or
+            "GENERAL_OWNER_COMMAND"
         ).upper()
 
-        route = self.router.route(
-            command_type
+        route = (
+            self.router
+            .route(
+                command_type
+            )
         )
 
         self._event(
@@ -3537,19 +8520,33 @@ class Mastermind:
             route,
         )
 
-        if not route.get("success"):
+        if not route.get(
+            "success"
+        ):
+
             return {
-                "success": False,
-                "status": (
-                    "CAPABILITY_NOT_CONNECTED"
-                ),
-                "command_type": command_type,
-                "route": route,
+                "success":
+                    False,
+
+                "status":
+                    "CAPABILITY_NOT_CONNECTED",
+
+                "command_type":
+                    command_type,
+
+                "route":
+                    route,
             }
 
-        failures = []
+        failures: List[
+            Dict[str, Any]
+        ] = []
 
-        for provider in route["candidates"]:
+        for provider in (
+            route[
+                "candidates"
+            ]
+        ):
 
             result = (
                 self.component_executor
@@ -3558,6 +8555,7 @@ class Mastermind:
                     command,
                     request,
                     self.operation_id,
+                    self.owner,
                 )
             )
 
@@ -3567,30 +8565,128 @@ class Mastermind:
                 result,
             )
 
-            if result.get("success"):
+            if result.get(
+                "success"
+            ):
+
                 return {
-                    "success": True,
-                    "status": (
-                        "COMMAND_EXECUTED_AND_VERIFIED"
-                    ),
-                    "provider": provider,
-                    "result": result,
+                    "success":
+                        True,
+
+                    "status":
+                        "COMMAND_EXECUTED_AND_VERIFIED",
+
+                    "provider":
+                        provider,
+
+                    "result":
+                        result,
                 }
 
             failures.append(
                 {
-                    "provider": provider,
-                    "result": result,
+                    "provider":
+                        provider,
+
+                    "result":
+                        result,
                 }
             )
 
         return {
-            "success": False,
-            "status": (
-                "ALL_CAPABILITY_PROVIDERS_FAILED"
-            ),
-            "failures": failures,
+            "success":
+                False,
+
+            "status":
+                "ALL_CAPABILITY_PROVIDERS_FAILED",
+
+            "failures":
+                failures,
         }
+
+    # --------------------------------------------------------
+    # AI PLAN FOR UNKNOWN OWNER COMMAND
+    # --------------------------------------------------------
+
+    def _ai_plan_general_command(
+        self,
+        command: str,
+    ) -> Optional[
+        Dict[str, Any]
+    ]:
+
+        if not self.ai.available:
+
+            self.ai.ensure_connected(
+                force=False
+            )
+
+        if not self.ai.available:
+
+            return None
+
+        available = sorted(
+            self.registry.report.get(
+                "operational",
+                [],
+            )
+        )
+
+        answer = self.ai.ask(
+            (
+                "You are the MAJD sovereign command planner. "
+                "Return JSON only."
+            ),
+            (
+                "Choose one operational capability for the owner objective. "
+                "Return exactly: "
+                "{\"capability\":\"NAME\","
+                "\"rewritten_command\":\"...\","
+                "\"reason\":\"...\"}. "
+                f"Allowed capabilities: {json.dumps(available)}\n"
+                f"Owner objective: {command}"
+            ),
+        )
+
+        if not answer:
+
+            return None
+
+        try:
+
+            cleaned = re.sub(
+                r"^```(?:json)?\s*",
+                "",
+                answer.strip(),
+            )
+
+            cleaned = re.sub(
+                r"\s*```$",
+                "",
+                cleaned,
+            )
+
+            data = json.loads(
+                cleaned
+            )
+
+            capability = str(
+                data.get(
+                    "capability"
+                )
+                or
+                ""
+            ).upper()
+
+            if capability not in available:
+
+                return None
+
+            return data
+
+        except Exception:
+
+            return None
 
     # --------------------------------------------------------
     # GENERAL OWNER COMMAND
@@ -3603,69 +8699,86 @@ class Mastermind:
         state: MastermindState,
     ) -> Dict[str, Any]:
 
-        # General commands are not rejected merely
-        # because no static keyword exists.
-        #
-        # First ask orchestration-capable discovered
-        # components. If none exist, return a truthful
-        # OWNER_ACTION_REQUIRED / capability state.
-
-        providers = (
-            self.registry.providers(
-                "ORCHESTRATION"
-            )
-            + self.registry.providers(
-                "OWNER_COMMAND"
-            )
-            + self.registry.providers(
-                "RUNTIME"
+        plan = (
+            self._ai_plan_general_command(
+                command
             )
         )
 
-        unique = []
-        seen = set()
+        if plan:
 
-        for provider in providers:
-            key = (
-                provider["path"],
-                tuple(
-                    provider.get(
-                        "entrypoints",
-                        []
+            providers = (
+                self.registry.providers(
+                    str(
+                        plan[
+                            "capability"
+                        ]
                     )
-                ),
+                )
             )
 
-            if key in seen:
-                continue
+            for provider in providers:
 
-            seen.add(key)
+                result = (
+                    self.component_executor
+                    .execute_provider(
+                        provider,
+                        str(
+                            plan.get(
+                                "rewritten_command"
+                            )
+                            or
+                            command
+                        ),
+                        request,
+                        self.operation_id,
+                        self.owner,
+                    )
+                )
 
-            if (
-                provider.get("importable")
-                and provider.get("entrypoints")
-            ):
-                unique.append(provider)
+                self._event(
+                    state,
+                    "AI_PLANNED_PROVIDER_RESULT",
+                    result,
+                )
 
-        if not unique:
-            return {
-                "success": False,
-                "status": (
-                    "OWNER_ACTION_REQUIRED"
-                ),
-                "message": (
-                    "No real discovered orchestration "
-                    "provider can execute this command."
-                ),
-                "available_capabilities":
-                    sorted(
-                        self.registry.registry.keys()
-                    ),
-            }
+                if result.get(
+                    "success"
+                ):
 
-        failures = []
+                    return {
+                        "success":
+                            True,
 
-        for provider in unique:
+                        "status":
+                            "GENERAL_COMMAND_COMPLETED",
+
+                        "plan":
+                            plan,
+
+                        "provider":
+                            provider,
+
+                        "result":
+                            result,
+                    }
+
+        providers = (
+            self.registry
+            .generic_providers(
+                (
+                    "02",
+                    "05",
+                    "06",
+                )
+            )
+        )
+
+        failures: List[
+            Dict[str, Any]
+        ] = []
+
+        for provider in providers:
 
             result = (
                 self.component_executor
@@ -3674,6 +8787,7 @@ class Mastermind:
                     command,
                     request,
                     self.operation_id,
+                    self.owner,
                 )
             )
 
@@ -3683,30 +8797,129 @@ class Mastermind:
                 result,
             )
 
-            if result.get("success"):
+            if result.get(
+                "success"
+            ):
+
                 return {
-                    "success": True,
-                    "status": (
-                        "GENERAL_COMMAND_COMPLETED"
-                    ),
-                    "provider": provider,
-                    "result": result,
+                    "success":
+                        True,
+
+                    "status":
+                        "GENERAL_COMMAND_COMPLETED",
+
+                    "provider":
+                        provider,
+
+                    "result":
+                        result,
                 }
 
             failures.append(
                 {
-                    "provider": provider,
-                    "result": result,
+                    "provider":
+                        provider,
+
+                    "result":
+                        result,
                 }
             )
 
         return {
-            "success": False,
-            "status": (
-                "GENERAL_COMMAND_EXECUTION_FAILED"
-            ),
-            "failures": failures,
+            "success":
+                False,
+
+            "status":
+                "OWNER_COMMAND_NOT_EXECUTABLE",
+
+            "failures":
+                failures,
+
+            "ai":
+                self.ai.status(),
+
+            "operational_capabilities":
+                sorted(
+                    self.registry.report.get(
+                        "operational",
+                        [],
+                    )
+                ),
         }
+
+    # --------------------------------------------------------
+    # REBIND OPERATION
+    # --------------------------------------------------------
+
+    def _rebind_operation(
+        self,
+        job_id: str,
+    ) -> None:
+
+        self.operation_id = str(
+            job_id
+        )
+
+        self.logger = (
+            AuditLogger(
+                self.operation_id
+            )
+        )
+
+        self.ai_connector = (
+            AutoAIConnector(
+                self.logger,
+                self.process,
+            )
+        )
+
+        self.ai = (
+            LocalAIAdapter(
+                self.ai_connector,
+                self.logger,
+            )
+        )
+
+        self.ai.ensure_connected(
+            force=False
+        )
+
+        self.runtime06 = (
+            Runtime06Bridge(
+                self.discovery,
+                self.logger,
+            )
+        )
+
+        self.repair_engine = (
+            AutonomousRepairEngine(
+                self.operation_id,
+                self.logger,
+                self.python_checker,
+                self.ai,
+                self.runtime06,
+            )
+        )
+
+        self.security = (
+            SecurityCenter(
+                self.logger,
+                self.process,
+            )
+        )
+
+        self.legal = (
+            ElectronicLegalAssistant(
+                self.ai,
+                self.logger,
+            )
+        )
+
+        self.dashboard = (
+            OwnerDashboard(
+                self.security
+            )
+        )
 
     # --------------------------------------------------------
     # MAIN RUN
@@ -3728,64 +8941,53 @@ class Mastermind:
     ) -> Dict[str, Any]:
 
         if owner:
-            self.owner = owner
+
+            self.owner = str(
+                owner
+            )
 
         if job_id:
-            self.operation_id = str(job_id)
 
-            self.logger = AuditLogger(
-                self.operation_id
-            )
-
-            self.ai = LocalAIAdapter(
-                self.logger
-            )
-
-            self.security = SecurityCenter(
-                self.logger
-            )
-
-            self.legal = (
-                ElectronicLegalAssistant(
-                    self.ai,
-                    self.logger,
-                )
-            )
-
-            self.dashboard = OwnerDashboard(
-                self.security
-            )
-
-            self.repair_engine = (
-                AutonomousRepairEngine(
-                    self.operation_id,
-                    self.logger,
-                    self.python_checker,
+            self._rebind_operation(
+                str(
+                    job_id
                 )
             )
 
         supplied_request = (
             request
-            or payload
-            or {}
+            or
+            payload
+            or
+            {}
         )
 
         if not command:
+
             command = str(
-                supplied_request.get("command")
-                or supplied_request.get(
+                supplied_request.get(
+                    "command"
+                )
+                or
+                supplied_request.get(
                     "request"
                 )
-                or supplied_request.get(
+                or
+                supplied_request.get(
                     "description"
                 )
-                or ""
+                or
+                ""
             ).strip()
 
         if not command:
+
             return {
-                "success": False,
-                "status": "EMPTY_COMMAND",
+                "success":
+                    False,
+
+                "status":
+                    "EMPTY_COMMAND",
             }
 
         normalized = (
@@ -3796,25 +8998,45 @@ class Mastermind:
         )
 
         request_type = str(
-            normalized.get("type")
-            or "GENERAL_OWNER_COMMAND"
+            normalized.get(
+                "type"
+            )
+            or
+            "GENERAL_OWNER_COMMAND"
         ).upper()
 
         state = MastermindState(
-            operation_id=self.operation_id,
-            owner=self.owner,
-            command=command,
-            started_at=utc_now(),
-            updated_at=utc_now(),
-            status="RECEIVED",
-            command_type=request_type,
+            operation_id=
+                self.operation_id,
+
+            owner=
+                self.owner,
+
+            command=
+                command,
+
+            started_at=
+                utc_now(),
+
+            updated_at=
+                utc_now(),
+
+            status=
+                "RECEIVED",
+
+            command_type=
+                request_type,
         )
 
-        state.plan = self.build_plan(
-            normalized
+        state.plan = (
+            self.build_plan(
+                normalized
+            )
         )
 
-        self._save_state(state)
+        self._save_state(
+            state
+        )
 
         self.dashboard.update(
             system=SYSTEM_NAME,
@@ -3826,13 +9048,17 @@ class Mastermind:
             command_type=request_type,
             started_at=state.started_at,
             plan=state.plan,
+            ai=self.ai.status(),
         )
 
         self.logger.log(
             "OWNER_OBJECTIVE_RECEIVED",
             {
-                "command": command,
-                "request": normalized,
+                "command":
+                    command,
+
+                "request":
+                    normalized,
             },
         )
 
@@ -3840,19 +9066,24 @@ class Mastermind:
 
             self.refresh_registry()
 
-            # --------------------------------------------
-            # CONTENT SAFETY BEFORE PUBLIC CONTENT ACTIONS
-            # --------------------------------------------
-
             if request_type in {
                 "CONTENT",
                 "SOCIAL",
                 "LIVE",
                 "ADS",
             }:
+
                 safety = (
                     self.content_policy
-                    .inspect_text(command)
+                    .inspect_request(
+                        command,
+                        request_type,
+                        normalized,
+                        self.registry,
+                        self.component_executor,
+                        self.operation_id,
+                        self.owner,
+                    )
                 )
 
                 self._event(
@@ -3861,113 +9092,198 @@ class Mastermind:
                     safety,
                 )
 
-                if not safety.get("success"):
+                if not safety.get(
+                    "success"
+                ):
+
                     result = {
-                        "success": False,
-                        "status": (
-                            "CONTENT_POLICY_BLOCKED"
-                        ),
-                        "policy": safety,
+                        "success":
+                            False,
+
+                        "status":
+                            "CONTENT_POLICY_BLOCKED",
+
+                        "policy":
+                            safety,
                     }
 
-                    state.result = result
-                    state.status = (
-                        result["status"]
+                    state.result = (
+                        result
                     )
-                    state.success = False
 
-                    self._save_state(state)
+                    state.status = (
+                        result[
+                            "status"
+                        ]
+                    )
+
+                    self._save_state(
+                        state
+                    )
 
                     self.dashboard.update(
                         status="FAILED",
-                        operation_id=
-                            self.operation_id,
+                        operation_id=self.operation_id,
                         result=result,
                     )
 
                     return result
 
-            # --------------------------------------------
-            # STATUS
-            # --------------------------------------------
+            # ------------------------------------------------
+            # CONNECT AI
+            # ------------------------------------------------
 
-            if request_type == "STATUS":
+            if (
+                request_type
+                ==
+                "CONNECT_AI"
+            ):
+
+                ai_result = (
+                    self.ai
+                    .ensure_connected(
+                        force=True
+                    )
+                )
 
                 result = {
-                    "success": True,
-                    "status": (
-                        "STATUS_RETRIEVED"
-                    ),
+                    "success":
+                        (
+                            ai_result.get(
+                                "connected"
+                            )
+                            is True
+                        ),
+
+                    "status":
+                        (
+                            "AI_CONNECTED_AND_VERIFIED"
+                            if ai_result.get(
+                                "connected"
+                            )
+                            else
+                            "AI_ENGINE_NOT_FOUND"
+                        ),
+
+                    "ai":
+                        ai_result,
+                }
+
+            # ------------------------------------------------
+            # STATUS
+            # ------------------------------------------------
+
+            elif (
+                request_type
+                ==
+                "STATUS"
+            ):
+
+                result = {
+                    "success":
+                        True,
+
+                    "status":
+                        "STATUS_RETRIEVED",
+
                     "dashboard":
                         self.dashboard.snapshot(),
+
                     "factory":
                         self.inspect_factory(),
                 }
 
-            # --------------------------------------------
-            # INSPECTION / REPAIR
-            # --------------------------------------------
+            # ------------------------------------------------
+            # INSPECT / REPAIR
+            # ------------------------------------------------
 
             elif request_type in {
                 "REPAIR",
                 "INSPECT",
             }:
-                result = self.run_repair_cycle(
-                    state
+
+                result = (
+                    self.run_repair_cycle(
+                        state
+                    )
                 )
 
-            # --------------------------------------------
+            # ------------------------------------------------
             # LEGAL
-            # --------------------------------------------
+            # ------------------------------------------------
 
-            elif request_type == "LEGAL":
-                result = self.legal.execute(
-                    command,
-                    normalized,
+            elif (
+                request_type
+                ==
+                "LEGAL"
+            ):
+
+                result = (
+                    self.legal
+                    .execute(
+                        command,
+                        normalized,
+                    )
                 )
 
-            # --------------------------------------------
+            # ------------------------------------------------
             # SECURITY
-            # --------------------------------------------
+            # ------------------------------------------------
 
-            elif request_type == "SECURITY":
-
-                inspection = (
-                    self.inspect_factory()
-                )
+            elif (
+                request_type
+                ==
+                "SECURITY"
+            ):
 
                 result = {
-                    "success": True,
-                    "status": (
-                        "SECURITY_STATUS_RETRIEVED"
-                    ),
+                    "success":
+                        True,
+
+                    "status":
+                        "SECURITY_STATUS_RETRIEVED",
+
+                    "scan":
+                        self.security.scan(),
+
                     "recent_events":
-                        self.security.recent(100),
-                    "factory": inspection,
+                        self.security.recent(
+                            100
+                        ),
+
+                    "factory":
+                        self.inspect_factory(),
                 }
 
-            # --------------------------------------------
+            # ------------------------------------------------
             # GAME
-            # --------------------------------------------
+            # ------------------------------------------------
 
-            elif request_type == "CREATE_GAME":
+            elif (
+                request_type
+                ==
+                "CREATE_GAME"
+            ):
 
                 self.dashboard.update(
                     status="RUNNING",
                     stage="BUILD",
-                    operation_id=
-                        self.operation_id,
+                    operation_id=self.operation_id,
                 )
 
                 result = (
-                    self.game_pipeline.run(
+                    self.game_pipeline
+                    .run(
                         command,
                         normalized,
                         self.operation_id,
+                        self.owner,
                     )
                 )
 
-                if not result.get("success"):
+                if not result.get(
+                    "success"
+                ):
 
                     repair = (
                         self.repair_failure(
@@ -3976,21 +9292,25 @@ class Mastermind:
                         )
                     )
 
-                    if repair.get("success"):
+                    if repair.get(
+                        "success"
+                    ):
 
                         self.refresh_registry()
 
                         result = (
-                            self.game_pipeline.run(
+                            self.game_pipeline
+                            .run(
                                 command,
                                 normalized,
                                 self.operation_id,
+                                self.owner,
                             )
                         )
 
-            # --------------------------------------------
+            # ------------------------------------------------
             # KNOWN ROUTED CAPABILITIES
-            # --------------------------------------------
+            # ------------------------------------------------
 
             elif request_type in {
                 "CONTENT",
@@ -4000,13 +9320,17 @@ class Mastermind:
                 "ADS",
             }:
 
-                result = self.execute_routed(
-                    command,
-                    normalized,
-                    state,
+                result = (
+                    self.execute_routed(
+                        command,
+                        normalized,
+                        state,
+                    )
                 )
 
-                if not result.get("success"):
+                if not result.get(
+                    "success"
+                ):
 
                     repair = (
                         self.repair_failure(
@@ -4015,7 +9339,10 @@ class Mastermind:
                         )
                     )
 
-                    if repair.get("success"):
+                    if repair.get(
+                        "success"
+                    ):
+
                         self.refresh_registry()
 
                         result = (
@@ -4026,9 +9353,9 @@ class Mastermind:
                             )
                         )
 
-            # --------------------------------------------
+            # ------------------------------------------------
             # GENERAL OWNER OBJECTIVE
-            # --------------------------------------------
+            # ------------------------------------------------
 
             else:
 
@@ -4040,49 +9367,74 @@ class Mastermind:
                     )
                 )
 
-            # --------------------------------------------
-            # FINAL STATE
-            # --------------------------------------------
+            state.result = (
+                result
+            )
 
-            state.result = result
-
-            state.success = bool(
-                result.get("success")
+            state.success = (
+                result.get(
+                    "success"
+                )
+                is True
             )
 
             state.status = str(
-                result.get("status")
-                or (
+                result.get(
+                    "status"
+                )
+                or
+                (
                     "VERIFIED"
                     if state.success
-                    else "FAILED"
+                    else
+                    "FAILED"
                 )
             )
 
             if not state.success:
+
                 state.error = str(
-                    result.get("error")
-                    or result.get("status")
-                    or "UNKNOWN_FAILURE"
+                    result.get(
+                        "error"
+                    )
+                    or
+                    result.get(
+                        "status"
+                    )
+                    or
+                    "UNKNOWN_FAILURE"
                 )
 
-            self._save_state(state)
+            self._save_state(
+                state
+            )
 
             self.dashboard.update(
                 status=(
                     "VERIFIED"
                     if state.success
-                    else "FAILED"
+                    else
+                    "FAILED"
                 ),
-                operation_id=
-                    self.operation_id,
+                operation_id=self.operation_id,
                 command=command,
                 command_type=request_type,
                 result=result,
                 finished_at=utc_now(),
-                available_capabilities=
+                ai=self.ai.status(),
+                operational_capabilities=
                     sorted(
-                        self.registry.registry.keys()
+                        self.registry.report.get(
+                            "operational",
+                            [],
+                        )
+                    ),
+                unavailable_capabilities=
+                    sorted(
+                        self.registry.report.get(
+                            "unavailable",
+                            [],
+                        )
                     ),
             )
 
@@ -4096,31 +9448,50 @@ class Mastermind:
         except Exception as error:
 
             result = {
-                "success": False,
-                "status": (
-                    "MASTERMIND_EXCEPTION"
-                ),
+                "success":
+                    False,
+
+                "status":
+                    "MASTERMIND_EXCEPTION",
+
                 "operation_id":
                     self.operation_id,
-                "error": (
-                    f"{type(error).__name__}: "
-                    f"{error}"
-                ),
+
+                "error":
+                    (
+                        f"{type(error).__name__}: "
+                        f"{error}"
+                    ),
+
                 "traceback":
-                    traceback.format_exc(),
+                    truncate(
+                        traceback.format_exc()
+                    ),
             }
 
             state.success = False
-            state.status = "FAILED"
-            state.error = result["error"]
-            state.result = result
 
-            self._save_state(state)
+            state.status = (
+                "FAILED"
+            )
+
+            state.error = (
+                result[
+                    "error"
+                ]
+            )
+
+            state.result = (
+                result
+            )
+
+            self._save_state(
+                state
+            )
 
             self.dashboard.update(
                 status="FAILED",
-                operation_id=
-                    self.operation_id,
+                operation_id=self.operation_id,
                 result=result,
             )
 
@@ -4143,53 +9514,111 @@ class ContinuousMonitor:
         owner: str = DEFAULT_OWNER,
         interval: int = MONITOR_INTERVAL,
     ):
-        self.owner = owner
+
+        self.owner = (
+            owner
+        )
+
         self.interval = max(
             30,
-            int(interval),
+            int(
+                interval
+            ),
         )
 
         self.stop_event = (
             threading.Event()
         )
 
-    def stop(self) -> None:
+    def stop(
+        self,
+    ) -> None:
+
         self.stop_event.set()
 
-    def run_forever(self) -> None:
+    def run_forever(
+        self,
+    ) -> None:
 
         while not self.stop_event.is_set():
 
-            mastermind = Mastermind(
-                owner=self.owner
+            mastermind = (
+                Mastermind(
+                    owner=self.owner,
+                    auto_connect_ai=True,
+                )
             )
 
-            result = (
-                mastermind.inspect_factory()
+            security = (
+                mastermind.security
+                .scan()
             )
+
+            inspection = (
+                mastermind
+                .inspect_factory()
+            )
+
+            snapshot = {
+                "time":
+                    utc_now(),
+
+                "inspection":
+                    inspection,
+
+                "security":
+                    security,
+
+                "ai":
+                    mastermind.ai.status(),
+            }
 
             write_json(
-                MONITOR_DIR / "latest.json",
-                {
-                    "time": utc_now(),
-                    "result": result,
-                },
+                MONITOR_DIR
+                /
+                "latest.json",
+                snapshot,
             )
 
-            if not result.get("success"):
+            mastermind.dashboard.update(
+                status="MONITORING",
+                monitor=snapshot,
+                ai=mastermind.ai.status(),
+                operational_capabilities=
+                    sorted(
+                        mastermind.registry.report.get(
+                            "operational",
+                            [],
+                        )
+                    ),
+            )
+
+            if not inspection.get(
+                "success"
+            ):
 
                 repair_state = (
                     MastermindState(
                         operation_id=
                             mastermind.operation_id,
-                        owner=self.owner,
-                        command=(
-                            "AUTONOMOUS_MONITOR_REPAIR"
-                        ),
-                        started_at=utc_now(),
-                        updated_at=utc_now(),
-                        status="DIAGNOSING",
-                        command_type="REPAIR",
+
+                        owner=
+                            self.owner,
+
+                        command=
+                            "AUTONOMOUS_MONITOR_REPAIR",
+
+                        started_at=
+                            utc_now(),
+
+                        updated_at=
+                            utc_now(),
+
+                        status=
+                            "DIAGNOSING",
+
+                        command_type=
+                            "REPAIR",
                     )
                 )
 
@@ -4220,8 +9649,10 @@ def execute_request(
     **kwargs: Any,
 ) -> Dict[str, Any]:
 
-    mastermind = Mastermind(
-        owner=owner
+    mastermind = (
+        Mastermind(
+            owner=owner
+        )
     )
 
     return mastermind.run(
@@ -4238,13 +9669,19 @@ def execute_request(
 def process_game_request(
     **kwargs: Any,
 ) -> Dict[str, Any]:
-    return execute_request(**kwargs)
+
+    return execute_request(
+        **kwargs
+    )
 
 
 def process_request(
     **kwargs: Any,
 ) -> Dict[str, Any]:
-    return execute_request(**kwargs)
+
+    return execute_request(
+        **kwargs
+    )
 
 
 def execute_game_request(
@@ -4254,15 +9691,30 @@ def execute_game_request(
     **kwargs: Any,
 ) -> Dict[str, Any]:
 
-    data = dict(request)
+    data = dict(
+        request
+    )
 
-    data["type"] = "CREATE_GAME"
+    data[
+        "type"
+    ] = (
+        "CREATE_GAME"
+    )
 
     command = str(
-        data.get("command")
-        or data.get("request")
-        or data.get("description")
-        or ""
+        data.get(
+            "command"
+        )
+        or
+        data.get(
+            "request"
+        )
+        or
+        data.get(
+            "description"
+        )
+        or
+        "CREATE GAME"
     )
 
     return execute_request(
@@ -4297,6 +9749,29 @@ def run(
     )
 
 
+def execute(
+    command: str = "",
+    request: Optional[
+        Dict[str, Any]
+    ] = None,
+    payload: Optional[
+        Dict[str, Any]
+    ] = None,
+    job_id: Optional[str] = None,
+    owner: str = DEFAULT_OWNER,
+    **kwargs: Any,
+) -> Dict[str, Any]:
+
+    return execute_request(
+        command=command,
+        request=request,
+        payload=payload,
+        job_id=job_id,
+        owner=owner,
+        **kwargs,
+    )
+
+
 # ============================================================
 # CLI
 # ============================================================
@@ -4305,8 +9780,7 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(
         description=(
-            "MAJD SOVEREIGN AUTONOMOUS "
-            "MASTERMIND"
+            "MAJD SOVEREIGN AUTONOMOUS MASTERMIND"
         )
     )
 
@@ -4342,39 +9816,56 @@ def main() -> int:
     )
 
     parser.add_argument(
+        "--connect-ai",
+        action="store_true",
+    )
+
+    parser.add_argument(
+        "--ai-status",
+        action="store_true",
+    )
+
+    parser.add_argument(
+        "--security-scan",
+        action="store_true",
+    )
+
+    parser.add_argument(
         "--monitor",
         action="store_true",
     )
 
-    args = parser.parse_args()
+    parser.add_argument(
+        "--dashboard-server",
+        action="store_true",
+    )
 
-    if args.status:
+    parser.add_argument(
+        "--dashboard-host",
+        default=os.getenv(
+            "MAJD_DASHBOARD_HOST",
+            "127.0.0.1",
+        ),
+    )
 
-        mastermind = Mastermind(
-            owner=args.owner
-        )
-
-        result = {
-            "success": True,
-            "system": SYSTEM_NAME,
-            "mastermind": MASTERMIND_NAME,
-            "version": VERSION,
-            "root": str(ROOT_DIR),
-            "ai": mastermind.ai.status(),
-            "dashboard":
-                mastermind.dashboard.snapshot(),
-        }
-
-        print(
-            json.dumps(
-                result,
-                ensure_ascii=False,
-                indent=2,
-                default=str,
+    parser.add_argument(
+        "--dashboard-port",
+        type=int,
+        default=int(
+            os.getenv(
+                "MAJD_DASHBOARD_PORT",
+                "8765",
             )
-        )
+        ),
+    )
 
-        return 0
+    args = (
+        parser.parse_args()
+    )
+
+    # --------------------------------------------------------
+    # DISCOVERY
+    # --------------------------------------------------------
 
     if args.discover:
 
@@ -4394,15 +9885,30 @@ def main() -> int:
             )
         )
 
-        return 0
+        return (
+            0
+            if result.get(
+                "success"
+            )
+            else
+            1
+        )
+
+    # --------------------------------------------------------
+    # CAPABILITIES
+    # --------------------------------------------------------
 
     if args.capabilities:
 
-        registry = CapabilityRegistry(
-            ComponentDiscovery()
+        registry = (
+            CapabilityRegistry(
+                ComponentDiscovery()
+            )
         )
 
-        result = registry.build()
+        result = (
+            registry.build()
+        )
 
         print(
             json.dumps(
@@ -4415,14 +9921,186 @@ def main() -> int:
 
         return 0
 
-    if args.inspect:
-
-        mastermind = Mastermind(
-            owner=args.owner
+    mastermind = (
+        Mastermind(
+            owner=args.owner,
+            auto_connect_ai=(
+                not args.connect_ai
+            ),
         )
+    )
+
+    # --------------------------------------------------------
+    # CONNECT AI
+    # --------------------------------------------------------
+
+    if args.connect_ai:
 
         result = (
-            mastermind.inspect_factory()
+            mastermind.ai
+            .ensure_connected(
+                force=True
+            )
+        )
+
+        output = {
+            "success":
+                (
+                    result.get(
+                        "connected"
+                    )
+                    is True
+                ),
+
+            "status":
+                (
+                    "AI_CONNECTED_AND_VERIFIED"
+                    if result.get(
+                        "connected"
+                    )
+                    else
+                    "AI_ENGINE_NOT_FOUND"
+                ),
+
+            "ai":
+                result,
+        }
+
+        print(
+            json.dumps(
+                output,
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            )
+        )
+
+        return (
+            0
+            if output[
+                "success"
+            ]
+            else
+            1
+        )
+
+    # --------------------------------------------------------
+    # AI STATUS
+    # --------------------------------------------------------
+
+    if args.ai_status:
+
+        result = (
+            mastermind.ai
+            .ensure_connected(
+                force=False
+            )
+        )
+
+        output = {
+            "success":
+                (
+                    result.get(
+                        "connected"
+                    )
+                    is True
+                ),
+
+            "ai":
+                result,
+        }
+
+        print(
+            json.dumps(
+                output,
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            )
+        )
+
+        return (
+            0
+            if result.get(
+                "connected"
+            )
+            else
+            1
+        )
+
+    # --------------------------------------------------------
+    # SECURITY SCAN
+    # --------------------------------------------------------
+
+    if args.security_scan:
+
+        result = (
+            mastermind.security
+            .scan()
+        )
+
+        print(
+            json.dumps(
+                result,
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            )
+        )
+
+        return 0
+
+    # --------------------------------------------------------
+    # STATUS
+    # --------------------------------------------------------
+
+    if args.status:
+
+        result = {
+            "success":
+                True,
+
+            "system":
+                SYSTEM_NAME,
+
+            "mastermind":
+                MASTERMIND_NAME,
+
+            "version":
+                VERSION,
+
+            "root":
+                str(
+                    ROOT_DIR
+                ),
+
+            "ai":
+                mastermind.ai.status(),
+
+            "dashboard":
+                mastermind.dashboard.snapshot(),
+        }
+
+        print(
+            json.dumps(
+                result,
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            )
+        )
+
+        return 0
+
+    # --------------------------------------------------------
+    # INSPECT
+    # --------------------------------------------------------
+
+    if args.inspect:
+
+        result = (
+            mastermind
+            .inspect_factory()
         )
 
         print(
@@ -4436,55 +10114,113 @@ def main() -> int:
 
         return (
             0
-            if result.get("success")
-            else 1
+            if result.get(
+                "success"
+            )
+            else
+            1
         )
 
-    if args.monitor:
+    # --------------------------------------------------------
+    # DASHBOARD SERVER
+    # --------------------------------------------------------
 
-        monitor = ContinuousMonitor(
-            owner=args.owner
+    if args.dashboard_server:
+
+        mastermind.dashboard.update(
+            system=SYSTEM_NAME,
+            mastermind=MASTERMIND_NAME,
+            version=VERSION,
+            status="DASHBOARD_RUNNING",
+            ai=mastermind.ai.status(),
         )
 
         print(
             json.dumps(
                 {
-                    "success": True,
-                    "status": (
-                        "CONTINUOUS_MONITOR_STARTED"
-                    ),
-                    "interval_seconds":
-                        monitor.interval,
+                    "success":
+                        True,
+
+                    "status":
+                        "OWNER_DASHBOARD_SERVER_STARTED",
+
+                    "host":
+                        args.dashboard_host,
+
+                    "port":
+                        args.dashboard_port,
                 },
                 ensure_ascii=False,
                 indent=2,
             )
         )
 
+        DashboardServer(
+            mastermind.dashboard,
+            args.dashboard_host,
+            args.dashboard_port,
+        ).serve_forever()
+
+        return 0
+
+    # --------------------------------------------------------
+    # MONITOR
+    # --------------------------------------------------------
+
+    if args.monitor:
+
+        print(
+            json.dumps(
+                {
+                    "success":
+                        True,
+
+                    "status":
+                        "CONTINUOUS_MONITOR_STARTED",
+
+                    "interval_seconds":
+                        MONITOR_INTERVAL,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+
+        monitor = (
+            ContinuousMonitor(
+                owner=args.owner
+            )
+        )
+
         try:
+
             monitor.run_forever()
 
         except KeyboardInterrupt:
+
             monitor.stop()
 
         return 0
+
+    # --------------------------------------------------------
+    # OWNER COMMAND
+    # --------------------------------------------------------
 
     command = " ".join(
         args.command
     ).strip()
 
     if not command:
+
         command = input(
             "👑 OWNER > "
         ).strip()
 
-    mastermind = Mastermind(
-        owner=args.owner
-    )
-
-    result = mastermind.run(
-        command=command,
-        owner=args.owner,
+    result = (
+        mastermind.run(
+            command=command,
+            owner=args.owner,
+        )
     )
 
     print(
@@ -4498,8 +10234,11 @@ def main() -> int:
 
     return (
         0
-        if result.get("success")
-        else 1
+        if result.get(
+            "success"
+        )
+        else
+        1
     )
 
 
@@ -4508,6 +10247,7 @@ def main() -> int:
 # ============================================================
 
 if __name__ == "__main__":
+
     raise SystemExit(
         main()
     )
