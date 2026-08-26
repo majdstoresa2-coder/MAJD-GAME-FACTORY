@@ -1,49 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-MAJD GAME FACTORY
-majd_ai_agent.py
-============================================================
-
-MAJD AI AGENT — REAL EXECUTION ORCHESTRATOR
-VERSION 3.0.0
-
-السلسلة الحقيقية:
-
-USER / MAJD API
-      ↓
-MAJD AI AGENT
-      ↓
-01 MAJD AI MASTERMIND
-      ↓
-03 REAL GAME EXECUTOR
-      ↓
-PLAYABLE ARTIFACT
-      ↓
-04 OFFICIAL PLATFORM BRIDGE
-      ↓
-publish_game()
-      ↓
-PUBLIC /artifacts/<game_id>/index.html
-      ↓
-https://majd.shop/artifacts/<game_id>/index.html
-
-القواعد:
-- لا نجاح وهمي.
-- فشل 01 = توقف.
-- فشل 03 = توقف.
-- Artifact غير صالح = توقف.
-- فشل 04 = توقف.
-- لا ManifestBuilder داخل Agent.
-- لا PackageBuilder داخل Agent.
-- لا MajdPlatformClient داخل Agent.
-- المسؤول الوحيد عن النشر هو 04 عبر publish_game().
-- لا يعتبر النشر ناجحاً إلا بعد التحقق من النسخة المنشورة.
-"""
-
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import inspect
 import json
@@ -54,13 +14,20 @@ import traceback
 import uuid
 
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence, Callable
 
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
-
-import uvicorn
+try:
+    from fastapi import FastAPI, Request
+    from fastapi.responses import HTMLResponse, JSONResponse
+    import uvicorn
+except Exception:
+    FastAPI = None
+    Request = Any
+    HTMLResponse = None
+    JSONResponse = None
+    uvicorn = None
 
 
 # ============================================================
@@ -69,12 +36,12 @@ import uvicorn
 
 SYSTEM_NAME = "MAJD-GAME-FACTORY"
 AGENT_NAME = "MAJD-AI-AGENT"
-VERSION = "3.0.0"
+VERSION = "4.0.0"
 
-OFFICIAL_PLATFORM_URL = os.getenv(
-    "MAJD_OFFICIAL_PLATFORM_URL",
-    "https://majd.shop",
-).rstrip("/")
+OWNER_ID = os.getenv(
+    "MAJD_OWNER_ID",
+    "OWNER",
+).strip() or "OWNER"
 
 
 # ============================================================
@@ -83,131 +50,86 @@ OFFICIAL_PLATFORM_URL = os.getenv(
 
 ROOT_DIR = Path(__file__).resolve().parent
 
-OUTPUT_DIR = ROOT_DIR / "majd_game_output"
-STATE_DIR = ROOT_DIR / "majd_factory_state"
-AGENT_STATE_DIR = STATE_DIR / "agent"
-PUBLIC_DIR = ROOT_DIR / "public"
-ARTIFACTS_DIR = PUBLIC_DIR / "artifacts"
+STATE_DIR = (
+    ROOT_DIR
+    / "majd_factory_state"
+    / "agent"
+)
 
-MASTERMIND_FILE = ROOT_DIR / "MAJD-AI-MASTERMIND-01.py"
-REAL_GAME_EXECUTOR_FILE = ROOT_DIR / "MAJD-REAL-GAME-EXECUTOR-03.py"
-OFFICIAL_PLATFORM_BRIDGE_FILE = ROOT_DIR / "MAJD-OFFICIAL-PLATFORM-BRIDGE-04.py"
+STATE_DIR.mkdir(
+    parents=True,
+    exist_ok=True,
+)
 
-for directory in (
-    OUTPUT_DIR,
-    STATE_DIR,
-    AGENT_STATE_DIR,
-    PUBLIC_DIR,
-    ARTIFACTS_DIR,
-):
-    directory.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+OUTPUT_DIR = (
+    ROOT_DIR
+    / "majd_game_output"
+)
+
+OUTPUT_DIR.mkdir(
+    parents=True,
+    exist_ok=True,
+)
+
+FILES = {
+    "01":
+        ROOT_DIR
+        / "MAJD-AI-MASTERMIND-01.py",
+
+    "02":
+        ROOT_DIR
+        / "MAJD-OWNER-COMMAND-CENTER-02.py",
+
+    "03":
+        ROOT_DIR
+        / "MAJD-REAL-GAME-EXECUTOR-03.py",
+
+    "04":
+        ROOT_DIR
+        / "MAJD-OFFICIAL-PLATFORM-BRIDGE-04.py",
+
+    "06":
+        ROOT_DIR
+        / "MAJD-FULL-EXECUTION-RUNTIME-06.py",
+
+    "08":
+        ROOT_DIR
+        / "MAJD-AI-CONTENT-MEDIA-FACTORY-08.py",
+}
 
 
 # ============================================================
-# TIME
+# ROUTES
 # ============================================================
 
-def utc_now() -> str:
+class Route(str, Enum):
+    STATUS = "STATUS"
+    AUTONOMOUS = "AUTONOMOUS"
+    REPAIR = "REPAIR"
+    CREATE_GAME = "CREATE_GAME"
+    CONTENT = "CONTENT"
+    PLATFORM = "PLATFORM"
+    GENERAL = "GENERAL"
+
+
+# ============================================================
+# UTILITIES
+# ============================================================
+
+def now() -> str:
     return datetime.now(
         timezone.utc
     ).isoformat()
 
 
-# ============================================================
-# JSON
-# ============================================================
-
-def write_json(
-    path: Path,
-    data: Dict[str, Any],
-) -> None:
-    path.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    temporary = path.with_suffix(
-        path.suffix + ".tmp"
-    )
-
-    with temporary.open(
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            data,
-            file,
-            ensure_ascii=False,
-            indent=2,
-            default=str,
-        )
-
-        file.flush()
-        os.fsync(
-            file.fileno()
-        )
-
-    temporary.replace(
-        path
-    )
-
-
-# ============================================================
-# SAFE VALUES
-# ============================================================
-
-def safe_name(
-    value: str,
-) -> str:
-    value = str(
-        value
-        or
-        "MAJD-GAME"
-    ).strip()
-
-    value = re.sub(
-        r"[^\w\u0600-\u06FF\- ]+",
-        "",
-        value,
-        flags=re.UNICODE,
-    )
-
-    value = re.sub(
-        r"\s+",
-        "-",
-        value,
-    ).strip(
-        "-_"
-    )
-
-    if not value:
-        value = "MAJD-GAME"
-
-    return value[:100]
-
-
 def build_job_id(
     value: Optional[str] = None,
 ) -> str:
+
     raw = str(
         value
         or
         uuid.uuid4()
-    ).strip()
-
-    raw = (
-        raw
-        .replace(
-            "/",
-            "-",
-        )
-        .replace(
-            "\\",
-            "-",
-        )
     )
 
     raw = re.sub(
@@ -218,30 +140,64 @@ def build_job_id(
         ".-_"
     )
 
-    if not raw:
-        raw = str(
-            uuid.uuid4()
-        )
+    return (
+        raw
+        or
+        str(uuid.uuid4())
+    )[:120]
 
-    return raw[:120]
+
+def save_receipt(
+    job_id: str,
+    data: Dict[str, Any],
+) -> str:
+
+    path = (
+        STATE_DIR
+        / f"{job_id}.json"
+    )
+
+    temporary = path.with_suffix(
+        ".json.tmp"
+    )
+
+    temporary.write_text(
+        json.dumps(
+            data,
+            ensure_ascii=False,
+            indent=2,
+            default=str,
+        ),
+        encoding="utf-8",
+    )
+
+    temporary.replace(
+        path
+    )
+
+    return str(
+        path
+    )
 
 
 # ============================================================
 # MODULE LOADER
 # ============================================================
 
-def load_python_module(
+def load_module(
     path: Path,
-    module_name: str,
+    name: str,
 ) -> Any:
+
     if not path.exists():
         raise FileNotFoundError(
-            f"Required file not found: {path}"
+            str(path)
         )
 
     specification = (
-        importlib.util.spec_from_file_location(
-            module_name,
+        importlib.util
+        .spec_from_file_location(
+            name,
             str(path),
         )
     )
@@ -252,17 +208,18 @@ def load_python_module(
         specification.loader is None
     ):
         raise ImportError(
-            f"Unable to load module: {path}"
+            str(path)
         )
 
     module = (
-        importlib.util.module_from_spec(
+        importlib.util
+        .module_from_spec(
             specification
         )
     )
 
     sys.modules[
-        module_name
+        name
     ] = module
 
     specification.loader.exec_module(
@@ -273,76 +230,39 @@ def load_python_module(
 
 
 # ============================================================
-# RESULT NORMALIZATION
-# ============================================================
-
-def normalize_result(
-    value: Any,
-    default_success: bool = True,
-) -> Dict[str, Any]:
-    if isinstance(
-        value,
-        dict,
-    ):
-        result = dict(
-            value
-        )
-
-        if "success" not in result:
-            result[
-                "success"
-            ] = default_success
-
-        return result
-
-    if value is None:
-        return {
-            "success":
-                False,
-            "error":
-                "COMPONENT_RETURNED_NONE",
-        }
-
-    return {
-        "success":
-            default_success,
-        "result":
-            value,
-    }
-
-
-# ============================================================
 # SAFE FUNCTION CALL
 # ============================================================
 
-def call_with_supported_kwargs(
-    function: Any,
+def call_supported(
+    function: Callable[..., Any],
     **kwargs: Any,
 ) -> Any:
-    try:
-        signature = inspect.signature(
-            function
-        )
 
-    except (
-        TypeError,
-        ValueError,
-    ):
+    try:
+        signature = (
+            inspect.signature(
+                function
+            )
+        )
+    except Exception:
         return function(
             **kwargs
         )
 
-    parameters = signature.parameters
+    parameters = (
+        signature.parameters
+    )
 
-    accepts_var_kwargs = any(
+    accepts_kwargs = any(
         parameter.kind
         ==
         inspect.Parameter.VAR_KEYWORD
+
         for parameter
         in parameters.values()
     )
 
-    if accepts_var_kwargs:
+    if accepts_kwargs:
         return function(
             **kwargs
         )
@@ -350,8 +270,10 @@ def call_with_supported_kwargs(
     supported = {
         key:
             value
+
         for key, value
         in kwargs.items()
+
         if key
         in parameters
     }
@@ -361,136 +283,512 @@ def call_with_supported_kwargs(
     )
 
 
-# ============================================================
-# COMMAND PARSER
-# ============================================================
+def normalize(
+    value: Any,
+    default_success: bool = False,
+    status: str = "RESULT",
+) -> Dict[str, Any]:
 
-def extract_game_name(
-    command: str,
-) -> str:
-    text = str(
-        command
-        or
-        ""
-    ).strip()
-
-    patterns = (
-        (
-            r"(?:اسمها|اسم اللعبة)"
-            r"\s*[:：]?\s*"
-            r"[\"']?"
-            r"([^\"'\n،,.]+)"
-        ),
-        (
-            r"(?:أنشئ|انشئ|اصنع|ابن|سوي|سوِ)"
-            r"\s+(?:لي\s+)?"
-            r"(?:لعبة\s+)?"
-            r"[\"']?"
-            r"([^\"'\n،,.]+)"
-        ),
-    )
-
-    for pattern in patterns:
-        match = re.search(
-            pattern,
-            text,
-            flags=re.IGNORECASE,
+    if isinstance(
+        value,
+        dict,
+    ):
+        result = dict(
+            value
         )
 
-        if match:
-            value = (
-                match
-                .group(1)
-                .strip()
-            )
+        result.setdefault(
+            "success",
+            default_success,
+        )
 
-            if value:
-                return safe_name(
-                    value
-                )
+        result.setdefault(
+            "status",
+            status,
+        )
 
-    return safe_name(
-        text[:80]
-        or
-        "MAJD GENERATED GAME"
-    )
+        return result
 
-
-def detect_dimension(
-    command: str,
-) -> str:
-    lowered = command.lower()
-
-    if (
-        "3d" in lowered
-        or
-        "ثلاثية" in command
-        or
-        "ثلاثي" in command
-    ):
-        return "3D"
-
-    if (
-        "2d" in lowered
-        or
-        "ثنائية" in command
-        or
-        "ثنائي" in command
-    ):
-        return "2D"
-
-    return "2D"
-
-
-def detect_genre(
-    command: str,
-) -> str:
-    lowered = command.lower()
-
-    if (
-        "استراتيجية" in command
-        or
-        "strategy" in lowered
-    ):
-        return "STRATEGY"
-
-    if (
-        "سباق" in command
-        or
-        "race" in lowered
-        or
-        "racing" in lowered
-    ):
-        return "RACING"
-
-    if (
-        "مغامرات" in command
-        or
-        "مغامرة" in command
-        or
-        "adventure" in lowered
-    ):
-        return "ADVENTURE"
-
-    return "ADVENTURE"
-
-
-def parse_command(
-    command: str,
-) -> Dict[str, Any]:
-    text = str(
-        command
-        or
-        ""
-    ).strip()
-
-    if not text:
+    if value is None:
         return {
             "success":
                 False,
-            "error":
-                "EMPTY_COMMAND",
+
+            "status":
+                "COMPONENT_RETURNED_NONE",
         }
+
+    return {
+        "success":
+            default_success,
+
+        "status":
+            status,
+
+        "result":
+            value,
+    }
+
+
+def call_first(
+    component: Any,
+    names: Sequence[str],
+    **kwargs: Any,
+) -> Dict[str, Any]:
+
+    for name in names:
+
+        function = getattr(
+            component,
+            name,
+            None,
+        )
+
+        if not callable(
+            function
+        ):
+            continue
+
+        try:
+            value = (
+                call_supported(
+                    function,
+                    **kwargs,
+                )
+            )
+
+            result = (
+                normalize(
+                    value,
+                    False,
+                    name.upper()
+                    + "_RESULT",
+                )
+            )
+
+            result.setdefault(
+                "interface",
+                name,
+            )
+
+            return result
+
+        except Exception as error:
+
+            return {
+                "success":
+                    False,
+
+                "status":
+                    "COMPONENT_CALL_FAILED",
+
+                "interface":
+                    name,
+
+                "error":
+                    (
+                        f"{type(error).__name__}: "
+                        f"{error}"
+                    ),
+
+                "traceback":
+                    traceback.format_exc(),
+            }
+
+    return {
+        "success":
+            False,
+
+        "status":
+            "INTERFACE_MISSING",
+
+        "expected_any":
+            list(names),
+    }
+
+
+# ============================================================
+# ROUTING
+# ============================================================
+
+def contains_any(
+    text: str,
+    words: Sequence[str],
+) -> bool:
+
+    lowered = (
+        text.lower()
+    )
+
+    return any(
+        word.lower()
+        in lowered
+
+        for word
+        in words
+    )
+
+
+def detect_content_type(
+    command: str,
+) -> Optional[str]:
+
+    lowered = (
+        command.lower()
+    )
+
+    mappings = [
+        (
+            "movie",
+            (
+                "فيلم",
+                "movie",
+            ),
+        ),
+        (
+            "series",
+            (
+                "مسلسل",
+                "series",
+            ),
+        ),
+        (
+            "episode",
+            (
+                "حلقة",
+                "episode",
+            ),
+        ),
+        (
+            "short",
+            (
+                "شورت",
+                "short",
+            ),
+        ),
+        (
+            "story",
+            (
+                "ستوري",
+                "story",
+            ),
+        ),
+        (
+            "poster",
+            (
+                "بوستر",
+                "poster",
+            ),
+        ),
+        (
+            "thumbnail",
+            (
+                "صورة مصغرة",
+                "thumbnail",
+            ),
+        ),
+        (
+            "animation",
+            (
+                "أنيميشن",
+                "انيميشن",
+                "animation",
+            ),
+        ),
+        (
+            "vfx",
+            (
+                "vfx",
+                "مؤثرات بصرية",
+            ),
+        ),
+        (
+            "voice",
+            (
+                "تعليق صوتي",
+                "voice",
+            ),
+        ),
+        (
+            "music",
+            (
+                "موسيقى",
+                "music",
+            ),
+        ),
+        (
+            "subtitle",
+            (
+                "ترجمة نصية",
+                "subtitle",
+            ),
+        ),
+        (
+            "dubbing",
+            (
+                "دبلجة",
+                "dubbing",
+            ),
+        ),
+        (
+            "live",
+            (
+                "بث مباشر",
+                "live",
+            ),
+        ),
+        (
+            "social_post",
+            (
+                "منشور",
+                "بوست",
+                "social post",
+            ),
+        ),
+        (
+            "channel",
+            (
+                "قناة",
+                "channel",
+            ),
+        ),
+        (
+            "game_media",
+            (
+                "إعلام لعبة",
+                "game media",
+            ),
+        ),
+        (
+            "video",
+            (
+                "فيديو",
+                "video",
+            ),
+        ),
+        (
+            "image",
+            (
+                "صورة",
+                "image",
+            ),
+        ),
+        (
+            "audio",
+            (
+                "ملف صوتي",
+                "audio",
+            ),
+        ),
+    ]
+
+    for content_type, words in mappings:
+
+        if any(
+            word.lower()
+            in lowered
+
+            for word
+            in words
+        ):
+            return content_type
+
+    if (
+        "ترجم"
+        in command
+        or
+        "translate"
+        in lowered
+    ):
+        return "translation"
+
+    return None
+
+
+def classify(
+    command: str,
+) -> tuple[
+    Route,
+    Optional[str],
+]:
+
+    command = (
+        command.strip()
+    )
+
+    content_type = (
+        detect_content_type(
+            command
+        )
+    )
+
+    if (
+        contains_any(
+            command,
+            (
+                "status",
+                "health",
+                "report",
+                "حالة",
+                "تقرير",
+                "التقدم",
+                "وش صار",
+            ),
+        )
+        and
+        not contains_any(
+            command,
+            (
+                "لعبة",
+                "game",
+            ),
+        )
+    ):
+        return (
+            Route.STATUS,
+            content_type,
+        )
+
+    if content_type:
+        return (
+            Route.CONTENT,
+            content_type,
+        )
+
+    if contains_any(
+        command,
+        (
+            "autonomous",
+            "ذاتي",
+            "تلقائي",
+            "بدون تدخل",
+            "استمر",
+            "راقب",
+        ),
+    ):
+        return (
+            Route.AUTONOMOUS,
+            None,
+        )
+
+    if contains_any(
+        command,
+        (
+            "repair",
+            "fix",
+            "diagnose",
+            "أصلح",
+            "اصلح",
+            "إصلاح",
+            "تشخيص",
+            "اربط",
+            "ربط",
+            "اعتماديات",
+        ),
+    ):
+        return (
+            Route.REPAIR,
+            None,
+        )
+
+    if contains_any(
+        command,
+        (
+            "لعبة",
+            "game",
+            "3d",
+            "2d",
+            "استراتيجية",
+            "مغامرات",
+            "سباق",
+        ),
+    ):
+        return (
+            Route.CREATE_GAME,
+            None,
+        )
+
+    if contains_any(
+        command,
+        (
+            "platform",
+            "deploy",
+            "service",
+            "server",
+            "publish",
+            "test",
+            "build",
+            "منصة",
+            "سيرفر",
+            "خدمة",
+            "نشر",
+            "اختبار",
+            "بناء",
+            "حزم",
+        ),
+    ):
+        return (
+            Route.PLATFORM,
+            None,
+        )
+
+    return (
+        Route.GENERAL,
+        None,
+    )
+
+
+# ============================================================
+# GAME REQUEST
+# ============================================================
+
+def build_game_request(
+    command: str,
+) -> Dict[str, Any]:
+
+    lowered = (
+        command.lower()
+    )
+
+    if (
+        "3d"
+        in lowered
+        or
+        "ثلاث"
+        in command
+    ):
+        dimension = "3D"
+    else:
+        dimension = "2D"
+
+    if (
+        "استراتيجية"
+        in command
+        or
+        "strategy"
+        in lowered
+    ):
+        genre = "STRATEGY"
+
+    elif (
+        "سباق"
+        in command
+        or
+        "race"
+        in lowered
+    ):
+        genre = "RACING"
+
+    else:
+        genre = "ADVENTURE"
+
+    name = re.sub(
+        r"\s+",
+        "-",
+        command[:80],
+    ).strip(
+        "-"
+    )
 
     return {
         "success":
@@ -500,19 +798,15 @@ def parse_command(
             "CREATE_GAME",
 
         "name":
-            extract_game_name(
-                text
-            ),
+            name
+            or
+            "MAJD-GAME",
 
         "genre":
-            detect_genre(
-                text
-            ),
+            genre,
 
         "dimension":
-            detect_dimension(
-                text
-            ),
+            dimension,
 
         "platform":
             [
@@ -520,13 +814,13 @@ def parse_command(
             ],
 
         "request":
-            text,
+            command,
 
         "command":
-            text,
+            command,
 
         "requested_at":
-            utc_now(),
+            now(),
 
         "source":
             AGENT_NAME,
@@ -534,18 +828,18 @@ def parse_command(
 
 
 # ============================================================
-# MASTERMIND 01
+# GAME PIPELINE
 # ============================================================
 
-def call_mastermind(
+def game_pipeline(
     command: str,
-    parsed_request: Dict[str, Any],
     job_id: str,
 ) -> Dict[str, Any]:
+
     try:
-        module = load_python_module(
-            MASTERMIND_FILE,
-            "majd_ai_mastermind_01",
+        mastermind = load_module(
+            FILES["01"],
+            "majd_01",
         )
 
     except Exception as error:
@@ -557,190 +851,87 @@ def call_mastermind(
                 "MASTERMIND_LOAD_FAILED",
 
             "error":
-                (
-                    f"{type(error).__name__}: "
-                    f"{error}"
-                ),
-
-            "traceback":
-                traceback.format_exc(),
+                str(error),
         }
 
-    function = (
-        getattr(
-            module,
-            "process_game_request",
-            None,
-        )
-        or
-        getattr(
-            module,
-            "execute_request",
-            None,
-        )
-        or
-        getattr(
-            module,
-            "process_request",
-            None,
-        )
-        or
-        getattr(
-            module,
-            "execute",
-            None,
-        )
-        or
-        getattr(
-            module,
-            "run",
-            None,
+    request = (
+        build_game_request(
+            command
         )
     )
 
-    if not callable(
-        function
+    mastermind_result = (
+        call_first(
+            mastermind,
+            (
+                "process_game_request",
+                "execute_game_request",
+                "execute_request",
+                "process_request",
+                "execute",
+                "run",
+            ),
+            command=
+                command,
+            request=
+                request,
+            job_id=
+                job_id,
+            owner=
+                OWNER_ID,
+            output_root=
+                str(
+                    OUTPUT_DIR
+                ),
+        )
+    )
+
+    if (
+        mastermind_result.get(
+            "success"
+        )
+        is not True
     ):
         return {
             "success":
                 False,
 
             "status":
-                "MASTERMIND_INTERFACE_MISSING",
+                "MASTERMIND_STAGE_FAILED",
 
-            "file":
-                str(
-                    MASTERMIND_FILE
-                ),
+            "mastermind":
+                mastermind_result,
         }
 
-    try:
+    prepared = dict(
+        request
+    )
+
+    for key in (
+        "request",
+        "prepared_request",
+        "game_request",
+        "result",
+    ):
         value = (
-            call_with_supported_kwargs(
-                function,
-
-                command=
-                    command,
-
-                request=
-                    parsed_request,
-
-                job_id=
-                    job_id,
-
-                owner=
-                    "MAJD",
-
-                output_root=
-                    str(
-                        OUTPUT_DIR
-                    ),
+            mastermind_result.get(
+                key
             )
         )
 
-        return normalize_result(
-            value
-        )
-
-    except Exception as error:
-        return {
-            "success":
-                False,
-
-            "status":
-                "MASTERMIND_FAILED",
-
-            "error":
-                (
-                    f"{type(error).__name__}: "
-                    f"{error}"
-                ),
-
-            "traceback":
-                traceback.format_exc(),
-        }
-
-
-# ============================================================
-# PREPARED REQUEST
-# ============================================================
-
-def build_prepared_request(
-    parsed_request: Dict[str, Any],
-    mastermind_result: Dict[str, Any],
-) -> Dict[str, Any]:
-    candidates = (
-        mastermind_result.get(
-            "request"
-        ),
-        mastermind_result.get(
-            "prepared_request"
-        ),
-        mastermind_result.get(
-            "game_request"
-        ),
-    )
-
-    for candidate in candidates:
         if isinstance(
-            candidate,
+            value,
             dict,
         ):
-            prepared = dict(
-                parsed_request
-            )
-
             prepared.update(
-                candidate
+                value
             )
+            break
 
-            prepared[
-                "success"
-            ] = True
-
-            return prepared
-
-    nested_result = (
-        mastermind_result.get(
-            "result"
-        )
-    )
-
-    if isinstance(
-        nested_result,
-        dict,
-    ):
-        prepared = dict(
-            parsed_request
-        )
-
-        prepared.update(
-            nested_result
-        )
-
-        prepared[
-            "success"
-        ] = True
-
-        return prepared
-
-    return dict(
-        parsed_request
-    )
-
-
-# ============================================================
-# REAL GAME EXECUTOR 03
-# ============================================================
-
-def call_real_executor(
-    prepared_request: Dict[str, Any],
-    job_id: str,
-) -> Dict[str, Any]:
     try:
-        module = load_python_module(
-            REAL_GAME_EXECUTOR_FILE,
-            "majd_real_game_executor_03",
+        executor = load_module(
+            FILES["03"],
+            "majd_03",
         )
 
     except Exception as error:
@@ -752,206 +943,95 @@ def call_real_executor(
                 "EXECUTOR_LOAD_FAILED",
 
             "error":
-                (
-                    f"{type(error).__name__}: "
-                    f"{error}"
-                ),
-
-            "traceback":
-                traceback.format_exc(),
+                str(error),
         }
 
-    function = (
-        getattr(
-            module,
-            "execute_game_request",
-            None,
-        )
-        or
-        getattr(
-            module,
-            "execute",
-            None,
-        )
-        or
-        getattr(
-            module,
-            "run",
-            None,
+    executor_result = (
+        call_first(
+            executor,
+            (
+                "execute_game_request",
+                "execute",
+                "run",
+            ),
+            request=
+                prepared,
+            job_id=
+                job_id,
+            output_root=
+                str(
+                    OUTPUT_DIR
+                ),
         )
     )
 
-    if not callable(
-        function
+    if (
+        executor_result.get(
+            "success"
+        )
+        is not True
     ):
         return {
             "success":
                 False,
 
             "status":
-                "EXECUTOR_INTERFACE_MISSING",
+                "REAL_GAME_EXECUTION_FAILED",
 
-            "file":
-                str(
-                    REAL_GAME_EXECUTOR_FILE
-                ),
+            "executor":
+                executor_result,
         }
 
-    try:
-        value = (
-            call_with_supported_kwargs(
-                function,
+    artifact = None
 
-                request=
-                    prepared_request,
-
-                job_id=
-                    job_id,
-
-                output_root=
-                    str(
-                        OUTPUT_DIR
-                    ),
-            )
-        )
-
-        return normalize_result(
-            value
-        )
-
-    except Exception as error:
-        return {
-            "success":
-                False,
-
-            "status":
-                "EXECUTOR_FAILED",
-
-            "error":
-                (
-                    f"{type(error).__name__}: "
-                    f"{error}"
-                ),
-
-            "traceback":
-                traceback.format_exc(),
-        }
-
-
-# ============================================================
-# ARTIFACT
-# ============================================================
-
-def candidate_path(
-    value: Any,
-) -> Optional[Path]:
-    if not value:
-        return None
-
-    path = Path(
-        str(
-            value
-        )
-    ).expanduser()
-
-    if not path.is_absolute():
-        path = (
-            ROOT_DIR
-            /
-            path
-        ).resolve()
-
-    else:
-        path = path.resolve()
-
-    if path.exists():
-        return path
-
-    return None
-
-
-def extract_artifact(
-    executor_result: Dict[str, Any],
-) -> Optional[Path]:
-    keys = (
+    for key in (
         "artifact",
         "artifact_path",
         "build_path",
         "game_dir",
         "output_path",
         "playable_artifact",
-    )
+    ):
 
-    for key in keys:
-        path = candidate_path(
+        value = (
             executor_result.get(
                 key
             )
         )
 
-        if path is not None:
-            return path
-
-    for nested_key in (
-        "result",
-        "build",
-        "output",
-        "game",
-    ):
-        nested = (
-            executor_result.get(
-                nested_key
-            )
-        )
-
-        if not isinstance(
-            nested,
-            dict,
-        ):
+        if not value:
             continue
 
-        for key in keys:
-            path = candidate_path(
-                nested.get(
-                    key
-                )
+        path = Path(
+            str(value)
+        )
+
+        if not path.is_absolute():
+            path = (
+                ROOT_DIR
+                /
+                path
+            ).resolve()
+
+        else:
+            path = (
+                path.resolve()
             )
 
-            if path is not None:
-                return path
+        if path.exists():
+            artifact = path
+            break
 
-    return None
-
-
-def verify_source_artifact(
-    artifact: Path,
-) -> Dict[str, Any]:
-    if not artifact.exists():
+    if artifact is None:
         return {
             "success":
                 False,
 
             "status":
-                "ARTIFACT_NOT_FOUND",
+                "REAL_ARTIFACT_NOT_FOUND",
 
-            "artifact":
-                str(
-                    artifact
-                ),
-        }
-
-    if not artifact.is_dir():
-        return {
-            "success":
-                False,
-
-            "status":
-                "ARTIFACT_NOT_DIRECTORY",
-
-            "artifact":
-                str(
-                    artifact
-                ),
+            "executor":
+                executor_result,
         }
 
     index_file = (
@@ -961,24 +1041,10 @@ def verify_source_artifact(
     )
 
     if (
+        not artifact.is_dir()
+        or
         not index_file.exists()
         or
-        not index_file.is_file()
-    ):
-        return {
-            "success":
-                False,
-
-            "status":
-                "ARTIFACT_INDEX_NOT_FOUND",
-
-            "artifact":
-                str(
-                    artifact
-                ),
-        }
-
-    if (
         index_file.stat().st_size
         <=
         0
@@ -988,7 +1054,7 @@ def verify_source_artifact(
                 False,
 
             "status":
-                "ARTIFACT_INDEX_EMPTY",
+                "REAL_ARTIFACT_INVALID",
 
             "artifact":
                 str(
@@ -996,66 +1062,10 @@ def verify_source_artifact(
                 ),
         }
 
-    files = [
-        path
-        for path
-        in artifact.rglob(
-            "*"
-        )
-        if path.is_file()
-    ]
-
-    if not files:
-        return {
-            "success":
-                False,
-
-            "status":
-                "ARTIFACT_EMPTY",
-
-            "artifact":
-                str(
-                    artifact
-                ),
-        }
-
-    return {
-        "success":
-            True,
-
-        "status":
-            "ARTIFACT_VERIFIED",
-
-        "artifact":
-            str(
-                artifact
-            ),
-
-        "index":
-            str(
-                index_file
-            ),
-
-        "file_count":
-            len(
-                files
-            ),
-    }
-
-
-# ============================================================
-# OFFICIAL PLATFORM BRIDGE 04
-# ============================================================
-
-def call_platform_bridge(
-    artifact: Path,
-    prepared_request: Dict[str, Any],
-    job_id: str,
-) -> Dict[str, Any]:
     try:
-        module = load_python_module(
-            OFFICIAL_PLATFORM_BRIDGE_FILE,
-            "majd_official_platform_bridge_04",
+        bridge = load_module(
+            FILES["04"],
+            "majd_04",
         )
 
     except Exception as error:
@@ -1064,111 +1074,40 @@ def call_platform_bridge(
                 False,
 
             "status":
-                "PLATFORM_BRIDGE_LOAD_FAILED",
+                "BRIDGE_LOAD_FAILED",
 
             "error":
-                (
-                    f"{type(error).__name__}: "
-                    f"{error}"
-                ),
-
-            "traceback":
-                traceback.format_exc(),
+                str(error),
         }
 
-    publish_function = (
-        getattr(
-            module,
-            "publish_game",
-            None,
+    bridge_result = (
+        call_first(
+            bridge,
+            (
+                "publish_game",
+                "publish",
+                "send_game",
+                "send_to_majd",
+                "execute",
+            ),
+            game_dir=
+                artifact,
+            artifact=
+                artifact,
+            game_name=
+                prepared.get(
+                    "name",
+                    "MAJD-GAME",
+                ),
+            job_id=
+                job_id,
+            request=
+                prepared,
+            payload=
+                prepared,
         )
     )
 
-    if not callable(
-        publish_function
-    ):
-        return {
-            "success":
-                False,
-
-            "status":
-                "PLATFORM_BRIDGE_INTERFACE_MISSING",
-
-            "required_interface":
-                "publish_game",
-
-            "file":
-                str(
-                    OFFICIAL_PLATFORM_BRIDGE_FILE
-                ),
-        }
-
-    try:
-        value = (
-            call_with_supported_kwargs(
-                publish_function,
-
-                game_dir=
-                    artifact,
-
-                artifact=
-                    artifact,
-
-                game_name=
-                    str(
-                        prepared_request.get(
-                            "name"
-                        )
-                        or
-                        "MAJD GENERATED GAME"
-                    ),
-
-                job_id=
-                    job_id,
-
-                request=
-                    prepared_request,
-
-                payload=
-                    prepared_request,
-            )
-        )
-
-        result = (
-            normalize_result(
-                value,
-                default_success=False,
-            )
-        )
-
-        return result
-
-    except Exception as error:
-        return {
-            "success":
-                False,
-
-            "status":
-                "PLATFORM_BRIDGE_FAILED",
-
-            "error":
-                (
-                    f"{type(error).__name__}: "
-                    f"{error}"
-                ),
-
-            "traceback":
-                traceback.format_exc(),
-        }
-
-
-# ============================================================
-# PUBLICATION VALIDATION
-# ============================================================
-
-def validate_publication(
-    bridge_result: Dict[str, Any],
-) -> Dict[str, Any]:
     if (
         bridge_result.get(
             "success"
@@ -1180,77 +1119,60 @@ def validate_publication(
                 False,
 
             "status":
-                "BRIDGE_REPORTED_FAILURE",
+                "OFFICIAL_PLATFORM_PUBLISH_FAILED",
+
+            "bridge":
+                bridge_result,
         }
 
-    published_directory_value = (
+    published_directory = (
         bridge_result.get(
             "published_directory"
         )
     )
 
-    game_path = (
-        bridge_result.get(
-            "game_path"
-        )
-    )
-
-    public_url = (
-        bridge_result.get(
-            "public_url"
-        )
-    )
-
-    if not published_directory_value:
+    if not published_directory:
         return {
             "success":
                 False,
 
             "status":
                 "PUBLISHED_DIRECTORY_MISSING",
+
+            "bridge":
+                bridge_result,
         }
 
-    published_directory = Path(
+    published_path = Path(
         str(
-            published_directory_value
+            published_directory
         )
     )
 
-    if not published_directory.is_absolute():
-        published_directory = (
+    if not published_path.is_absolute():
+        published_path = (
             ROOT_DIR
             /
-            published_directory
+            published_path
         ).resolve()
 
-    if (
-        not published_directory.exists()
-        or
-        not published_directory.is_dir()
-    ):
-        return {
-            "success":
-                False,
+    else:
+        published_path = (
+            published_path.resolve()
+        )
 
-            "status":
-                "PUBLISHED_DIRECTORY_NOT_FOUND",
-
-            "published_directory":
-                str(
-                    published_directory
-                ),
-        }
-
-    index_file = (
-        published_directory
+    published_index = (
+        published_path
         /
         "index.html"
     )
 
     if (
-        not index_file.exists()
+        not published_path.is_dir()
         or
-        index_file.stat().st_size
+        not published_index.exists()
+        or
+        published_index.stat().st_size
         <=
         0
     ):
@@ -1259,96 +1181,733 @@ def validate_publication(
                 False,
 
             "status":
-                "PUBLISHED_INDEX_INVALID",
+                "FINAL_PUBLICATION_VALIDATION_FAILED",
 
-            "index":
-                str(
-                    index_file
-                ),
+            "bridge":
+                bridge_result,
         }
-
-    if not game_path:
-        return {
-            "success":
-                False,
-
-            "status":
-                "GAME_PATH_MISSING",
-        }
-
-    if not public_url:
-        public_url = (
-            OFFICIAL_PLATFORM_URL
-            +
-            "/"
-            +
-            str(
-                game_path
-            ).lstrip(
-                "/"
-            )
-        )
 
     return {
         "success":
             True,
 
         "status":
-            "REAL_PUBLICATION_VERIFIED",
+            "GAME_BUILT_AND_PUBLISHED",
+
+        "artifact":
+            str(
+                artifact
+            ),
 
         "published_directory":
             str(
-                published_directory
-            ),
-
-        "index":
-            str(
-                index_file
+                published_path
             ),
 
         "game_path":
-            str(
-                game_path
+            bridge_result.get(
+                "game_path"
             ),
 
         "public_url":
-            str(
-                public_url
+            bridge_result.get(
+                "public_url"
             ),
+
+        "bridge":
+            bridge_result,
     }
 
 
 # ============================================================
-# RECEIPT
+# RUNTIME 06
 # ============================================================
 
-def save_agent_receipt(
+def runtime_status(
+    command: str = "status",
+) -> Dict[str, Any]:
+
+    try:
+        runtime = load_module(
+            FILES["06"],
+            "majd_06",
+        )
+
+    except Exception as error:
+        return {
+            "success":
+                False,
+
+            "status":
+                "RUNTIME_LOAD_FAILED",
+
+            "error":
+                str(error),
+        }
+
+    result = (
+        call_first(
+            runtime,
+            (
+                "autonomous_status",
+                "inspect_platform",
+                "capability_progress",
+                "capability_map",
+                "infrastructure_findings",
+            ),
+            command=
+                command,
+            owner=
+                OWNER_ID,
+        )
+    )
+
+    if (
+        result.get(
+            "status"
+        )
+        !=
+        "INTERFACE_MISSING"
+    ):
+        return result
+
+    for class_name in (
+        "FullRuntime",
+        "AutonomousRuntime",
+        "OwnerBridge",
+    ):
+
+        cls = getattr(
+            runtime,
+            class_name,
+            None,
+        )
+
+        if not inspect.isclass(
+            cls
+        ):
+            continue
+
+        try:
+            instance = (
+                call_supported(
+                    cls,
+                    owner=
+                        OWNER_ID,
+                )
+            )
+
+        except Exception:
+            try:
+                instance = cls()
+            except Exception:
+                continue
+
+        return call_first(
+            instance,
+            (
+                "status",
+                "health",
+                "inspect",
+                "autonomous_status",
+            ),
+            command=
+                command,
+            owner=
+                OWNER_ID,
+        )
+
+    return {
+        "success":
+            False,
+
+        "status":
+            "RUNTIME_STATUS_INTERFACE_MISSING",
+    }
+
+
+def runtime_execute(
+    command: str,
+    route: Route,
     job_id: str,
-    result: Dict[str, Any],
-) -> Path:
-    receipt_file = (
-        AGENT_STATE_DIR
-        /
-        f"{job_id}.json"
+) -> Dict[str, Any]:
+
+    try:
+        runtime = load_module(
+            FILES["06"],
+            "majd_06",
+        )
+
+    except Exception as error:
+        return {
+            "success":
+                False,
+
+            "status":
+                "RUNTIME_LOAD_FAILED",
+
+            "error":
+                str(error),
+        }
+
+    request = {
+        "type":
+            route.value,
+
+        "command":
+            command,
+
+        "job_id":
+            job_id,
+
+        "owner":
+            OWNER_ID,
+
+        "source":
+            AGENT_NAME,
+    }
+
+    kwargs = {
+        "command":
+            command,
+
+        "request":
+            request,
+
+        "job_id":
+            job_id,
+
+        "owner":
+            OWNER_ID,
+
+        "mode":
+            route.value,
+
+        "work_mode":
+            route.value,
+
+        "autonomous":
+            route
+            ==
+            Route.AUTONOMOUS,
+    }
+
+    result = (
+        call_first(
+            runtime,
+            (
+                "execute_owner_runtime",
+                "execute_full_factory",
+                "execute",
+                "run",
+            ),
+            **kwargs,
+        )
     )
 
-    write_json(
-        receipt_file,
-        result,
-    )
+    if (
+        result.get(
+            "status"
+        )
+        !=
+        "INTERFACE_MISSING"
+    ):
+        return result
 
-    return receipt_file
+    for class_name in (
+        "FullRuntime",
+        "AutonomousRuntime",
+        "OwnerBridge",
+    ):
+
+        cls = getattr(
+            runtime,
+            class_name,
+            None,
+        )
+
+        if not inspect.isclass(
+            cls
+        ):
+            continue
+
+        try:
+            instance = (
+                call_supported(
+                    cls,
+                    owner=
+                        OWNER_ID,
+                )
+            )
+
+        except Exception:
+            try:
+                instance = cls()
+            except Exception:
+                continue
+
+        return call_first(
+            instance,
+            (
+                "execute",
+                "run",
+                "execute_owner_runtime",
+                "execute_full_factory",
+            ),
+            **kwargs,
+        )
+
+    return {
+        "success":
+            False,
+
+        "status":
+            "RUNTIME_EXECUTION_INTERFACE_MISSING",
+    }
 
 
 # ============================================================
-# MAIN EXECUTION
+# MEDIA FACTORY 08
+# ============================================================
+
+def media_status() -> Dict[str, Any]:
+
+    try:
+        media = load_module(
+            FILES["08"],
+            "majd_08",
+        )
+
+    except Exception as error:
+        return {
+            "success":
+                False,
+
+            "status":
+                "MEDIA_FACTORY_LOAD_FAILED",
+
+            "error":
+                str(error),
+        }
+
+    health = (
+        call_first(
+            media,
+            (
+                "factory_health",
+                "health",
+            ),
+        )
+    )
+
+    capabilities = (
+        call_first(
+            media,
+            (
+                "factory_capabilities",
+                "capability_report",
+            ),
+        )
+    )
+
+    success = (
+        health.get(
+            "success"
+        )
+        is True
+        or
+        str(
+            health.get(
+                "status",
+                "",
+            )
+        ).upper()
+        in {
+            "READY",
+            "ACTIVE",
+            "HEALTHY",
+        }
+    )
+
+    return {
+        "success":
+            success,
+
+        "status":
+            "MEDIA_FACTORY_STATUS",
+
+        "health":
+            health,
+
+        "capabilities":
+            capabilities,
+    }
+
+
+def media_execute(
+    command: str,
+    content_type: Optional[str],
+    job_id: str,
+) -> Dict[str, Any]:
+
+    try:
+        media = load_module(
+            FILES["08"],
+            "majd_08",
+        )
+
+    except Exception as error:
+        return {
+            "success":
+                False,
+
+            "status":
+                "MEDIA_FACTORY_LOAD_FAILED",
+
+            "error":
+                str(error),
+        }
+
+    selected_type = (
+        content_type
+        or
+        "video"
+    )
+
+    create_job = getattr(
+        media,
+        "create_media_job",
+        None,
+    )
+
+    produce_media = getattr(
+        media,
+        "produce_media",
+        None,
+    )
+
+    if (
+        callable(
+            create_job
+        )
+        and
+        callable(
+            produce_media
+        )
+    ):
+
+        try:
+            created = (
+                call_supported(
+                    create_job,
+                    content_type=
+                        selected_type,
+                    title=
+                        command[:180],
+                    description=
+                        command,
+                    language=
+                        "ar",
+                    request={
+                        "command":
+                            command,
+
+                        "owner":
+                            OWNER_ID,
+
+                        "agent_job_id":
+                            job_id,
+                    },
+                )
+            )
+
+            created_result = (
+                normalize(
+                    created,
+                    True,
+                    "MEDIA_JOB_CREATED",
+                )
+            )
+
+            media_job_id = (
+                created_result.get(
+                    "id"
+                )
+                or
+                created_result.get(
+                    "job_id"
+                )
+            )
+
+            if (
+                not media_job_id
+                and
+                isinstance(
+                    created_result.get(
+                        "data"
+                    ),
+                    dict,
+                )
+            ):
+                media_job_id = (
+                    created_result[
+                        "data"
+                    ].get(
+                        "id"
+                    )
+                )
+
+            if not media_job_id:
+                return {
+                    "success":
+                        False,
+
+                    "status":
+                        "MEDIA_JOB_ID_MISSING",
+
+                    "create_result":
+                        created_result,
+                }
+
+            produced = (
+                call_supported(
+                    produce_media,
+                    job_id=
+                        str(
+                            media_job_id
+                        ),
+                    job=
+                        str(
+                            media_job_id
+                        ),
+                )
+            )
+
+            production_result = (
+                normalize(
+                    produced,
+                    False,
+                    "MEDIA_PRODUCTION_RESULT",
+                )
+            )
+
+            return {
+                "success":
+                    production_result.get(
+                        "success"
+                    )
+                    is True,
+
+                "status":
+                    production_result.get(
+                        "status",
+                        "MEDIA_PRODUCTION_RESULT",
+                    ),
+
+                "media_job_id":
+                    str(
+                        media_job_id
+                    ),
+
+                "production":
+                    production_result,
+            }
+
+        except Exception as error:
+            return {
+                "success":
+                    False,
+
+                "status":
+                    "MEDIA_PIPELINE_FAILED",
+
+                "error":
+                    (
+                        f"{type(error).__name__}: "
+                        f"{error}"
+                    ),
+
+                "traceback":
+                    traceback.format_exc(),
+            }
+
+    get_factory = getattr(
+        media,
+        "get_factory",
+        None,
+    )
+
+    if callable(
+        get_factory
+    ):
+        try:
+            factory = (
+                get_factory()
+            )
+
+            create_method = getattr(
+                factory,
+                "create_job",
+                None,
+            )
+
+            produce_method = getattr(
+                factory,
+                "produce",
+                None,
+            )
+
+            if (
+                callable(
+                    create_method
+                )
+                and
+                callable(
+                    produce_method
+                )
+            ):
+                job = (
+                    call_supported(
+                        create_method,
+                        content_type=
+                            selected_type,
+                        title=
+                            command[:180],
+                        description=
+                            command,
+                        language=
+                            "ar",
+                        request={
+                            "command":
+                                command,
+
+                            "owner":
+                                OWNER_ID,
+
+                            "agent_job_id":
+                                job_id,
+                        },
+                    )
+                )
+
+                result = (
+                    call_supported(
+                        produce_method,
+                        job=
+                            job,
+                    )
+                )
+
+                return normalize(
+                    result,
+                    False,
+                    "MEDIA_PRODUCTION_RESULT",
+                )
+
+        except Exception as error:
+            return {
+                "success":
+                    False,
+
+                "status":
+                    "MEDIA_INSTANCE_PIPELINE_FAILED",
+
+                "error":
+                    (
+                        f"{type(error).__name__}: "
+                        f"{error}"
+                    ),
+            }
+
+    return {
+        "success":
+            False,
+
+        "status":
+            "MEDIA_FACTORY_INTERFACE_MISSING",
+    }
+
+
+# ============================================================
+# FULL STATUS
+# ============================================================
+
+def component_presence() -> Dict[str, Any]:
+
+    return {
+        key: {
+            "exists":
+                path.exists(),
+
+            "path":
+                str(path),
+
+            "size":
+                (
+                    path.stat().st_size
+                    if path.exists()
+                    else 0
+                ),
+        }
+
+        for key, path
+        in FILES.items()
+    }
+
+
+def full_status() -> Dict[str, Any]:
+
+    runtime = (
+        runtime_status()
+    )
+
+    media = (
+        media_status()
+    )
+
+    return {
+        "success":
+            (
+                runtime.get(
+                    "success"
+                )
+                is True
+                or
+                media.get(
+                    "success"
+                )
+                is True
+            ),
+
+        "status":
+            "MAJD_FULL_STATUS",
+
+        "runtime":
+            runtime,
+
+        "media_factory":
+            media,
+
+        "components":
+            component_presence(),
+
+        "time":
+            now(),
+    }
+
+
+# ============================================================
+# MAIN COMMAND EXECUTION
 # ============================================================
 
 def execute_command(
     command: str,
     job_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    started_at = utc_now()
+
+    started_at = (
+        now()
+    )
 
     actual_job_id = (
         build_job_id(
@@ -1356,406 +1915,82 @@ def execute_command(
         )
     )
 
+    route, content_type = (
+        classify(
+            command
+        )
+    )
+
     try:
-        parsed_request = (
-            parse_command(
-                command
-            )
-        )
 
-        if (
-            parsed_request.get(
-                "success"
-            )
-            is not True
-        ):
-            result = {
+        if not command.strip():
+
+            execution = {
                 "success":
                     False,
 
                 "status":
-                    "COMMAND_PARSE_FAILED",
-
-                "system":
-                    SYSTEM_NAME,
-
-                "agent":
-                    AGENT_NAME,
-
-                "version":
-                    VERSION,
-
-                "job_id":
-                    actual_job_id,
-
-                "error":
-                    parsed_request.get(
-                        "error"
-                    ),
-
-                "started_at":
-                    started_at,
-
-                "finished_at":
-                    utc_now(),
+                    "EMPTY_COMMAND",
             }
 
-            save_agent_receipt(
-                actual_job_id,
-                result,
+        elif (
+            route
+            ==
+            Route.STATUS
+        ):
+
+            execution = (
+                full_status()
             )
 
-            return result
+        elif (
+            route
+            ==
+            Route.CREATE_GAME
+        ):
 
-        mastermind_result = (
-            call_mastermind(
-                command=
+            execution = (
+                game_pipeline(
                     command,
-
-                parsed_request=
-                    parsed_request,
-
-                job_id=
                     actual_job_id,
+                )
             )
-        )
 
-        if (
-            mastermind_result.get(
-                "success"
-            )
-            is not True
+        elif (
+            route
+            ==
+            Route.CONTENT
         ):
-            result = {
-                "success":
-                    False,
 
-                "status":
-                    "MASTERMIND_STAGE_FAILED",
-
-                "system":
-                    SYSTEM_NAME,
-
-                "agent":
-                    AGENT_NAME,
-
-                "version":
-                    VERSION,
-
-                "job_id":
+            execution = (
+                media_execute(
+                    command,
+                    content_type,
                     actual_job_id,
-
-                "request":
-                    parsed_request,
-
-                "mastermind":
-                    mastermind_result,
-
-                "started_at":
-                    started_at,
-
-                "finished_at":
-                    utc_now(),
-            }
-
-            save_agent_receipt(
-                actual_job_id,
-                result,
+                )
             )
 
-            return result
+        else:
 
-        prepared_request = (
-            build_prepared_request(
-                parsed_request,
-                mastermind_result,
-            )
-        )
-
-        executor_result = (
-            call_real_executor(
-                prepared_request=
-                    prepared_request,
-
-                job_id=
+            execution = (
+                runtime_execute(
+                    command,
+                    route,
                     actual_job_id,
+                )
             )
-        )
-
-        if (
-            executor_result.get(
-                "success"
-            )
-            is not True
-        ):
-            result = {
-                "success":
-                    False,
-
-                "status":
-                    "REAL_GAME_EXECUTION_FAILED",
-
-                "system":
-                    SYSTEM_NAME,
-
-                "agent":
-                    AGENT_NAME,
-
-                "version":
-                    VERSION,
-
-                "job_id":
-                    actual_job_id,
-
-                "request":
-                    prepared_request,
-
-                "mastermind":
-                    mastermind_result,
-
-                "executor":
-                    executor_result,
-
-                "started_at":
-                    started_at,
-
-                "finished_at":
-                    utc_now(),
-            }
-
-            save_agent_receipt(
-                actual_job_id,
-                result,
-            )
-
-            return result
-
-        artifact = (
-            extract_artifact(
-                executor_result
-            )
-        )
-
-        if artifact is None:
-            result = {
-                "success":
-                    False,
-
-                "status":
-                    "REAL_ARTIFACT_NOT_FOUND",
-
-                "system":
-                    SYSTEM_NAME,
-
-                "agent":
-                    AGENT_NAME,
-
-                "version":
-                    VERSION,
-
-                "job_id":
-                    actual_job_id,
-
-                "executor":
-                    executor_result,
-
-                "started_at":
-                    started_at,
-
-                "finished_at":
-                    utc_now(),
-            }
-
-            save_agent_receipt(
-                actual_job_id,
-                result,
-            )
-
-            return result
-
-        artifact_check = (
-            verify_source_artifact(
-                artifact
-            )
-        )
-
-        if (
-            artifact_check.get(
-                "success"
-            )
-            is not True
-        ):
-            result = {
-                "success":
-                    False,
-
-                "status":
-                    "REAL_ARTIFACT_INVALID",
-
-                "system":
-                    SYSTEM_NAME,
-
-                "agent":
-                    AGENT_NAME,
-
-                "version":
-                    VERSION,
-
-                "job_id":
-                    actual_job_id,
-
-                "artifact":
-                    str(
-                        artifact
-                    ),
-
-                "artifact_check":
-                    artifact_check,
-
-                "started_at":
-                    started_at,
-
-                "finished_at":
-                    utc_now(),
-            }
-
-            save_agent_receipt(
-                actual_job_id,
-                result,
-            )
-
-            return result
-
-        bridge_result = (
-            call_platform_bridge(
-                artifact=
-                    artifact,
-
-                prepared_request=
-                    prepared_request,
-
-                job_id=
-                    actual_job_id,
-            )
-        )
-
-        if (
-            bridge_result.get(
-                "success"
-            )
-            is not True
-        ):
-            result = {
-                "success":
-                    False,
-
-                "status":
-                    "OFFICIAL_PLATFORM_PUBLISH_FAILED",
-
-                "system":
-                    SYSTEM_NAME,
-
-                "agent":
-                    AGENT_NAME,
-
-                "version":
-                    VERSION,
-
-                "job_id":
-                    actual_job_id,
-
-                "request":
-                    prepared_request,
-
-                "artifact":
-                    str(
-                        artifact
-                    ),
-
-                "bridge":
-                    bridge_result,
-
-                "started_at":
-                    started_at,
-
-                "finished_at":
-                    utc_now(),
-            }
-
-            save_agent_receipt(
-                actual_job_id,
-                result,
-            )
-
-            return result
-
-        publication_validation = (
-            validate_publication(
-                bridge_result
-            )
-        )
-
-        if (
-            publication_validation.get(
-                "success"
-            )
-            is not True
-        ):
-            result = {
-                "success":
-                    False,
-
-                "status":
-                    "FINAL_PUBLICATION_VALIDATION_FAILED",
-
-                "system":
-                    SYSTEM_NAME,
-
-                "agent":
-                    AGENT_NAME,
-
-                "version":
-                    VERSION,
-
-                "job_id":
-                    actual_job_id,
-
-                "artifact":
-                    str(
-                        artifact
-                    ),
-
-                "bridge":
-                    bridge_result,
-
-                "publication_validation":
-                    publication_validation,
-
-                "started_at":
-                    started_at,
-
-                "finished_at":
-                    utc_now(),
-            }
-
-            save_agent_receipt(
-                actual_job_id,
-                result,
-            )
-
-            return result
 
         result = {
             "success":
-                True,
+                execution.get(
+                    "success"
+                )
+                is True,
 
             "status":
-                "GAME_BUILT_AND_PUBLISHED",
-
-            "message":
-                (
-                    "Game built and published successfully "
-                    "through MAJD Official Platform Bridge."
+                execution.get(
+                    "status",
+                    "UNKNOWN_RESULT",
                 ),
 
             "system":
@@ -1767,88 +2002,33 @@ def execute_command(
             "version":
                 VERSION,
 
+            "owner":
+                OWNER_ID,
+
             "job_id":
                 actual_job_id,
 
-            "game_id":
-                bridge_result.get(
-                    "game_id"
-                ),
+            "route":
+                route.value,
 
-            "game_name":
-                (
-                    bridge_result.get(
-                        "game_name"
-                    )
-                    or
-                    prepared_request.get(
-                        "name"
-                    )
-                ),
+            "content_type":
+                content_type,
 
-            "artifact":
-                str(
-                    artifact
-                ),
+            "command":
+                command,
 
-            "published_directory":
-                publication_validation.get(
-                    "published_directory"
-                ),
-
-            "game_path":
-                publication_validation.get(
-                    "game_path"
-                ),
-
-            "public_url":
-                publication_validation.get(
-                    "public_url"
-                ),
-
-            "metadata":
-                bridge_result.get(
-                    "metadata"
-                ),
-
-            "request":
-                prepared_request,
-
-            "mastermind":
-                mastermind_result,
-
-            "executor":
-                executor_result,
-
-            "bridge":
-                bridge_result,
-
-            "publication_validation":
-                publication_validation,
+            "execution":
+                execution,
 
             "started_at":
                 started_at,
 
             "finished_at":
-                utc_now(),
+                now(),
         }
 
-        receipt_file = (
-            save_agent_receipt(
-                actual_job_id,
-                result,
-            )
-        )
-
-        result[
-            "agent_receipt"
-        ] = str(
-            receipt_file
-        )
-
-        return result
-
     except Exception as error:
+
         result = {
             "success":
                 False,
@@ -1856,17 +2036,11 @@ def execute_command(
             "status":
                 "AGENT_SYSTEM_CRASH",
 
-            "system":
-                SYSTEM_NAME,
-
-            "agent":
-                AGENT_NAME,
-
-            "version":
-                VERSION,
-
             "job_id":
                 actual_job_id,
+
+            "route":
+                route.value,
 
             "error":
                 (
@@ -1881,19 +2055,21 @@ def execute_command(
                 started_at,
 
             "finished_at":
-                utc_now(),
+                now(),
         }
 
-        try:
-            save_agent_receipt(
-                actual_job_id,
-                result,
-            )
+    try:
+        result[
+            "agent_receipt"
+        ] = save_receipt(
+            actual_job_id,
+            result,
+        )
 
-        except Exception:
-            pass
+    except Exception:
+        pass
 
-        return result
+    return result
 
 
 # ============================================================
@@ -1915,7 +2091,7 @@ def run_command(
 ) -> Dict[str, Any]:
     return execute_command(
         command,
-        job_id=job_id,
+        job_id,
     )
 
 
@@ -1926,7 +2102,7 @@ def process_command(
 ) -> Dict[str, Any]:
     return execute_command(
         command,
-        job_id=job_id,
+        job_id,
     )
 
 
@@ -1937,7 +2113,7 @@ def execute(
 ) -> Dict[str, Any]:
     return execute_command(
         command,
-        job_id=job_id,
+        job_id,
     )
 
 
@@ -1948,7 +2124,7 @@ def run(
 ) -> Dict[str, Any]:
     return execute_command(
         command,
-        job_id=job_id,
+        job_id,
     )
 
 
@@ -1956,31 +2132,43 @@ def run(
 # FASTAPI
 # ============================================================
 
-app = FastAPI(
-    title=
-        "MAJD AI AGENT - Sovereign Game Factory",
+app = (
+    FastAPI(
+        title=
+            "MAJD AI AGENT - Sovereign Command Router",
 
-    version=
-        VERSION,
+        version=
+            VERSION,
+    )
+
+    if FastAPI
+    else None
 )
 
 
-# ============================================================
-# UI
-# ============================================================
+if app:
 
-@app.get(
-    "/",
-    response_class=HTMLResponse,
-)
-async def ui() -> HTMLResponse:
-    html = """
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
+    @app.get(
+        "/",
+        response_class=HTMLResponse,
+    )
+    async def ui():
 
-<head>
+        return HTMLResponse(
+            """
+<!doctype html>
+
+<html
+lang="ar"
+dir="rtl"
+>
 
 <meta charset="utf-8">
+
+<meta
+name="viewport"
+content="width=device-width,initial-scale=1"
+>
 
 <title>
 MAJD AI Agent
@@ -1989,67 +2177,50 @@ MAJD AI Agent
 <style>
 
 body {
-    background: #0b0f1c;
-    color: white;
-    font-family: Arial, sans-serif;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    margin: 0;
+    background:#0b0f1c;
+    color:#fff;
+    font-family:Arial;
+    margin:0;
+    display:grid;
+    place-items:center;
+    min-height:100vh;
 }
 
 .box {
-    background: #151e2e;
-    padding: 40px;
-    border-radius: 20px;
-    text-align: center;
-    width: min(520px, 88vw);
-    border: 1px solid #2b3a55;
-}
-
-h1 {
-    color: #f0c84b;
+    width:min(760px,92vw);
+    background:#151e2e;
+    padding:24px;
+    border-radius:18px;
 }
 
 textarea {
-    width: 100%;
-    min-height: 100px;
-    box-sizing: border-box;
-    background: #0b0f1c;
-    border: 1px solid #2b3a55;
-    color: white;
-    padding: 12px;
-    border-radius: 10px;
-    margin-bottom: 15px;
+    width:100%;
+    min-height:130px;
+    box-sizing:border-box;
+    background:#0b0f1c;
+    color:#fff;
+    padding:12px;
 }
 
 button {
-    width: 100%;
-    padding: 15px;
-    background: #f0c84b;
-    border: none;
-    border-radius: 12px;
-    font-weight: bold;
-    font-size: 18px;
-    cursor: pointer;
+    width:100%;
+    padding:14px;
+    margin-top:10px;
+    background:#f0c84b;
+    border:0;
+    font-weight:bold;
 }
 
-#status {
-    margin-top: 15px;
-    color: #aab7d6;
-    word-break: break-word;
-}
-
-a {
-    color: #f0c84b;
+pre {
+    white-space:pre-wrap;
+    word-break:break-word;
+    background:#0b0f1c;
+    padding:12px;
+    max-height:55vh;
+    overflow:auto;
 }
 
 </style>
-
-</head>
-
-<body>
 
 <div class="box">
 
@@ -2057,21 +2228,17 @@ a {
 MAJD AI Agent
 </h1>
 
-<p>
-الوكيل السيادي لبناء الألعاب ونشرها على منصة مجد.
-</p>
-
-<textarea id="cmd">
-أنشئ لعبة مغامرات ثلاثية الأبعاد كاملة
+<textarea id="command">
+اعرض حالة المنصة والتقدم الحالي
 </textarea>
 
 <button onclick="runAI()">
-تشغيل
+تنفيذ
 </button>
 
-<div id="status">
-في انتظار الأمر...
-</div>
+<pre id="output">
+جاهز
+</pre>
 
 </div>
 
@@ -2079,272 +2246,297 @@ MAJD AI Agent
 
 async function runAI() {
 
-    const cmd =
-        document.getElementById('cmd').value;
-
-    const status =
-        document.getElementById('status');
-
-    status.textContent =
+    output.textContent =
         'جاري التنفيذ...';
 
     try {
 
-        const response =
+        let response =
             await fetch(
                 '/run',
                 {
-                    method: 'POST',
-                    headers: {
+                    method:'POST',
+
+                    headers:{
                         'Content-Type':
                             'application/json'
                     },
+
                     body:
                         JSON.stringify({
-                            command: cmd
+                            command:
+                                command.value
                         })
                 }
             );
 
-        const data =
+        let data =
             await response.json();
 
-        if (data.success) {
+        output.textContent =
+            JSON.stringify(
+                data,
+                null,
+                2
+            );
 
-            let html =
-                'تم البناء والنشر بنجاح.';
+    } catch(error) {
 
-            if (data.job_id) {
-
-                html +=
-                    '<br>Job ID: '
-                    +
-                    data.job_id;
-            }
-
-            if (data.public_url) {
-
-                html +=
-                    '<br><a target="_blank" href="'
-                    +
-                    data.public_url
-                    +
-                    '">فتح اللعبة</a>';
-            }
-
-            status.innerHTML =
-                html;
-
-        } else {
-
-            status.textContent =
-                'فشل: '
-                +
-                (
-                    data.status
-                    ||
-                    data.error
-                    ||
-                    'UNKNOWN_ERROR'
-                );
-        }
-
-    } catch (error) {
-
-        status.textContent =
-            'خطأ في الاتصال بالوكيل.';
+        output.textContent =
+            'خطأ: '
+            +
+            error;
     }
 }
 
 </script>
 
-</body>
 </html>
 """
+        )
 
-    return HTMLResponse(
-        content=html
+
+    @app.get(
+        "/health"
     )
+    async def health():
+        return full_status()
 
 
-# ============================================================
-# HEALTH
-# ============================================================
+    async def execute_request(
+        request: Request,
+    ):
 
-@app.get(
-    "/health"
-)
-async def api_health() -> Dict[str, Any]:
-    return {
-        "success":
-            True,
+        try:
+            body = (
+                await request.json()
+            )
 
-        "status":
-            "healthy",
+        except Exception:
 
-        "service":
-            "majd-ai-core",
+            return JSONResponse(
+                status_code=400,
 
-        "api":
-            "online",
+                content={
+                    "success":
+                        False,
 
-        "game_factory":
-            "ready",
+                    "status":
+                        "INVALID_JSON",
+                },
+            )
 
-        "agent":
-            AGENT_NAME,
+        command = str(
+            body.get(
+                "command"
+            )
+            or
+            body.get(
+                "prompt"
+            )
+            or
+            ""
+        ).strip()
 
-        "version":
-            VERSION,
+        if not command:
 
-        "components": {
-            "mastermind":
-                MASTERMIND_FILE.exists(),
+            return JSONResponse(
+                status_code=400,
 
-            "executor":
-                REAL_GAME_EXECUTOR_FILE.exists(),
+                content={
+                    "success":
+                        False,
 
-            "bridge":
-                OFFICIAL_PLATFORM_BRIDGE_FILE.exists(),
-        },
+                    "status":
+                        "EMPTY_COMMAND",
+                },
+            )
 
-        "time":
-            utc_now(),
-    }
-
-
-# ============================================================
-# API EXECUTION
-# ============================================================
-
-async def execute_request(
-    request: Request,
-) -> JSONResponse:
-    try:
-        body = (
-            await request.json()
-        )
-
-    except Exception:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "success":
-                    False,
-
-                "status":
-                    "INVALID_JSON",
-            },
-        )
-
-    command = str(
-        body.get(
-            "command"
-        )
-        or
-        body.get(
-            "prompt"
-        )
-        or
-        ""
-    ).strip()
-
-    if not command:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "success":
-                    False,
-
-                "status":
-                    "EMPTY_COMMAND",
-            },
-        )
-
-    supplied_job_id = (
-        body.get(
-            "job_id"
-        )
-    )
-
-    result = (
-        execute_command(
-            command=
+        result = (
+            execute_command(
                 command,
-
-            job_id=
                 (
                     str(
-                        supplied_job_id
+                        body.get(
+                            "job_id"
+                        )
                     )
-                    if supplied_job_id
+                    if body.get(
+                        "job_id"
+                    )
                     else None
                 ),
+            )
         )
+
+        return JSONResponse(
+            status_code=
+                (
+                    200
+                    if result.get(
+                        "success"
+                    )
+                    else 500
+                ),
+
+            content=
+                result,
+        )
+
+
+    @app.post(
+        "/run"
     )
+    async def run_api(
+        request: Request,
+    ):
+        return await execute_request(
+            request
+        )
 
-    return JSONResponse(
-        status_code=
-            (
-                200
-                if result.get(
-                    "success"
-                )
-                else 500
-            ),
 
-        content=
-            result,
+    @app.post(
+        "/api/run"
     )
-
-
-@app.post(
-    "/run"
-)
-async def execute_run(
-    request: Request,
-) -> JSONResponse:
-    return await execute_request(
-        request
-    )
-
-
-@app.post(
-    "/api/run"
-)
-async def execute_api_run(
-    request: Request,
-) -> JSONResponse:
-    return await execute_request(
-        request
-    )
+    async def run_api_alt(
+        request: Request,
+    ):
+        return await execute_request(
+            request
+        )
 
 
 # ============================================================
-# MAIN
+# CLI
 # ============================================================
 
 def main() -> int:
-    port = int(
-        os.getenv(
-            "PORT",
-            "8000",
-        )
+
+    parser = (
+        argparse.ArgumentParser()
     )
 
-    print(
-        f"{AGENT_NAME} "
-        f"{VERSION} "
-        f"running on port "
-        f"{port}..."
+    parser.add_argument(
+        "command",
+        nargs="*",
     )
+
+    parser.add_argument(
+        "--job-id",
+    )
+
+    parser.add_argument(
+        "--status",
+        action="store_true",
+    )
+
+    parser.add_argument(
+        "--host",
+        default=
+            os.getenv(
+                "MAJD_AI_AGENT_HOST",
+                "0.0.0.0",
+            ),
+    )
+
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=
+            int(
+                os.getenv(
+                    "PORT",
+                    "8000",
+                )
+            ),
+    )
+
+    args = (
+        parser.parse_args()
+    )
+
+    if args.status:
+
+        result = (
+            full_status()
+        )
+
+        print(
+            json.dumps(
+                result,
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            )
+        )
+
+        return (
+            0
+            if result.get(
+                "success"
+            )
+            else 1
+        )
+
+    if args.command:
+
+        command = (
+            " ".join(
+                args.command
+            ).strip()
+        )
+
+        result = (
+            execute_command(
+                command,
+                args.job_id,
+            )
+        )
+
+        print(
+            json.dumps(
+                result,
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            )
+        )
+
+        return (
+            0
+            if result.get(
+                "success"
+            )
+            else 1
+        )
+
+    if (
+        not app
+        or
+        not uvicorn
+    ):
+
+        print(
+            json.dumps(
+                {
+                    "success":
+                        False,
+
+                    "status":
+                        "FASTAPI_NOT_AVAILABLE",
+                },
+                ensure_ascii=False,
+            )
+        )
+
+        return 1
 
     uvicorn.run(
         app,
         host=
-            "0.0.0.0",
+            args.host,
         port=
-            port,
+            args.port,
     )
 
     return 0
