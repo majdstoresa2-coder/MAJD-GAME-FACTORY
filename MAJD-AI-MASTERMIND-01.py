@@ -5,52 +5,50 @@
 MAJD GAME FACTORY
 MAJD-AI-MASTERMIND-01.py
 ============================================================
+
 MAJD SOVEREIGN AUTONOMOUS MASTERMIND
-VERSION 4.0.0
+COMPLETE REPLACEMENT BUILD
 
-العقل المدبر المركزي لمنصة ومصنع مجد.
+المسؤول المركزي عن:
+- استقبال أوامر المالك.
+- اكتشاف ملفات MAJD 01–10 الموجودة فعلياً.
+- اكتشاف واجهات وقدرات المكونات بدون افتراض أسماء غير موجودة.
+- إنشاء Capability Registry.
+- تخطيط الأهداف.
+- اختيار المنفذ الحقيقي المناسب.
+- تنفيذ الأوامر.
+- فحص Python.
+- فحص Imports.
+- فحص Interfaces.
+- اكتشاف الأخطاء.
+- النسخ الاحتياطي.
+- الإصلاح الذاتي.
+- إعادة الاختبار.
+- Rollback عند Regression.
+- تشغيل مصنع الألعاب الحقيقي.
+- التحقق من Artifact.
+- النشر عبر الجسر الرسمي.
+- التحقق من النشر.
+- إدارة المحتوى والإعلام عند توفر المكونات.
+- إدارة Social / Live عند توفر المكونات.
+- Security Monitoring.
+- Content Safety.
+- Electronic Legal Assistant orchestration.
+- Owner Dashboard state.
+- Continuous Monitoring.
+- Audit Logging.
+- منع النجاح الوهمي.
 
-الهدف:
-OWNER
-  ↓
-01 MASTERMIND
-  ↓
-فهم وتصنيف الأمر
-  ↓
-اختيار المنفذ الحقيقي
-  ├─ 02 OWNER COMMAND CENTER
-  ├─ 03 REAL GAME EXECUTOR
-  ├─ 04 OFFICIAL PLATFORM BRIDGE
-  ├─ 05 AI ORCHESTRATOR
-  ├─ 06 FULL EXECUTION RUNTIME
-  └─ 08 CONTENT + MEDIA FACTORY
-  ↓
-تنفيذ حقيقي
-  ↓
-تحقق
-  ↓
-إصلاح تلقائي عند الإمكان
-  ↓
-إعادة اختبار
-  ↓
-نتيجة حقيقية فقط
-
-قواعد سيادية:
-- لا نجاح وهمي.
-- لا يعتبر None نجاحاً.
-- لا يعتبر مجرد استدعاء دالة نجاحاً.
-- لا يعتبر Artifact صالحاً دون وجوده فعلياً.
-- لا يعتبر نشر لعبة ناجحاً دون تحقق من النسخة المنشورة.
-- لا يتم تعديل أي مسار خارج MAJD-GAME-FACTORY.
-- النسخ الاحتياطي إلزامي قبل استبدال أي ملف.
-- إصلاح Python يستخدم بيئة المشروع الافتراضية فقط.
-- لا يستخدم --break-system-packages.
-- لا يعبث بحزم Python الخاصة بنظام Ubuntu.
-- 01 يدير ويوجه؛ لا يكرر مسؤوليات الملفات الأخرى.
+قاعدة أساسية:
+أي Capability غير موجودة فعلياً لا تعتبر جاهزة.
+أي Adapter خارجي غير متصل يظهر NOT_CONNECTED أو UNAVAILABLE.
+أي عملية لم يتم التحقق منها لا تعتبر SUCCESS.
 """
 
 from __future__ import annotations
 
+import argparse
+import ast
 import hashlib
 import importlib.util
 import inspect
@@ -60,6 +58,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import traceback
 import urllib.request
@@ -68,7 +67,7 @@ import uuid
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 
 # ============================================================
@@ -82,24 +81,19 @@ VERSION = "4.0.0"
 DEFAULT_OWNER = "MAJD"
 
 MAX_REPAIR_ATTEMPTS = int(
-    os.getenv(
-        "MAJD_MAX_REPAIR_ATTEMPTS",
-        "5",
-    )
+    os.getenv("MAJD_MAX_REPAIR_ATTEMPTS", "5")
 )
 
 COMMAND_TIMEOUT = int(
-    os.getenv(
-        "MAJD_COMMAND_TIMEOUT",
-        "900",
-    )
+    os.getenv("MAJD_COMMAND_TIMEOUT", "900")
 )
 
 AI_TIMEOUT = int(
-    os.getenv(
-        "MAJD_AI_TIMEOUT",
-        "180",
-    )
+    os.getenv("MAJD_AI_TIMEOUT", "180")
+)
+
+MONITOR_INTERVAL = int(
+    os.getenv("MAJD_MONITOR_INTERVAL", "300")
 )
 
 
@@ -113,52 +107,50 @@ STATE_DIR = ROOT_DIR / "majd_factory_state"
 MASTERMIND_STATE_DIR = STATE_DIR / "mastermind"
 LOG_DIR = STATE_DIR / "logs"
 BACKUP_DIR = STATE_DIR / "backups"
+DASHBOARD_DIR = STATE_DIR / "dashboard"
+SECURITY_DIR = STATE_DIR / "security"
+LEGAL_DIR = STATE_DIR / "legal"
+MONITOR_DIR = STATE_DIR / "monitor"
+REGISTRY_DIR = STATE_DIR / "registry"
+
 OUTPUT_DIR = ROOT_DIR / "majd_game_output"
-PUBLIC_DIR = ROOT_DIR / "public"
-ARTIFACTS_DIR = PUBLIC_DIR / "artifacts"
 
 for directory in (
     STATE_DIR,
     MASTERMIND_STATE_DIR,
     LOG_DIR,
     BACKUP_DIR,
+    DASHBOARD_DIR,
+    SECURITY_DIR,
+    LEGAL_DIR,
+    MONITOR_DIR,
+    REGISTRY_DIR,
     OUTPUT_DIR,
-    PUBLIC_DIR,
-    ARTIFACTS_DIR,
 ):
-    directory.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+    directory.mkdir(parents=True, exist_ok=True)
 
 
-OWNER_COMMAND_CENTER_FILE = (
-    ROOT_DIR / "MAJD-OWNER-COMMAND-CENTER-02.py"
+# ============================================================
+# KNOWN OFFICIAL COMPONENT NUMBERS
+# ============================================================
+
+OFFICIAL_NUMBERS = tuple(
+    f"{number:02d}"
+    for number in range(1, 11)
 )
 
-REAL_GAME_EXECUTOR_FILE = (
-    ROOT_DIR / "MAJD-REAL-GAME-EXECUTOR-03.py"
-)
+THIS_FILE = Path(__file__).resolve()
 
-OFFICIAL_PLATFORM_BRIDGE_FILE = (
-    ROOT_DIR / "MAJD-OFFICIAL-PLATFORM-BRIDGE-04.py"
-)
+KNOWN_CORE_FILES = {
+    "01": "MAJD-AI-MASTERMIND-01.py",
+    "02": "MAJD-OWNER-COMMAND-CENTER-02.py",
+    "03": "MAJD-REAL-GAME-EXECUTOR-03.py",
+    "04": "MAJD-OFFICIAL-PLATFORM-BRIDGE-04.py",
+    "05": "MAJD-AI-ORCHESTRATOR-05.py",
+    "06": "MAJD-FULL-EXECUTION-RUNTIME-06.py",
+}
 
-AI_ORCHESTRATOR_FILE = (
-    ROOT_DIR / "MAJD-AI-ORCHESTRATOR-05.py"
-)
-
-FULL_RUNTIME_FILE = (
-    ROOT_DIR / "MAJD-FULL-EXECUTION-RUNTIME-06.py"
-)
-
-CONTENT_MEDIA_FACTORY_FILE = (
-    ROOT_DIR / "MAJD-AI-CONTENT-MEDIA-FACTORY-08.py"
-)
-
-AGENT_FILE = (
-    ROOT_DIR / "majd_ai_agent.py"
-)
+AGENT_FILE = ROOT_DIR / "majd_ai_agent.py"
 
 
 # ============================================================
@@ -177,23 +169,22 @@ LOCAL_AI_MODEL = os.getenv(
 
 
 # ============================================================
-# TIME / JSON / HASH
+# TIME
 # ============================================================
 
 def utc_now() -> str:
-    return datetime.now(
-        timezone.utc
-    ).isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
+
+# ============================================================
+# JSON
+# ============================================================
 
 def write_json(
     path: Path,
     value: Any,
 ) -> None:
-    path.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+    path.parent.mkdir(parents=True, exist_ok=True)
 
     temporary = path.with_suffix(
         path.suffix + ".tmp"
@@ -210,40 +201,41 @@ def write_json(
             indent=2,
             default=str,
         )
-
         file.flush()
+        os.fsync(file.fileno())
 
-        try:
-            os.fsync(
-                file.fileno()
-            )
-        except OSError:
-            pass
-
-    temporary.replace(
-        path
-    )
+    temporary.replace(path)
 
 
-def sha256_file(
+def read_json(
     path: Path,
-) -> str:
+    default: Any = None,
+) -> Any:
+    try:
+        with path.open(
+            "r",
+            encoding="utf-8",
+        ) as file:
+            return json.load(file)
+    except Exception:
+        return default
+
+
+# ============================================================
+# HASH
+# ============================================================
+
+def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
 
-    with path.open(
-        "rb"
-    ) as file:
+    with path.open("rb") as file:
         while True:
-            chunk = file.read(
-                1024 * 1024
-            )
+            chunk = file.read(1024 * 1024)
 
             if not chunk:
                 break
 
-            digest.update(
-                chunk
-            )
+            digest.update(chunk)
 
     return digest.hexdigest()
 
@@ -252,9 +244,7 @@ def sha256_file(
 # PATH SAFETY
 # ============================================================
 
-def is_inside_root(
-    path: Path,
-) -> bool:
+def is_inside_root(path: Path) -> bool:
     try:
         path.resolve().relative_to(
             ROOT_DIR.resolve()
@@ -267,22 +257,14 @@ def is_inside_root(
 def safe_project_path(
     value: str | Path,
 ) -> Path:
-    candidate = Path(
-        value
-    )
+    candidate = Path(value)
 
     if not candidate.is_absolute():
-        candidate = (
-            ROOT_DIR
-            /
-            candidate
-        )
+        candidate = ROOT_DIR / candidate
 
     candidate = candidate.resolve()
 
-    if not is_inside_root(
-        candidate
-    ):
+    if not is_inside_root(candidate):
         raise PermissionError(
             "Refusing path outside MAJD-GAME-FACTORY"
         )
@@ -296,54 +278,49 @@ def safe_project_path(
 
 def load_module(
     path: Path,
-    name: str,
+    name: Optional[str] = None,
 ) -> Any:
-    path = safe_project_path(
-        path
-    )
+    path = safe_project_path(path)
 
     if not path.exists():
-        raise FileNotFoundError(
-            str(path)
-        )
+        raise FileNotFoundError(path.name)
+
+    module_name = (
+        name
+        or
+        f"_majd_dynamic_{uuid.uuid4().hex}"
+    )
 
     specification = (
-        importlib.util
-        .spec_from_file_location(
-            name,
+        importlib.util.spec_from_file_location(
+            module_name,
             str(path),
         )
     )
 
     if (
         specification is None
-        or
-        specification.loader is None
+        or specification.loader is None
     ):
         raise ImportError(
-            f"Unable to load module: {path.name}"
+            f"Unable to load {path.name}"
         )
 
     module = (
-        importlib.util
-        .module_from_spec(
+        importlib.util.module_from_spec(
             specification
         )
     )
 
-    sys.modules[
-        name
-    ] = module
+    sys.modules[module_name] = module
 
-    specification.loader.exec_module(
-        module
-    )
+    specification.loader.exec_module(module)
 
     return module
 
 
 # ============================================================
-# SAFE FUNCTION CALL
+# SUPPORTED CALL
 # ============================================================
 
 def call_supported(
@@ -351,107 +328,64 @@ def call_supported(
     values: Dict[str, Any],
 ) -> Any:
     try:
-        signature = inspect.signature(
-            function
-        )
-    except (
-        TypeError,
-        ValueError,
-    ):
-        return function(
-            **values
-        )
+        signature = inspect.signature(function)
+    except (TypeError, ValueError):
+        return function(**values)
 
     accepts_kwargs = any(
         parameter.kind
-        ==
-        inspect.Parameter.VAR_KEYWORD
+        == inspect.Parameter.VAR_KEYWORD
         for parameter
         in signature.parameters.values()
     )
 
-    if accepts_kwargs:
-        return function(
-            **values
+    kwargs = {
+        key: value
+        for key, value in values.items()
+        if (
+            accepts_kwargs
+            or key in signature.parameters
         )
+    }
 
-    supported: Dict[
-        str,
-        Any
-    ] = {}
-
-    for key, value in values.items():
-        if key in signature.parameters:
-            supported[
-                key
-            ] = value
-
-    return function(
-        **supported
-    )
+    return function(**kwargs)
 
 
 # ============================================================
 # RESULT NORMALIZATION
 # ============================================================
 
-def normalize_component_result(
+def normalize_result(
     value: Any,
-    component: str,
 ) -> Dict[str, Any]:
-    """
-    Strict normalization.
+    if isinstance(value, dict):
+        result = dict(value)
 
-    None is NEVER success.
-    A dict must explicitly contain success=True.
-    Non-dict values are not trusted as success.
-    """
+        # Never manufacture success.
+        if "success" not in result:
+            result["success"] = False
+            result.setdefault(
+                "status",
+                "UNVERIFIED_COMPONENT_RESULT",
+            )
+
+        return result
 
     if value is None:
         return {
             "success": False,
             "status": "COMPONENT_RETURNED_NONE",
-            "component": component,
         }
-
-    if isinstance(
-        value,
-        dict,
-    ):
-        result = dict(
-            value
-        )
-
-        if result.get(
-            "success"
-        ) is not True:
-            result[
-                "success"
-            ] = False
-
-            result.setdefault(
-                "status",
-                "COMPONENT_DID_NOT_CONFIRM_SUCCESS",
-            )
-
-        result.setdefault(
-            "component",
-            component,
-        )
-
-        return result
 
     return {
         "success": False,
         "status": "UNVERIFIED_COMPONENT_RESULT",
-        "component": component,
-        "result_type": type(value).__name__,
         "result": str(value),
     }
 
 
 # ============================================================
-# DATA TYPES
+# PROCESS EXECUTION
 # ============================================================
 
 @dataclass
@@ -464,211 +398,6 @@ class CommandResult:
     duration_seconds: float
 
 
-@dataclass
-class MastermindState:
-    operation_id: str
-    owner: str
-    command: str
-    started_at: str
-    updated_at: str
-    status: str
-
-    success: bool = False
-    attempts: int = 0
-
-    route: Optional[str] = None
-
-    plan: List[
-        Dict[str, Any]
-    ] = field(
-        default_factory=list
-    )
-
-    events: List[
-        Dict[str, Any]
-    ] = field(
-        default_factory=list
-    )
-
-    result: Optional[
-        Dict[str, Any]
-    ] = None
-
-    error: Optional[str] = None
-
-
-# ============================================================
-# AUDIT LOGGER
-# ============================================================
-
-class AuditLogger:
-
-    def __init__(
-        self,
-        operation_id: str,
-    ):
-        self.operation_id = (
-            operation_id
-        )
-
-        self.path = (
-            LOG_DIR
-            /
-            f"{operation_id}.jsonl"
-        )
-
-
-    def log(
-        self,
-        event: str,
-        data: Optional[
-            Dict[str, Any]
-        ] = None,
-    ) -> None:
-        record = {
-            "time": utc_now(),
-            "operation_id": self.operation_id,
-            "event": event,
-            "data": data or {},
-        }
-
-        with self.path.open(
-            "a",
-            encoding="utf-8",
-        ) as file:
-            file.write(
-                json.dumps(
-                    record,
-                    ensure_ascii=False,
-                    default=str,
-                )
-                +
-                "\n"
-            )
-
-
-# ============================================================
-# BACKUP MANAGER
-# ============================================================
-
-class BackupManager:
-
-    def __init__(
-        self,
-        operation_id: str,
-    ):
-        self.root = (
-            BACKUP_DIR
-            /
-            operation_id
-        )
-
-        self.root.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-
-    def backup(
-        self,
-        path: Path,
-    ) -> Optional[str]:
-        path = safe_project_path(
-            path
-        )
-
-        if not path.exists():
-            return None
-
-        target = (
-            self.root
-            /
-            path.relative_to(
-                ROOT_DIR
-            )
-        )
-
-        target.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        if path.is_dir():
-            if target.exists():
-                shutil.rmtree(
-                    target
-                )
-
-            shutil.copytree(
-                path,
-                target,
-            )
-        else:
-            shutil.copy2(
-                path,
-                target,
-            )
-
-        return str(
-            target
-        )
-
-
-# ============================================================
-# PYTHON ENVIRONMENT
-# ============================================================
-
-class PythonEnvironment:
-
-    @staticmethod
-    def project_python() -> Path:
-        candidates = (
-            ROOT_DIR
-            /
-            ".venv"
-            /
-            "bin"
-            /
-            "python",
-
-            ROOT_DIR
-            /
-            "venv"
-            /
-            "bin"
-            /
-            "python",
-        )
-
-        for candidate in candidates:
-            if (
-                candidate.exists()
-                and
-                candidate.is_file()
-            ):
-                return candidate
-
-        executable = Path(
-            sys.executable
-        ).resolve()
-
-        try:
-            executable.relative_to(
-                ROOT_DIR.resolve()
-            )
-
-            return executable
-
-        except Exception:
-            raise RuntimeError(
-                "PROJECT_VIRTUAL_ENVIRONMENT_REQUIRED"
-            )
-
-
-# ============================================================
-# PROCESS EXECUTOR
-# ============================================================
-
 class ProcessExecutor:
 
     BLOCKED_COMMANDS = {
@@ -679,18 +408,15 @@ class ProcessExecutor:
         "mkfs",
         "fdisk",
         "parted",
-        "dd",
     }
-
 
     def run(
         self,
         command: List[str],
-        cwd: Optional[
-            Path
-        ] = None,
+        cwd: Optional[Path] = None,
         timeout: int = COMMAND_TIMEOUT,
     ) -> CommandResult:
+
         if not command:
             return CommandResult(
                 command=[],
@@ -702,10 +428,8 @@ class ProcessExecutor:
             )
 
         executable = Path(
-            str(
-                command[0]
-            )
-        ).name
+            str(command[0])
+        ).name.lower()
 
         if executable in self.BLOCKED_COMMANDS:
             return CommandResult(
@@ -729,9 +453,7 @@ class ProcessExecutor:
         try:
             completed = subprocess.run(
                 command,
-                cwd=str(
-                    working_directory
-                ),
+                cwd=str(working_directory),
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -744,14 +466,10 @@ class ProcessExecutor:
                 stdout=completed.stdout or "",
                 stderr=completed.stderr or "",
                 success=(
-                    completed.returncode
-                    ==
-                    0
+                    completed.returncode == 0
                 ),
                 duration_seconds=(
-                    time.time()
-                    -
-                    started
+                    time.time() - started
                 ),
             )
 
@@ -761,18 +479,13 @@ class ProcessExecutor:
                 returncode=124,
                 stdout=(
                     error.stdout
-                    if isinstance(
-                        error.stdout,
-                        str,
-                    )
+                    if isinstance(error.stdout, str)
                     else ""
                 ),
                 stderr="Command timed out.",
                 success=False,
                 duration_seconds=(
-                    time.time()
-                    -
-                    started
+                    time.time() - started
                 ),
             )
 
@@ -787,18 +500,276 @@ class ProcessExecutor:
                 ),
                 success=False,
                 duration_seconds=(
-                    time.time()
-                    -
-                    started
+                    time.time() - started
                 ),
             )
 
 
 # ============================================================
-# PROJECT INSPECTOR
+# AUDIT
 # ============================================================
 
-class ProjectInspector:
+class AuditLogger:
+
+    def __init__(
+        self,
+        operation_id: str,
+    ):
+        self.operation_id = operation_id
+        self.path = (
+            LOG_DIR / f"{operation_id}.jsonl"
+        )
+
+    def log(
+        self,
+        event: str,
+        data: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        record = {
+            "time": utc_now(),
+            "operation_id": self.operation_id,
+            "event": event,
+            "data": data or {},
+        }
+
+        with self.path.open(
+            "a",
+            encoding="utf-8",
+        ) as file:
+            file.write(
+                json.dumps(
+                    record,
+                    ensure_ascii=False,
+                    default=str,
+                )
+                + "\n"
+            )
+
+
+# ============================================================
+# BACKUP / ROLLBACK
+# ============================================================
+
+class BackupManager:
+
+    def __init__(
+        self,
+        operation_id: str,
+    ):
+        self.operation_id = operation_id
+
+        self.root = (
+            BACKUP_DIR / operation_id
+        )
+
+        self.root.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        self.manifest: Dict[str, str] = {}
+
+    def backup(
+        self,
+        path: Path,
+    ) -> Optional[str]:
+        path = safe_project_path(path)
+
+        if not path.exists():
+            return None
+
+        relative = path.relative_to(ROOT_DIR)
+        target = self.root / relative
+
+        target.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        if path.is_dir():
+            if target.exists():
+                shutil.rmtree(target)
+
+            shutil.copytree(path, target)
+
+        else:
+            shutil.copy2(path, target)
+
+        self.manifest[str(relative)] = str(target)
+
+        return str(target)
+
+    def restore(
+        self,
+        path: Path,
+    ) -> Dict[str, Any]:
+        path = safe_project_path(path)
+
+        relative = str(
+            path.relative_to(ROOT_DIR)
+        )
+
+        backup_value = self.manifest.get(relative)
+
+        if not backup_value:
+            return {
+                "success": False,
+                "status": "BACKUP_NOT_FOUND",
+                "path": relative,
+            }
+
+        backup = Path(backup_value)
+
+        if not backup.exists():
+            return {
+                "success": False,
+                "status": "BACKUP_NOT_FOUND",
+                "path": relative,
+            }
+
+        if backup.is_dir():
+            if path.exists():
+                shutil.rmtree(path)
+
+            shutil.copytree(backup, path)
+
+        else:
+            path.parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+            shutil.copy2(backup, path)
+
+        return {
+            "success": True,
+            "status": "ROLLBACK_COMPLETED",
+            "path": relative,
+        }
+
+
+# ============================================================
+# STATIC PYTHON DISCOVERY
+# ============================================================
+
+class StaticPythonDiscovery:
+
+    @staticmethod
+    def discover(
+        path: Path,
+    ) -> Dict[str, Any]:
+
+        result: Dict[str, Any] = {
+            "functions": [],
+            "async_functions": [],
+            "classes": [],
+            "imports": [],
+        }
+
+        try:
+            source = path.read_text(
+                encoding="utf-8"
+            )
+
+            tree = ast.parse(
+                source,
+                filename=str(path),
+            )
+
+            for node in tree.body:
+                if isinstance(
+                    node,
+                    ast.FunctionDef,
+                ):
+                    result["functions"].append(
+                        node.name
+                    )
+
+                elif isinstance(
+                    node,
+                    ast.AsyncFunctionDef,
+                ):
+                    result[
+                        "async_functions"
+                    ].append(node.name)
+
+                elif isinstance(
+                    node,
+                    ast.ClassDef,
+                ):
+                    result["classes"].append(
+                        node.name
+                    )
+
+                elif isinstance(
+                    node,
+                    ast.Import,
+                ):
+                    for item in node.names:
+                        result["imports"].append(
+                            item.name
+                        )
+
+                elif isinstance(
+                    node,
+                    ast.ImportFrom,
+                ):
+                    if node.module:
+                        result["imports"].append(
+                            node.module
+                        )
+
+            result["success"] = True
+
+        except Exception as error:
+            result["success"] = False
+            result["error"] = (
+                f"{type(error).__name__}: {error}"
+            )
+
+        return result
+
+
+# ============================================================
+# COMPONENT
+# ============================================================
+
+@dataclass
+class ComponentRecord:
+    number: str
+    filename: str
+    path: str
+    exists: bool
+    size: int = 0
+    sha256: Optional[str] = None
+    importable: bool = False
+    static_functions: List[str] = field(
+        default_factory=list
+    )
+    static_async_functions: List[str] = field(
+        default_factory=list
+    )
+    static_classes: List[str] = field(
+        default_factory=list
+    )
+    runtime_callables: List[str] = field(
+        default_factory=list
+    )
+    capabilities: List[str] = field(
+        default_factory=list
+    )
+    error: Optional[str] = None
+
+
+# ============================================================
+# COMPONENT DISCOVERY 01–10
+# ============================================================
+
+class ComponentDiscovery:
+
+    FILE_NUMBER_PATTERN = re.compile(
+        r"(?:^|[-_])([0-9]{2})(?:\.py$|[-_])",
+        re.IGNORECASE,
+    )
 
     IGNORE = {
         ".git",
@@ -810,168 +781,471 @@ class ProjectInspector:
         "majd_game_output",
     }
 
-    CORE = {
-        "01":
-            "MAJD-AI-MASTERMIND-01.py",
-
-        "02":
-            "MAJD-OWNER-COMMAND-CENTER-02.py",
-
-        "03":
-            "MAJD-REAL-GAME-EXECUTOR-03.py",
-
-        "04":
-            "MAJD-OFFICIAL-PLATFORM-BRIDGE-04.py",
-
-        "05":
-            "MAJD-AI-ORCHESTRATOR-05.py",
-
-        "06":
-            "MAJD-FULL-EXECUTION-RUNTIME-06.py",
-
-        "08":
-            "MAJD-AI-CONTENT-MEDIA-FACTORY-08.py",
-
-        "agent":
-            "majd_ai_agent.py",
+    CAPABILITY_WORDS = {
+        "game": "GAME",
+        "executor": "EXECUTION",
+        "execute": "EXECUTION",
+        "publish": "PUBLISH",
+        "platform": "PLATFORM",
+        "owner": "OWNER_COMMAND",
+        "command": "OWNER_COMMAND",
+        "orchestrator": "ORCHESTRATION",
+        "orchestrate": "ORCHESTRATION",
+        "runtime": "RUNTIME",
+        "content": "CONTENT",
+        "media": "MEDIA",
+        "video": "VIDEO",
+        "movie": "MOVIE",
+        "film": "MOVIE",
+        "series": "SERIES",
+        "audio": "AUDIO",
+        "voice": "VOICE",
+        "music": "MUSIC",
+        "image": "IMAGE",
+        "social": "SOCIAL",
+        "live": "LIVE",
+        "stream": "LIVE",
+        "agency": "AGENCY",
+        "payment": "PAYMENTS",
+        "wallet": "WALLET",
+        "ads": "ADS",
+        "advert": "ADS",
+        "dashboard": "DASHBOARD",
+        "security": "SECURITY",
+        "legal": "LEGAL",
+        "contract": "LEGAL",
+        "monitor": "MONITORING",
+        "health": "HEALTH",
+        "repair": "REPAIR",
+        "diagnose": "DIAGNOSTICS",
+        "test": "TESTING",
+        "verify": "VERIFICATION",
+        "build": "BUILD",
     }
 
-
-    def list_files(
+    def discover_files(
         self,
-        limit: int = 5000,
-    ) -> List[str]:
-        result: List[
-            str
-        ] = []
+    ) -> Dict[str, List[Path]]:
 
-        for path in ROOT_DIR.rglob(
-            "*"
-        ):
-            if len(
-                result
-            ) >= limit:
-                break
-
-            try:
-                relative = path.relative_to(
-                    ROOT_DIR
-                )
-            except Exception:
-                continue
-
-            if any(
-                part in self.IGNORE
-                for part in relative.parts
-            ):
-                continue
-
-            if path.is_file():
-                result.append(
-                    str(
-                        relative
-                    )
-                )
-
-        return sorted(
-            result
-        )
-
-
-    def detect_stack(
-        self,
-    ) -> Dict[str, Any]:
-        return {
-            "python":
-                any(
-                    ROOT_DIR.glob(
-                        "*.py"
-                    )
-                ),
-
-            "node":
-                (
-                    ROOT_DIR
-                    /
-                    "package.json"
-                ).exists(),
-
-            "requirements":
-                (
-                    ROOT_DIR
-                    /
-                    "requirements.txt"
-                ).exists(),
-
-            "docker":
-                (
-                    ROOT_DIR
-                    /
-                    "Dockerfile"
-                ).exists(),
-
-            "docker_compose":
-                any(
-                    (
-                        ROOT_DIR
-                        /
-                        filename
-                    ).exists()
-                    for filename
-                    in (
-                        "docker-compose.yml",
-                        "docker-compose.yaml",
-                        "compose.yml",
-                        "compose.yaml",
-                    )
-                ),
+        discovered: Dict[
+            str,
+            List[Path]
+        ] = {
+            number: []
+            for number in OFFICIAL_NUMBERS
         }
 
+        for path in ROOT_DIR.glob("*.py"):
 
-    def core_status(
-        self,
-    ) -> Dict[str, Any]:
-        result: Dict[
-            str,
-            Any
-        ] = {}
+            if not path.is_file():
+                continue
 
-        for number, filename in (
-            self.CORE.items()
-        ):
-            path = (
-                ROOT_DIR
-                /
-                filename
+            match = self.FILE_NUMBER_PATTERN.search(
+                path.name
             )
 
-            result[
-                number
-            ] = {
-                "file":
-                    filename,
+            if not match:
+                continue
 
-                "exists":
-                    path.exists(),
+            number = match.group(1)
 
-                "size":
+            if number in discovered:
+                discovered[number].append(
+                    path.resolve()
+                )
+
+        for number, filename in (
+            KNOWN_CORE_FILES.items()
+        ):
+            path = (
+                ROOT_DIR / filename
+            ).resolve()
+
+            if (
+                number in discovered
+                and path.exists()
+                and path not in discovered[number]
+            ):
+                discovered[number].insert(
+                    0,
+                    path,
+                )
+
+        return discovered
+
+    def infer_capabilities(
+        self,
+        filename: str,
+        functions: Iterable[str],
+        classes: Iterable[str],
+    ) -> List[str]:
+
+        text = " ".join(
+            [
+                filename,
+                *functions,
+                *classes,
+            ]
+        ).lower()
+
+        capabilities: Set[str] = set()
+
+        for word, capability in (
+            self.CAPABILITY_WORDS.items()
+        ):
+            if word in text:
+                capabilities.add(capability)
+
+        return sorted(capabilities)
+
+    def inspect_file(
+        self,
+        number: str,
+        path: Path,
+        runtime_import: bool = True,
+    ) -> ComponentRecord:
+
+        static = (
+            StaticPythonDiscovery.discover(path)
+        )
+
+        record = ComponentRecord(
+            number=number,
+            filename=path.name,
+            path=str(path),
+            exists=path.exists(),
+            size=(
+                path.stat().st_size
+                if path.exists()
+                else 0
+            ),
+            sha256=(
+                sha256_file(path)
+                if path.exists()
+                else None
+            ),
+        )
+
+        record.static_functions = list(
+            static.get("functions", [])
+        )
+
+        record.static_async_functions = list(
+            static.get(
+                "async_functions",
+                [],
+            )
+        )
+
+        record.static_classes = list(
+            static.get("classes", [])
+        )
+
+        if not static.get("success"):
+            record.error = static.get("error")
+
+        if (
+            runtime_import
+            and number != "01"
+            and static.get("success")
+        ):
+            try:
+                module = load_module(
+                    path,
                     (
-                        path.stat().st_size
-                        if path.exists()
-                        else 0
+                        f"_majd_discovery_"
+                        f"{number}_"
+                        f"{uuid.uuid4().hex}"
                     ),
+                )
 
-                "sha256":
-                    (
-                        sha256_file(
-                            path
+                record.importable = True
+
+                record.runtime_callables = sorted(
+                    name
+                    for name in dir(module)
+                    if (
+                        not name.startswith("_")
+                        and callable(
+                            getattr(
+                                module,
+                                name,
+                                None,
+                            )
                         )
-                        if path.exists()
-                        else None
-                    ),
-            }
+                    )
+                )
+
+            except Exception as error:
+                record.importable = False
+                record.error = (
+                    f"{type(error).__name__}: "
+                    f"{error}"
+                )
+
+        elif number == "01":
+            record.importable = True
+            record.runtime_callables = list(
+                record.static_functions
+            )
+
+        record.capabilities = (
+            self.infer_capabilities(
+                record.filename,
+                (
+                    record.runtime_callables
+                    or record.static_functions
+                ),
+                record.static_classes,
+            )
+        )
+
+        return record
+
+    def discover(
+        self,
+        runtime_import: bool = True,
+    ) -> Dict[str, Any]:
+
+        files = self.discover_files()
+
+        components: Dict[
+            str,
+            List[Dict[str, Any]]
+        ] = {}
+
+        for number in OFFICIAL_NUMBERS:
+            records = []
+
+            for path in files[number]:
+                records.append(
+                    asdict(
+                        self.inspect_file(
+                            number,
+                            path,
+                            runtime_import=runtime_import,
+                        )
+                    )
+                )
+
+            components[number] = records
+
+        missing = [
+            number
+            for number in OFFICIAL_NUMBERS
+            if not components[number]
+        ]
+
+        result = {
+            "success": True,
+            "generated_at": utc_now(),
+            "components": components,
+            "missing_numbers": missing,
+        }
+
+        write_json(
+            REGISTRY_DIR / "components.json",
+            result,
+        )
 
         return result
+
+
+# ============================================================
+# CAPABILITY REGISTRY
+# ============================================================
+
+class CapabilityRegistry:
+
+    GENERIC_ENTRYPOINTS = (
+        "execute_request",
+        "process_request",
+        "process_command",
+        "run_command",
+        "execute",
+        "run",
+    )
+
+    CAPABILITY_ENTRYPOINTS = {
+        "GAME": (
+            "execute_game_request",
+            "create_game",
+            "build_game",
+            "generate_game",
+        ),
+        "PUBLISH": (
+            "publish_game",
+            "publish",
+            "send_game",
+            "send_to_majd",
+        ),
+        "CONTENT": (
+            "create_content",
+            "generate_content",
+            "process_content",
+        ),
+        "MEDIA": (
+            "create_media",
+            "generate_media",
+            "process_media",
+        ),
+        "SOCIAL": (
+            "publish_social",
+            "process_social",
+            "social_publish",
+        ),
+        "LIVE": (
+            "start_live",
+            "process_live",
+            "stream",
+        ),
+        "PAYMENTS": (
+            "process_payment",
+            "execute_payment",
+        ),
+        "ADS": (
+            "process_ad",
+            "publish_ad",
+            "create_ad",
+        ),
+        "LEGAL": (
+            "review_contract",
+            "generate_contract",
+            "legal_review",
+        ),
+        "SECURITY": (
+            "security_check",
+            "scan_security",
+        ),
+        "MONITORING": (
+            "health",
+            "health_check",
+            "status",
+            "monitor",
+        ),
+        "REPAIR": (
+            "repair",
+            "repair_system",
+            "auto_repair",
+        ),
+    }
+
+    def __init__(
+        self,
+        discovery: ComponentDiscovery,
+    ):
+        self.discovery = discovery
+        self.registry: Dict[
+            str,
+            List[Dict[str, Any]]
+        ] = {}
+
+    def build(self) -> Dict[str, Any]:
+
+        report = self.discovery.discover(
+            runtime_import=True
+        )
+
+        registry: Dict[
+            str,
+            List[Dict[str, Any]]
+        ] = {}
+
+        for number, records in (
+            report["components"].items()
+        ):
+            for record in records:
+
+                callables = set(
+                    record.get(
+                        "runtime_callables",
+                        [],
+                    )
+                    or record.get(
+                        "static_functions",
+                        [],
+                    )
+                )
+
+                capabilities = set(
+                    record.get(
+                        "capabilities",
+                        [],
+                    )
+                )
+
+                for capability in capabilities:
+
+                    preferred = (
+                        self.CAPABILITY_ENTRYPOINTS
+                        .get(
+                            capability,
+                            (),
+                        )
+                    )
+
+                    entrypoints = [
+                        name
+                        for name in preferred
+                        if name in callables
+                    ]
+
+                    entrypoints.extend(
+                        name
+                        for name
+                        in self.GENERIC_ENTRYPOINTS
+                        if (
+                            name in callables
+                            and name not in entrypoints
+                        )
+                    )
+
+                    registry.setdefault(
+                        capability,
+                        [],
+                    ).append(
+                        {
+                            "number": number,
+                            "filename": record[
+                                "filename"
+                            ],
+                            "path": record["path"],
+                            "entrypoints": entrypoints,
+                            "importable": record.get(
+                                "importable",
+                                False,
+                            ),
+                        }
+                    )
+
+        self.registry = registry
+
+        result = {
+            "success": True,
+            "generated_at": utc_now(),
+            "capabilities": registry,
+            "available": sorted(
+                registry.keys()
+            ),
+        }
+
+        write_json(
+            REGISTRY_DIR / "capabilities.json",
+            result,
+        )
+
+        return result
+
+    def providers(
+        self,
+        capability: str,
+    ) -> List[Dict[str, Any]]:
+        return list(
+            self.registry.get(
+                capability.upper(),
+                [],
+            )
+        )
 
 
 # ============================================================
@@ -986,170 +1260,48 @@ class PythonChecker:
     ):
         self.executor = executor
 
-
     def compile_file(
         self,
         path: Path,
     ) -> CommandResult:
-        python = PythonEnvironment.project_python()
 
         return self.executor.run(
             [
-                str(
-                    python
-                ),
+                sys.executable,
                 "-m",
                 "py_compile",
-                str(
-                    path
-                ),
+                str(path),
             ],
             cwd=ROOT_DIR,
         )
 
-
     def compile_project(
         self,
     ) -> Dict[str, Any]:
+
         checked = []
         failed = []
 
         for path in sorted(
-            ROOT_DIR.glob(
-                "*.py"
-            )
+            ROOT_DIR.glob("*.py")
         ):
-            try:
-                result = (
-                    self.compile_file(
-                        path
-                    )
-                )
+            result = self.compile_file(path)
 
-                item = {
-                    "file":
-                        path.name,
+            item = {
+                "file": path.name,
+                "success": result.success,
+                "stderr": result.stderr[-6000:],
+            }
 
-                    "success":
-                        result.success,
+            checked.append(item)
 
-                    "stderr":
-                        result.stderr[
-                            -6000:
-                        ],
-                }
-
-            except Exception as error:
-                item = {
-                    "file":
-                        path.name,
-
-                    "success":
-                        False,
-
-                    "stderr":
-                        (
-                            f"{type(error).__name__}: "
-                            f"{error}"
-                        ),
-                }
-
-            checked.append(
-                item
-            )
-
-            if not item[
-                "success"
-            ]:
-                failed.append(
-                    item
-                )
+            if not result.success:
+                failed.append(item)
 
         return {
-            "success":
-                not failed,
-
-            "checked":
-                checked,
-
-            "failed":
-                failed,
-        }
-
-
-    def import_core(
-        self,
-    ) -> Dict[str, Any]:
-        checked = []
-        failed = []
-
-        for key, filename in (
-            ProjectInspector
-            .CORE.items()
-        ):
-            path = (
-                ROOT_DIR
-                /
-                filename
-            )
-
-            if not path.exists():
-                continue
-
-            try:
-                load_module(
-                    path,
-                    (
-                        f"_majd_check_"
-                        f"{key}_"
-                        f"{uuid.uuid4().hex}"
-                    ),
-                )
-
-                item = {
-                    "file":
-                        filename,
-                    "success":
-                        True,
-                }
-
-            except Exception as error:
-                item = {
-                    "file":
-                        filename,
-
-                    "success":
-                        False,
-
-                    "error":
-                        (
-                            f"{type(error).__name__}: "
-                            f"{error}"
-                        ),
-
-                    "traceback":
-                        traceback.format_exc()[
-                            -6000:
-                        ],
-                }
-
-                failed.append(
-                    item
-                )
-
-            checked.append(
-                item
-            )
-
-        return {
-            "success":
-                not failed,
-
-            "checked":
-                checked,
-
-            "failed":
-                failed,
+            "success": not failed,
+            "checked": checked,
+            "failed": failed,
         }
 
 
@@ -1168,7 +1320,6 @@ class DependencyManager:
         "uvicorn": "uvicorn",
     }
 
-
     def __init__(
         self,
         executor: ProcessExecutor,
@@ -1177,23 +1328,41 @@ class DependencyManager:
         self.executor = executor
         self.logger = logger
 
+    def detect_virtual_python(
+        self,
+    ) -> Optional[Path]:
+
+        candidates = [
+            ROOT_DIR / ".venv" / "bin" / "python",
+            ROOT_DIR / "venv" / "bin" / "python",
+            ROOT_DIR / ".venv" / "Scripts" / "python.exe",
+            ROOT_DIR / "venv" / "Scripts" / "python.exe",
+        ]
+
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+
+        return None
 
     def repair_missing_python_module(
         self,
         error_text: str,
-    ) -> Optional[
-        Dict[str, Any]
-    ]:
+    ) -> Dict[str, Any]:
+
         match = re.search(
-            (
-                r"No module named "
-                r"['\"]([^'\"]+)['\"]"
-            ),
+            r"No module named ['\"]([^'\"]+)['\"]",
             error_text,
+            re.IGNORECASE,
         )
 
         if not match:
-            return None
+            return {
+                "success": False,
+                "status": (
+                    "DEPENDENCY_NAME_NOT_DETECTED"
+                ),
+            }
 
         module = (
             match.group(1)
@@ -1201,45 +1370,43 @@ class DependencyManager:
         )
 
         package = (
-            self.PYTHON_IMPORT_MAP
-            .get(
+            self.PYTHON_IMPORT_MAP.get(
                 module,
                 module,
             )
         )
 
-        try:
-            python = (
-                PythonEnvironment
-                .project_python()
-            )
+        python_binary = (
+            self.detect_virtual_python()
+        )
 
-        except Exception as error:
+        if python_binary is None:
             return {
                 "success": False,
-                "status": "PROJECT_VENV_REQUIRED",
-                "error": str(error),
+                "status": (
+                    "VIRTUAL_ENVIRONMENT_REQUIRED"
+                ),
+                "module": module,
+                "package": package,
+                "message": (
+                    "Dependency repair refused "
+                    "because no project virtual "
+                    "environment was detected."
+                ),
             }
 
         self.logger.log(
-            "PYTHON_DEPENDENCY_INSTALL",
+            "DEPENDENCY_REPAIR_STARTED",
             {
-                "module":
-                    module,
-                "package":
-                    package,
-                "python":
-                    str(
-                        python
-                    ),
+                "module": module,
+                "package": package,
+                "python": str(python_binary),
             },
         )
 
         result = self.executor.run(
             [
-                str(
-                    python
-                ),
+                str(python_binary),
                 "-m",
                 "pip",
                 "install",
@@ -1249,9 +1416,7 @@ class DependencyManager:
             timeout=600,
         )
 
-        return asdict(
-            result
-        )
+        return asdict(result)
 
 
 # ============================================================
@@ -1266,51 +1431,50 @@ class LocalAIAdapter:
     ):
         self.logger = logger
 
-
     @property
-    def available(
-        self,
-    ) -> bool:
-        return bool(
-            LOCAL_AI_URL
-        )
+    def available(self) -> bool:
+        return bool(LOCAL_AI_URL)
 
+    def status(self) -> Dict[str, Any]:
+        return {
+            "configured": bool(LOCAL_AI_URL),
+            "model": (
+                LOCAL_AI_MODEL
+                if LOCAL_AI_URL
+                else None
+            ),
+            "status": (
+                "CONFIGURED"
+                if LOCAL_AI_URL
+                else "NOT_CONNECTED"
+            ),
+        }
 
     def ask(
         self,
         system_prompt: str,
         user_prompt: str,
     ) -> Optional[str]:
+
         if not self.available:
             return None
 
         endpoint = (
-            LOCAL_AI_URL.rstrip(
-                "/"
-            )
-            +
-            "/v1/chat/completions"
+            LOCAL_AI_URL.rstrip("/")
+            + "/v1/chat/completions"
         )
 
         payload = {
-            "model":
-                LOCAL_AI_MODEL,
-
-            "temperature":
-                0.1,
-
+            "model": LOCAL_AI_MODEL,
+            "temperature": 0.1,
             "messages": [
                 {
-                    "role":
-                        "system",
-                    "content":
-                        system_prompt,
+                    "role": "system",
+                    "content": system_prompt,
                 },
                 {
-                    "role":
-                        "user",
-                    "content":
-                        user_prompt,
+                    "role": "user",
+                    "content": user_prompt,
                 },
             ],
         }
@@ -1319,9 +1483,7 @@ class LocalAIAdapter:
             endpoint,
             data=json.dumps(
                 payload
-            ).encode(
-                "utf-8"
-            ),
+            ).encode("utf-8"),
             headers={
                 "Content-Type":
                     "application/json",
@@ -1335,19 +1497,14 @@ class LocalAIAdapter:
                 timeout=AI_TIMEOUT,
             ) as response:
                 body = json.loads(
-                    response
-                    .read()
-                    .decode(
+                    response.read().decode(
                         "utf-8"
                     )
                 )
 
             choices = (
-                body.get(
-                    "choices"
-                )
-                or
-                []
+                body.get("choices")
+                or []
             )
 
             if not choices:
@@ -1355,24 +1512,18 @@ class LocalAIAdapter:
 
             return (
                 choices[0]
-                .get(
-                    "message",
-                    {}
-                )
-                .get(
-                    "content"
-                )
+                .get("message", {})
+                .get("content")
             )
 
         except Exception as error:
             self.logger.log(
                 "LOCAL_AI_ERROR",
                 {
-                    "error":
-                        (
-                            f"{type(error).__name__}: "
-                            f"{error}"
-                        ),
+                    "error": (
+                        f"{type(error).__name__}: "
+                        f"{error}"
+                    )
                 },
             )
 
@@ -1389,22 +1540,32 @@ class CodeManager:
         self,
         backup: BackupManager,
         logger: AuditLogger,
+        checker: PythonChecker,
     ):
         self.backup = backup
         self.logger = logger
+        self.checker = checker
 
-
-    def replace_file(
+    def replace_python_file(
         self,
         path: Path,
         content: str,
     ) -> Dict[str, Any]:
-        path = safe_project_path(
-            path
-        )
 
-        backup = self.backup.backup(
-            path
+        path = safe_project_path(path)
+
+        if path.suffix.lower() != ".py":
+            return {
+                "success": False,
+                "status": "NON_PYTHON_REPAIR_REFUSED",
+            }
+
+        backup_path = self.backup.backup(path)
+
+        before_hash = (
+            sha256_file(path)
+            if path.exists()
+            else None
         )
 
         path.parent.mkdir(
@@ -1412,322 +1573,50 @@ class CodeManager:
             exist_ok=True,
         )
 
-        temporary = path.with_suffix(
-            path.suffix + ".majd-tmp"
-        )
-
-        temporary.write_text(
+        path.write_text(
             content,
             encoding="utf-8",
         )
 
-        if path.suffix == ".py":
-            try:
-                python = (
-                    PythonEnvironment
-                    .project_python()
-                )
-
-                check = subprocess.run(
-                    [
-                        str(
-                            python
-                        ),
-                        "-m",
-                        "py_compile",
-                        str(
-                            temporary
-                        ),
-                    ],
-                    cwd=str(
-                        ROOT_DIR
-                    ),
-                    capture_output=True,
-                    text=True,
-                    timeout=120,
-                )
-
-                if check.returncode != 0:
-                    temporary.unlink(
-                        missing_ok=True
-                    )
-
-                    return {
-                        "success":
-                            False,
-
-                        "status":
-                            "REPLACEMENT_SYNTAX_INVALID",
-
-                        "path":
-                            str(
-                                path
-                            ),
-
-                        "stderr":
-                            check.stderr,
-                    }
-
-            except Exception as error:
-                temporary.unlink(
-                    missing_ok=True
-                )
-
-                return {
-                    "success":
-                        False,
-
-                    "status":
-                        "REPLACEMENT_VALIDATION_FAILED",
-
-                    "error":
-                        (
-                            f"{type(error).__name__}: "
-                            f"{error}"
-                        ),
-                }
-
-        temporary.replace(
-            path
+        compile_result = (
+            self.checker.compile_file(path)
         )
+
+        if not compile_result.success:
+            rollback = self.backup.restore(path)
+
+            return {
+                "success": False,
+                "status": (
+                    "REPAIR_REGRESSION_ROLLED_BACK"
+                ),
+                "compile": asdict(
+                    compile_result
+                ),
+                "rollback": rollback,
+            }
+
+        after_hash = sha256_file(path)
+
+        result = {
+            "success": True,
+            "status": "FILE_REPLACED_AND_COMPILED",
+            "path": str(path),
+            "backup": backup_path,
+            "before_sha256": before_hash,
+            "after_sha256": after_hash,
+        }
 
         self.logger.log(
             "FILE_REPLACED",
-            {
-                "path":
-                    str(
-                        path.relative_to(
-                            ROOT_DIR
-                        )
-                    ),
-
-                "backup":
-                    backup,
-
-                "sha256":
-                    sha256_file(
-                        path
-                    ),
-            },
+            result,
         )
 
-        return {
-            "success":
-                True,
-
-            "status":
-                "FILE_REPLACED",
-
-            "path":
-                str(
-                    path
-                ),
-
-            "backup":
-                backup,
-
-            "sha256":
-                sha256_file(
-                    path
-                ),
-        }
+        return result
 
 
 # ============================================================
-# INTERFACE CHECKER
-# ============================================================
-
-class InterfaceChecker:
-
-    CHECKS = (
-        (
-            OWNER_COMMAND_CENTER_FILE,
-            "02",
-            (
-                "process_command",
-                "execute_command",
-                "execute_request",
-                "run_command",
-                "run",
-                "execute",
-            ),
-        ),
-        (
-            REAL_GAME_EXECUTOR_FILE,
-            "03",
-            (
-                "execute_game_request",
-                "execute",
-                "run",
-            ),
-        ),
-        (
-            OFFICIAL_PLATFORM_BRIDGE_FILE,
-            "04",
-            (
-                "publish_game",
-            ),
-        ),
-        (
-            AI_ORCHESTRATOR_FILE,
-            "05",
-            (
-                "orchestrate",
-                "execute",
-                "run",
-                "process",
-                "process_command",
-            ),
-        ),
-        (
-            FULL_RUNTIME_FILE,
-            "06",
-            (
-                "execute_command",
-                "process_command",
-                "run_command",
-                "execute",
-                "run",
-            ),
-        ),
-        (
-            CONTENT_MEDIA_FACTORY_FILE,
-            "08",
-            (
-                "execute_request",
-                "process_request",
-                "execute_command",
-                "process_command",
-                "create_content",
-                "run",
-                "execute",
-            ),
-        ),
-    )
-
-
-    def check(
-        self,
-    ) -> Dict[str, Any]:
-        results = []
-        failed = []
-
-        for (
-            path,
-            number,
-            names,
-        ) in self.CHECKS:
-            if not path.exists():
-                item = {
-                    "file":
-                        path.name,
-
-                    "number":
-                        number,
-
-                    "success":
-                        False,
-
-                    "error":
-                        "FILE_MISSING",
-                }
-
-                results.append(
-                    item
-                )
-
-                failed.append(
-                    item
-                )
-
-                continue
-
-            try:
-                module = load_module(
-                    path,
-                    (
-                        f"_majd_iface_"
-                        f"{number}_"
-                        f"{uuid.uuid4().hex}"
-                    ),
-                )
-
-                found = [
-                    name
-                    for name in names
-                    if callable(
-                        getattr(
-                            module,
-                            name,
-                            None,
-                        )
-                    )
-                ]
-
-                item = {
-                    "file":
-                        path.name,
-
-                    "number":
-                        number,
-
-                    "success":
-                        bool(
-                            found
-                        ),
-
-                    "found":
-                        found,
-
-                    "expected_any":
-                        list(
-                            names
-                        ),
-                }
-
-            except Exception as error:
-                item = {
-                    "file":
-                        path.name,
-
-                    "number":
-                        number,
-
-                    "success":
-                        False,
-
-                    "error":
-                        (
-                            f"{type(error).__name__}: "
-                            f"{error}"
-                        ),
-                }
-
-            results.append(
-                item
-            )
-
-            if not item[
-                "success"
-            ]:
-                failed.append(
-                    item
-                )
-
-        return {
-            "success":
-                not failed,
-
-            "checked":
-                results,
-
-            "failed":
-                failed,
-        }
-
-
-# ============================================================
-# DIAGNOSTIC ENGINE
+# DIAGNOSTICS
 # ============================================================
 
 class DiagnosticEngine:
@@ -1736,6 +1625,7 @@ class DiagnosticEngine:
         self,
         failure: Dict[str, Any],
     ) -> Dict[str, Any]:
+
         text = json.dumps(
             failure,
             ensure_ascii=False,
@@ -1745,97 +1635,59 @@ class DiagnosticEngine:
         lowered = text.lower()
 
         if (
-            "no module named"
-            in lowered
-            or
-            "modulenotfounderror"
-            in lowered
+            "no module named" in lowered
+            or "modulenotfounderror" in lowered
         ):
             return {
-                "type":
-                    "MISSING_PYTHON_MODULE",
-
-                "repairable":
-                    True,
-
-                "details":
-                    text[
-                        -12000:
-                    ],
-            }
-
-        if any(
-            token in lowered
-            for token
-            in (
-                "syntaxerror",
-                "indentationerror",
-                "taberror",
-            )
-        ):
-            return {
-                "type":
-                    "PYTHON_SYNTAX_ERROR",
-
-                "repairable":
-                    True,
-
-                "details":
-                    text[
-                        -12000:
-                    ],
+                "type": "MISSING_PYTHON_MODULE",
+                "repairable": True,
+                "details": text[-10000:],
             }
 
         if (
-            "interface"
-            in lowered
+            "syntaxerror" in lowered
+            or "indentationerror" in lowered
+            or "taberror" in lowered
         ):
             return {
-                "type":
-                    "INTERFACE_MISMATCH",
+                "type": "PYTHON_SYNTAX_ERROR",
+                "repairable": True,
+                "details": text[-10000:],
+            }
 
-                "repairable":
-                    True,
+        if "interface" in lowered:
+            return {
+                "type": "INTERFACE_MISMATCH",
+                "repairable": True,
+                "details": text[-10000:],
+            }
 
-                "details":
-                    text[
-                        -12000:
-                    ],
+        if "artifact" in lowered:
+            return {
+                "type": "ARTIFACT_FAILURE",
+                "repairable": True,
+                "details": text[-10000:],
             }
 
         if (
-            "artifact"
-            in lowered
+            "publish" in lowered
+            or "publication" in lowered
         ):
             return {
-                "type":
-                    "ARTIFACT_FAILURE",
-
-                "repairable":
-                    True,
-
-                "details":
-                    text[
-                        -12000:
-                    ],
+                "type": "PUBLICATION_FAILURE",
+                "repairable": True,
+                "details": text[-10000:],
             }
 
         return {
-            "type":
-                "UNKNOWN",
-
-            "repairable":
-                False,
-
-            "details":
-                text[
-                    -12000:
-                ],
+            "type": "UNKNOWN",
+            "repairable": False,
+            "details": text[-10000:],
         }
 
 
 # ============================================================
-# AUTONOMOUS REPAIR ENGINE
+# AUTONOMOUS REPAIR
 # ============================================================
 
 class AutonomousRepairEngine:
@@ -1844,629 +1696,471 @@ class AutonomousRepairEngine:
         self,
         operation_id: str,
         logger: AuditLogger,
+        checker: PythonChecker,
     ):
-        self.operation_id = (
+        self.operation_id = operation_id
+        self.logger = logger
+        self.executor = ProcessExecutor()
+        self.backup = BackupManager(
             operation_id
         )
-
-        self.logger = logger
-
-        self.executor = (
-            ProcessExecutor()
+        self.dependencies = DependencyManager(
+            self.executor,
+            logger,
         )
-
-        self.backup = (
-            BackupManager(
-                operation_id
-            )
+        self.ai = LocalAIAdapter(logger)
+        self.code = CodeManager(
+            self.backup,
+            logger,
+            checker,
         )
-
-        self.dependencies = (
-            DependencyManager(
-                self.executor,
-                logger,
-            )
-        )
-
-        self.code = (
-            CodeManager(
-                self.backup,
-                logger,
-            )
-        )
-
-        self.ai = (
-            LocalAIAdapter(
-                logger
-            )
-        )
-
 
     def repair(
         self,
         diagnosis: Dict[str, Any],
         failure: Dict[str, Any],
     ) -> Dict[str, Any]:
-        repair_type = diagnosis.get(
-            "type"
-        )
 
-        if (
-            repair_type
-            ==
-            "MISSING_PYTHON_MODULE"
-        ):
-            text = json.dumps(
+        repair_type = diagnosis.get("type")
+
+        if repair_type == "MISSING_PYTHON_MODULE":
+            return (
+                self.dependencies
+                .repair_missing_python_module(
+                    json.dumps(
+                        failure,
+                        ensure_ascii=False,
+                        default=str,
+                    )
+                )
+            )
+
+        if repair_type not in {
+            "PYTHON_SYNTAX_ERROR",
+            "INTERFACE_MISMATCH",
+            "ARTIFACT_FAILURE",
+            "PUBLICATION_FAILURE",
+        }:
+            return {
+                "success": False,
+                "status": (
+                    "AUTOMATIC_REPAIR_NOT_AVAILABLE"
+                ),
+                "diagnosis": diagnosis,
+            }
+
+        if not self.ai.available:
+            return {
+                "success": False,
+                "status": (
+                    "CODE_REPAIR_ENGINE_UNAVAILABLE"
+                ),
+                "ai": self.ai.status(),
+                "diagnosis": diagnosis,
+            }
+
+        relevant_files = []
+
+        for path in ROOT_DIR.glob("*.py"):
+            if path.is_file():
+                relevant_files.append(
+                    {
+                        "path": path.name,
+                        "sha256": sha256_file(path),
+                        "size": path.stat().st_size,
+                    }
+                )
+
+        prompt = (
+            "Repair the MAJD-GAME-FACTORY failure.\n"
+            "Return JSON only.\n"
+            "Schema:\n"
+            "{"
+            "\"success\":true,"
+            "\"changes\":["
+            "{"
+            "\"path\":\"relative.py\","
+            "\"content\":\"COMPLETE FILE CONTENT\""
+            "}"
+            "]"
+            "}\n"
+            "Rules:\n"
+            "- Complete-file replacement only.\n"
+            "- Never modify outside project root.\n"
+            "- Never claim success without changes.\n"
+            "- Preserve existing working interfaces.\n\n"
+            "FAILURE:\n"
+            + json.dumps(
                 failure,
                 ensure_ascii=False,
                 default=str,
             )
-
-            result = (
-                self.dependencies
-                .repair_missing_python_module(
-                    text
-                )
-            )
-
-            return (
-                result
-                or
-                {
-                    "success":
-                        False,
-
-                    "status":
-                        "DEPENDENCY_NAME_NOT_DETECTED",
-                }
-            )
-
-        if repair_type in {
-            "PYTHON_SYNTAX_ERROR",
-            "INTERFACE_MISMATCH",
-            "ARTIFACT_FAILURE",
-        }:
-            if not self.ai.available:
-                return {
-                    "success":
-                        False,
-
-                    "status":
-                        "CODE_REPAIR_ENGINE_UNAVAILABLE",
-
-                    "diagnosis":
-                        diagnosis,
-                }
-
-            files = (
-                ProjectInspector()
-                .list_files(
-                    limit=600
-                )
-            )
-
-            prompt = (
-                "Repair MAJD-GAME-FACTORY from the "
-                "real failure below.\n\n"
-
-                "Return JSON only:\n"
-                "{"
-                "\"success\":true,"
-                "\"changes\":["
-                "{"
-                "\"path\":\"relative/path.py\","
-                "\"content\":\"COMPLETE FILE CONTENT\""
-                "}"
-                "]"
-                "}\n\n"
-
-                "Rules:\n"
-                "- Complete replacement files only.\n"
-                "- Never modify outside MAJD-GAME-FACTORY.\n"
-                "- Preserve existing public interfaces when possible.\n"
-                "- Never claim success without a real change.\n"
-                "- Do not remove sovereign validation.\n\n"
-
-                "FAILURE:\n"
-                +
-                json.dumps(
-                    failure,
-                    ensure_ascii=False,
-                    default=str,
-                )
-                +
-                "\n\nDIAGNOSIS:\n"
-                +
-                json.dumps(
-                    diagnosis,
-                    ensure_ascii=False,
-                    default=str,
-                )
-                +
-                "\n\nPROJECT FILES:\n"
-                +
-                json.dumps(
-                    files,
-                    ensure_ascii=False,
-                )
-            )
-
-            answer = self.ai.ask(
-                (
-                    "You are MAJD Sovereign autonomous "
-                    "code repair engine. "
-                    "Never return fake success."
-                ),
-                prompt,
-            )
-
-            if not answer:
-                return {
-                    "success":
-                        False,
-
-                    "status":
-                        "AI_REPAIR_EMPTY",
-                }
-
-            try:
-                cleaned = answer.strip()
-
-                cleaned = re.sub(
-                    r"^```(?:json)?\s*",
-                    "",
-                    cleaned,
-                )
-
-                cleaned = re.sub(
-                    r"\s*```$",
-                    "",
-                    cleaned,
-                )
-
-                data = json.loads(
-                    cleaned
-                )
-
-                applied = []
-                rejected = []
-
-                for change in (
-                    data.get(
-                        "changes"
-                    )
-                    or
-                    []
-                ):
-                    relative = str(
-                        change.get(
-                            "path"
-                        )
-                        or
-                        ""
-                    ).strip()
-
-                    content = change.get(
-                        "content"
-                    )
-
-                    if (
-                        not relative
-                        or
-                        not isinstance(
-                            content,
-                            str,
-                        )
-                        or
-                        not content.strip()
-                    ):
-                        continue
-
-                    result = (
-                        self.code
-                        .replace_file(
-                            ROOT_DIR
-                            /
-                            relative,
-                            content,
-                        )
-                    )
-
-                    if result.get(
-                        "success"
-                    ):
-                        applied.append(
-                            result
-                        )
-                    else:
-                        rejected.append(
-                            result
-                        )
-
-                return {
-                    "success":
-                        bool(
-                            applied
-                        )
-                        and
-                        not rejected,
-
-                    "status":
-                        (
-                            "AI_CODE_REPAIR_APPLIED"
-                            if (
-                                applied
-                                and
-                                not rejected
-                            )
-                            else
-                            "AI_CODE_REPAIR_INCOMPLETE"
-                        ),
-
-                    "changes":
-                        applied,
-
-                    "rejected":
-                        rejected,
-                }
-
-            except Exception as error:
-                return {
-                    "success":
-                        False,
-
-                    "status":
-                        "AI_REPAIR_RESPONSE_INVALID",
-
-                    "error":
-                        (
-                            f"{type(error).__name__}: "
-                            f"{error}"
-                        ),
-                }
-
-        return {
-            "success":
-                False,
-
-            "status":
-                "AUTOMATIC_REPAIR_NOT_AVAILABLE",
-
-            "diagnosis":
+            + "\nDIAGNOSIS:\n"
+            + json.dumps(
                 diagnosis,
-        }
-
-
-# ============================================================
-# GENERIC COMPONENT ADAPTER
-# ============================================================
-
-class ComponentAdapter:
-
-    def __init__(
-        self,
-        path: Path,
-        component: str,
-        functions: Iterable[str],
-    ):
-        self.path = path
-        self.component = component
-        self.functions = tuple(
-            functions
+                ensure_ascii=False,
+                default=str,
+            )
+            + "\nFILES:\n"
+            + json.dumps(
+                relevant_files,
+                ensure_ascii=False,
+            )
         )
 
+        answer = self.ai.ask(
+            (
+                "You are MAJD Sovereign autonomous "
+                "repair engine. Apply conservative "
+                "complete-file repairs and never "
+                "manufacture success."
+            ),
+            prompt,
+        )
 
-    def execute(
-        self,
-        values: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        if not self.path.exists():
+        if not answer:
             return {
-                "success":
-                    False,
-
-                "status":
-                    "COMPONENT_FILE_MISSING",
-
-                "component":
-                    self.component,
-
-                "file":
-                    self.path.name,
+                "success": False,
+                "status": "AI_REPAIR_EMPTY",
             }
 
         try:
-            module = load_module(
-                self.path,
-                (
-                    f"_majd_component_"
-                    f"{self.component}_"
-                    f"{uuid.uuid4().hex}"
-                ),
+            cleaned = answer.strip()
+
+            cleaned = re.sub(
+                r"^```(?:json)?\s*",
+                "",
+                cleaned,
             )
+
+            cleaned = re.sub(
+                r"\s*```$",
+                "",
+                cleaned,
+            )
+
+            data = json.loads(cleaned)
 
         except Exception as error:
             return {
-                "success":
-                    False,
-
-                "status":
-                    "COMPONENT_LOAD_FAILED",
-
-                "component":
-                    self.component,
-
-                "error":
-                    (
-                        f"{type(error).__name__}: "
-                        f"{error}"
-                    ),
-
-                "traceback":
-                    traceback.format_exc(),
+                "success": False,
+                "status": (
+                    "AI_REPAIR_RESPONSE_INVALID"
+                ),
+                "error": str(error),
             }
 
-        for name in self.functions:
-            function = getattr(
-                module,
-                name,
-                None,
-            )
+        applied = []
 
-            if not callable(
-                function
+        for change in (
+            data.get("changes")
+            or []
+        ):
+            relative = str(
+                change.get("path")
+                or ""
+            ).strip()
+
+            content = change.get("content")
+
+            if (
+                not relative
+                or not isinstance(content, str)
+                or not content.strip()
             ):
                 continue
 
-            try:
-                value = call_supported(
-                    function,
-                    values,
-                )
+            target = safe_project_path(
+                ROOT_DIR / relative
+            )
 
-                result = normalize_component_result(
-                    value,
-                    self.component,
-                )
-
-                result.setdefault(
-                    "interface",
-                    name,
-                )
-
-                return result
-
-            except Exception as error:
-                return {
-                    "success":
-                        False,
-
-                    "status":
-                        "COMPONENT_EXECUTION_EXCEPTION",
-
-                    "component":
-                        self.component,
-
-                    "interface":
-                        name,
-
-                    "error":
-                        (
-                            f"{type(error).__name__}: "
-                            f"{error}"
+            # Do not let 01 rewrite itself while it is
+            # currently executing.
+            if target.resolve() == THIS_FILE:
+                applied.append(
+                    {
+                        "success": False,
+                        "status": (
+                            "SELF_REWRITE_REQUIRES_"
+                            "CONTROLLED_RESTART"
                         ),
+                        "path": relative,
+                    }
+                )
+                continue
 
-                    "traceback":
-                        traceback.format_exc(),
-                }
+            applied.append(
+                self.code.replace_python_file(
+                    target,
+                    content,
+                )
+            )
+
+        success = bool(applied) and all(
+            item.get("success")
+            for item in applied
+        )
 
         return {
-            "success":
-                False,
-
-            "status":
-                "COMPONENT_INTERFACE_MISSING",
-
-            "component":
-                self.component,
-
-            "expected_any":
-                list(
-                    self.functions
-                ),
+            "success": success,
+            "status": (
+                "AI_CODE_REPAIR_APPLIED"
+                if success
+                else "AI_REPAIR_INCOMPLETE"
+            ),
+            "changes": applied,
         }
 
 
 # ============================================================
-# OWNER COMMAND CENTER 02
+# CONTENT SAFETY
 # ============================================================
 
-class OwnerCommandCenterBridge(
-    ComponentAdapter
-):
+class ContentSafetyPolicy:
+
+    SEXUAL_TERMS = {
+        "porn",
+        "pornography",
+        "explicit sex",
+        "إباحية",
+        "اباحيه",
+        "إباحي",
+        "محتوى جنسي صريح",
+    }
+
+    SENSITIVE_GOVERNMENT_TERMS = {
+        "restricted government facility",
+        "secure government facility",
+        "classified government location",
+        "موقع حكومي محظور",
+        "منشأة حكومية محظورة",
+        "منشأة أمنية",
+        "موقع أمني حساس",
+        "مركبة حكومية حساسة",
+        "سيارة حكومية حساسة",
+    }
+
+    def inspect_text(
+        self,
+        text: str,
+    ) -> Dict[str, Any]:
+
+        normalized = str(
+            text or ""
+        ).lower()
+
+        violations = []
+
+        if any(
+            term.lower() in normalized
+            for term in self.SEXUAL_TERMS
+        ):
+            violations.append(
+                {
+                    "policy":
+                        "EXPLICIT_SEXUAL_CONTENT",
+                    "action": "BLOCK",
+                }
+            )
+
+        if any(
+            term.lower() in normalized
+            for term
+            in self.SENSITIVE_GOVERNMENT_TERMS
+        ):
+            violations.append(
+                {
+                    "policy":
+                        "SENSITIVE_GOVERNMENT_CONTENT",
+                    "action": "BLOCK_REVIEW",
+                }
+            )
+
+        return {
+            "success": not violations,
+            "status": (
+                "CONTENT_ALLOWED"
+                if not violations
+                else "CONTENT_BLOCKED"
+            ),
+            "violations": violations,
+        }
+
+
+# ============================================================
+# SECURITY CENTER
+# ============================================================
+
+class SecurityCenter:
 
     def __init__(
         self,
+        logger: AuditLogger,
     ):
-        super().__init__(
-            OWNER_COMMAND_CENTER_FILE,
-            "02_OWNER_COMMAND_CENTER",
-            (
-                "process_command",
-                "execute_command",
-                "execute_request",
-                "run_command",
-                "run",
-                "execute",
-            ),
+        self.logger = logger
+        self.events_file = (
+            SECURITY_DIR / "events.jsonl"
         )
 
+    def record(
+        self,
+        event_type: str,
+        severity: str,
+        source: Optional[str] = None,
+        target: Optional[str] = None,
+        action: Optional[str] = None,
+        result: Optional[str] = None,
+        details: Optional[
+            Dict[str, Any]
+        ] = None,
+    ) -> Dict[str, Any]:
+
+        event = {
+            "id": str(uuid.uuid4()),
+            "time": utc_now(),
+            "event_type": event_type,
+            "severity": severity.upper(),
+            "source": source,
+            "target": target,
+            "action": action,
+            "result": result,
+            "details": details or {},
+        }
+
+        with self.events_file.open(
+            "a",
+            encoding="utf-8",
+        ) as file:
+            file.write(
+                json.dumps(
+                    event,
+                    ensure_ascii=False,
+                    default=str,
+                )
+                + "\n"
+            )
+
+        self.logger.log(
+            "SECURITY_EVENT",
+            event,
+        )
+
+        return event
+
+    def recent(
+        self,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+
+        if not self.events_file.exists():
+            return []
+
+        lines = self.events_file.read_text(
+            encoding="utf-8"
+        ).splitlines()
+
+        result = []
+
+        for line in lines[-limit:]:
+            try:
+                result.append(
+                    json.loads(line)
+                )
+            except Exception:
+                continue
+
+        return result
+
 
 # ============================================================
-# ORCHESTRATOR 05
+# LEGAL ASSISTANT
 # ============================================================
 
-class OrchestratorBridge(
-    ComponentAdapter
-):
+class ElectronicLegalAssistant:
+
+    DISCLAIMER = (
+        "MAJD Electronic Legal Assistant is an AI "
+        "assistance capability and is not a human "
+        "licensed lawyer. Matters requiring formal "
+        "legal approval must be reviewed by an "
+        "appropriately qualified legal professional."
+    )
 
     def __init__(
         self,
+        ai: LocalAIAdapter,
+        logger: AuditLogger,
     ):
-        super().__init__(
-            AI_ORCHESTRATOR_FILE,
-            "05_AI_ORCHESTRATOR",
-            (
-                "orchestrate",
-                "process_command",
-                "process",
-                "execute",
-                "run",
-            ),
-        )
-
-
-# ============================================================
-# FULL RUNTIME 06
-# ============================================================
-
-class FullRuntimeBridge(
-    ComponentAdapter
-):
-
-    def __init__(
-        self,
-    ):
-        super().__init__(
-            FULL_RUNTIME_FILE,
-            "06_FULL_EXECUTION_RUNTIME",
-            (
-                "execute_command",
-                "process_command",
-                "run_command",
-                "execute",
-                "run",
-            ),
-        )
-
-
-# ============================================================
-# CONTENT / MEDIA FACTORY 08
-# ============================================================
-
-class ContentMediaBridge(
-    ComponentAdapter
-):
-
-    def __init__(
-        self,
-    ):
-        super().__init__(
-            CONTENT_MEDIA_FACTORY_FILE,
-            "08_CONTENT_MEDIA_FACTORY",
-            (
-                "execute_request",
-                "process_request",
-                "execute_command",
-                "process_command",
-                "create_content",
-                "run",
-                "execute",
-            ),
-        )
-
-
-# ============================================================
-# REAL GAME EXECUTOR 03
-# ============================================================
-
-class GameExecutorBridge:
+        self.ai = ai
+        self.logger = logger
 
     def execute(
         self,
-        request: Dict[str, Any],
-        job_id: str,
+        command: str,
+        payload: Dict[str, Any],
     ) -> Dict[str, Any]:
-        if not REAL_GAME_EXECUTOR_FILE.exists():
-            return {
-                "success":
-                    False,
 
-                "status":
-                    "REAL_EXECUTOR_FILE_MISSING",
+        if not self.ai.available:
+            return {
+                "success": False,
+                "status": "LEGAL_AI_NOT_CONNECTED",
+                "disclaimer": self.DISCLAIMER,
             }
 
-        try:
-            module = load_module(
-                REAL_GAME_EXECUTOR_FILE,
-                (
-                    "majd_real_game_executor_03_"
-                    +
-                    uuid.uuid4().hex
-                ),
+        prompt = (
+            "Act as MAJD Electronic Legal Assistant.\n"
+            "Assist with contract drafting/review, "
+            "terms, privacy, developer agreements, "
+            "creator agreements, agency agreements, "
+            "advertising, sponsorship and IP review.\n"
+            "Do not claim to be a licensed lawyer.\n"
+            "Flag matters requiring formal legal "
+            "approval.\n\n"
+            f"COMMAND:\n{command}\n\n"
+            "PAYLOAD:\n"
+            + json.dumps(
+                payload,
+                ensure_ascii=False,
+                default=str,
             )
+        )
 
-            function = getattr(
-                module,
-                "execute_game_request",
-                None,
-            )
+        answer = self.ai.ask(
+            (
+                "You are an electronic legal "
+                "assistance system for MAJD. "
+                "Provide analysis and drafting "
+                "assistance, not licensed legal "
+                "representation."
+            ),
+            prompt,
+        )
 
-            if not callable(
-                function
-            ):
-                return {
-                    "success":
-                        False,
-
-                    "status":
-                        "REAL_EXECUTOR_INTERFACE_MISSING",
-
-                    "required":
-                        "execute_game_request",
-                }
-
-            value = call_supported(
-                function,
-                {
-                    "request":
-                        request,
-
-                    "payload":
-                        request,
-
-                    "job_id":
-                        job_id,
-
-                    "output_root":
-                        str(
-                            OUTPUT_DIR
-                        ),
-                },
-            )
-
-            return normalize_component_result(
-                value,
-                "03_REAL_GAME_EXECUTOR",
-            )
-
-        except Exception as error:
+        if not answer:
             return {
-                "success":
-                    False,
-
-                "status":
-                    "REAL_GAME_EXECUTOR_EXCEPTION",
-
-                "error":
-                    (
-                        f"{type(error).__name__}: "
-                        f"{error}"
-                    ),
-
-                "traceback":
-                    traceback.format_exc(),
+                "success": False,
+                "status": "LEGAL_AI_EMPTY",
+                "disclaimer": self.DISCLAIMER,
             }
+
+        result = {
+            "success": True,
+            "status": (
+                "LEGAL_ASSISTANCE_COMPLETED"
+            ),
+            "result": answer,
+            "disclaimer": self.DISCLAIMER,
+        }
+
+        self.logger.log(
+            "LEGAL_ASSISTANCE",
+            {
+                "command": command,
+                "status": result["status"],
+            },
+        )
+
+        return result
 
 
 # ============================================================
@@ -2484,507 +2178,110 @@ class ArtifactVerifier:
         "playable_artifact",
     )
 
-
-    def _candidate(
-        self,
-        value: Any,
-    ) -> Optional[Path]:
-        if not value:
-            return None
-
-        path = Path(
-            str(
-                value
-            )
-        ).expanduser()
-
-        if not path.is_absolute():
-            path = (
-                ROOT_DIR
-                /
-                path
-            ).resolve()
-        else:
-            path = path.resolve()
-
-        if not is_inside_root(
-            path
-        ):
-            return None
-
-        if not path.exists():
-            return None
-
-        return path
-
-
     def extract(
         self,
         result: Dict[str, Any],
     ) -> Optional[Path]:
-        for key in self.KEYS:
-            path = self._candidate(
-                result.get(
-                    key
-                )
-            )
 
-            if path is not None:
-                return path
+        containers = [
+            result,
+        ]
 
-        for nested_key in (
+        for key in (
             "result",
             "build",
             "output",
             "game",
         ):
-            nested = result.get(
-                nested_key
-            )
+            nested = result.get(key)
 
-            if not isinstance(
-                nested,
-                dict,
-            ):
-                continue
+            if isinstance(nested, dict):
+                containers.append(nested)
 
+        for container in containers:
             for key in self.KEYS:
-                path = self._candidate(
-                    nested.get(
-                        key
-                    )
-                )
+                value = container.get(key)
 
-                if path is not None:
+                if not value:
+                    continue
+
+                path = Path(str(value))
+
+                if not path.is_absolute():
+                    path = (
+                        ROOT_DIR / path
+                    ).resolve()
+                else:
+                    path = path.resolve()
+
+                if is_inside_root(path):
                     return path
 
         return None
-
 
     def verify(
         self,
         result: Dict[str, Any],
     ) -> Dict[str, Any]:
-        path = self.extract(
-            result
-        )
 
-        if path is None:
+        artifact = self.extract(result)
+
+        if artifact is None:
             return {
-                "success":
-                    False,
-
-                "status":
-                    "ARTIFACT_MISSING",
+                "success": False,
+                "status": "ARTIFACT_MISSING",
             }
 
-        if not is_inside_root(
-            path
-        ):
+        if not artifact.exists():
             return {
-                "success":
-                    False,
-
-                "status":
-                    "ARTIFACT_OUTSIDE_PROJECT",
-
-                "artifact":
-                    str(
-                        path
-                    ),
+                "success": False,
+                "status": "ARTIFACT_NOT_FOUND",
+                "artifact": str(artifact),
             }
 
-        if not path.exists():
+        if not artifact.is_dir():
             return {
-                "success":
-                    False,
-
-                "status":
-                    "ARTIFACT_NOT_FOUND",
-
-                "artifact":
-                    str(
-                        path
-                    ),
-            }
-
-        if not path.is_dir():
-            return {
-                "success":
-                    False,
-
-                "status":
-                    "ARTIFACT_NOT_DIRECTORY",
-
-                "artifact":
-                    str(
-                        path
-                    ),
+                "success": False,
+                "status": (
+                    "ARTIFACT_NOT_DIRECTORY"
+                ),
+                "artifact": str(artifact),
             }
 
         files = [
             item
-            for item
-            in path.rglob(
-                "*"
-            )
+            for item in artifact.rglob("*")
             if item.is_file()
         ]
 
         if not files:
             return {
-                "success":
-                    False,
-
-                "status":
-                    "ARTIFACT_EMPTY",
-
-                "artifact":
-                    str(
-                        path
-                    ),
+                "success": False,
+                "status": "ARTIFACT_EMPTY",
+                "artifact": str(artifact),
             }
 
-        index = (
-            path
-            /
-            "index.html"
-        )
+        index = artifact / "index.html"
 
         if (
             not index.exists()
-            or
-            not index.is_file()
-            or
-            index.stat().st_size <= 0
+            or not index.is_file()
+            or index.stat().st_size <= 0
         ):
             return {
-                "success":
-                    False,
-
-                "status":
-                    "PLAYABLE_INDEX_NOT_FOUND",
-
-                "artifact":
-                    str(
-                        path
-                    ),
+                "success": False,
+                "status": (
+                    "PLAYABLE_INDEX_NOT_FOUND"
+                ),
+                "artifact": str(artifact),
             }
 
         return {
-            "success":
-                True,
-
-            "status":
-                "ARTIFACT_VERIFIED",
-
-            "artifact":
-                str(
-                    path
-                ),
-
-            "index":
-                str(
-                    index
-                ),
-
-            "file_count":
-                len(
-                    files
-                ),
-        }
-
-
-# ============================================================
-# OFFICIAL PLATFORM BRIDGE 04
-# ============================================================
-
-class PlatformBridge:
-
-    def publish(
-        self,
-        artifact: str,
-        request: Dict[str, Any],
-        job_id: str,
-    ) -> Dict[str, Any]:
-        if not OFFICIAL_PLATFORM_BRIDGE_FILE.exists():
-            return {
-                "success":
-                    False,
-
-                "status":
-                    "PLATFORM_BRIDGE_FILE_MISSING",
-            }
-
-        try:
-            module = load_module(
-                OFFICIAL_PLATFORM_BRIDGE_FILE,
-                (
-                    "majd_official_platform_bridge_04_"
-                    +
-                    uuid.uuid4().hex
-                ),
-            )
-
-            publish_function = getattr(
-                module,
-                "publish_game",
-                None,
-            )
-
-            if not callable(
-                publish_function
-            ):
-                return {
-                    "success":
-                        False,
-
-                    "status":
-                        "PLATFORM_BRIDGE_INTERFACE_MISSING",
-
-                    "required":
-                        "publish_game",
-                }
-
-            value = call_supported(
-                publish_function,
-                {
-                    "game_dir":
-                        Path(
-                            artifact
-                        ),
-
-                    "artifact":
-                        Path(
-                            artifact
-                        ),
-
-                    "artifact_path":
-                        artifact,
-
-                    "build_path":
-                        artifact,
-
-                    "game_name":
-                        str(
-                            request.get(
-                                "name"
-                            )
-                            or
-                            "MAJD-GAME"
-                        ),
-
-                    "job_id":
-                        job_id,
-
-                    "request":
-                        request,
-
-                    "payload":
-                        request,
-                },
-            )
-
-            return normalize_component_result(
-                value,
-                "04_OFFICIAL_PLATFORM_BRIDGE",
-            )
-
-        except Exception as error:
-            return {
-                "success":
-                    False,
-
-                "status":
-                    "PLATFORM_BRIDGE_EXCEPTION",
-
-                "error":
-                    (
-                        f"{type(error).__name__}: "
-                        f"{error}"
-                    ),
-
-                "traceback":
-                    traceback.format_exc(),
-            }
-
-
-# ============================================================
-# PUBLICATION VERIFIER
-# ============================================================
-
-class PublicationVerifier:
-
-    def verify(
-        self,
-        result: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        if result.get(
-            "success"
-        ) is not True:
-            return {
-                "success":
-                    False,
-
-                "status":
-                    "BRIDGE_REPORTED_FAILURE",
-            }
-
-        directory_value = (
-            result.get(
-                "published_directory"
-            )
-            or
-            result.get(
-                "publish_dir"
-            )
-            or
-            result.get(
-                "destination"
-            )
-        )
-
-        if not directory_value:
-            return {
-                "success":
-                    False,
-
-                "status":
-                    "PUBLISHED_DIRECTORY_MISSING",
-            }
-
-        directory = Path(
-            str(
-                directory_value
-            )
-        )
-
-        if not directory.is_absolute():
-            directory = (
-                ROOT_DIR
-                /
-                directory
-            ).resolve()
-        else:
-            directory = directory.resolve()
-
-        if not is_inside_root(
-            directory
-        ):
-            return {
-                "success":
-                    False,
-
-                "status":
-                    "PUBLISHED_DIRECTORY_OUTSIDE_PROJECT",
-            }
-
-        if (
-            not directory.exists()
-            or
-            not directory.is_dir()
-        ):
-            return {
-                "success":
-                    False,
-
-                "status":
-                    "PUBLISHED_DIRECTORY_NOT_FOUND",
-
-                "published_directory":
-                    str(
-                        directory
-                    ),
-            }
-
-        index = (
-            directory
-            /
-            "index.html"
-        )
-
-        if (
-            not index.exists()
-            or
-            not index.is_file()
-            or
-            index.stat().st_size <= 0
-        ):
-            return {
-                "success":
-                    False,
-
-                "status":
-                    "PUBLISHED_INDEX_INVALID",
-
-                "index":
-                    str(
-                        index
-                    ),
-            }
-
-        game_path = result.get(
-            "game_path"
-        )
-
-        public_url = result.get(
-            "public_url"
-        )
-
-        if not game_path:
-            try:
-                relative = directory.relative_to(
-                    PUBLIC_DIR
-                )
-
-                game_path = (
-                    "/"
-                    +
-                    str(
-                        relative
-                    ).replace(
-                        os.sep,
-                        "/",
-                    )
-                    +
-                    "/index.html"
-                )
-            except Exception:
-                game_path = None
-
-        if not game_path:
-            return {
-                "success":
-                    False,
-
-                "status":
-                    "GAME_PATH_MISSING",
-            }
-
-        return {
-            "success":
-                True,
-
-            "status":
-                "REAL_PUBLICATION_VERIFIED",
-
-            "published_directory":
-                str(
-                    directory
-                ),
-
-            "index":
-                str(
-                    index
-                ),
-
-            "game_path":
-                str(
-                    game_path
-                ),
-
-            "public_url":
-                public_url,
+            "success": True,
+            "status": "ARTIFACT_VERIFIED",
+            "artifact": str(artifact),
+            "index": str(index),
+            "file_count": len(files),
         }
 
 
@@ -2994,286 +2291,697 @@ class PublicationVerifier:
 
 class CommandClassifier:
 
-    GAME_WORDS = (
-        "أنشئ لعبة",
-        "انشئ لعبة",
-        "اصنع لعبة",
-        "ابني لعبة",
-        "بناء لعبة",
-        "لعبة جديدة",
-        "create game",
-        "build game",
-        "make game",
+    RULES: Tuple[
+        Tuple[str, Tuple[str, ...]],
+        ...
+    ] = (
+        (
+            "CREATE_GAME",
+            (
+                "أنشئ لعبة",
+                "انشئ لعبة",
+                "اصنع لعبة",
+                "ابني لعبة",
+                "سوي لعبة",
+                "create game",
+                "build game",
+                "make game",
+            ),
+        ),
+        (
+            "REPAIR",
+            (
+                "اصلح",
+                "أصلح",
+                "إصلاح",
+                "اصلاح",
+                "صحح",
+                "مشاكل",
+                "أخطاء",
+                "اخطاء",
+                "repair",
+                "fix",
+                "debug",
+            ),
+        ),
+        (
+            "INSPECT",
+            (
+                "افحص",
+                "فحص",
+                "راجع",
+                "اختبر",
+                "check",
+                "inspect",
+                "test",
+                "validate",
+            ),
+        ),
+        (
+            "LEGAL",
+            (
+                "عقد",
+                "عقود",
+                "قانون",
+                "قانوني",
+                "محامي",
+                "خصوصية",
+                "شروط وأحكام",
+                "contract",
+                "legal",
+                "privacy policy",
+                "terms",
+            ),
+        ),
+        (
+            "SECURITY",
+            (
+                "اختراق",
+                "أمن",
+                "امن",
+                "هجوم",
+                "مخترق",
+                "security",
+                "attack",
+                "intrusion",
+            ),
+        ),
+        (
+            "CONTENT",
+            (
+                "فيلم",
+                "مسلسل",
+                "فيديو",
+                "صورة",
+                "محتوى",
+                "movie",
+                "series",
+                "video",
+                "content",
+                "image",
+            ),
+        ),
+        (
+            "SOCIAL",
+            (
+                "تيك توك",
+                "سناب",
+                "يوتيوب",
+                "تويتر",
+                "social",
+                "tiktok",
+                "snapchat",
+                "youtube",
+            ),
+        ),
+        (
+            "LIVE",
+            (
+                "بث مباشر",
+                "لايف",
+                "live stream",
+                "livestream",
+            ),
+        ),
+        (
+            "PAYMENTS",
+            (
+                "دفع",
+                "مدفوعات",
+                "محفظة",
+                "mada",
+                "apple pay",
+                "payment",
+                "wallet",
+            ),
+        ),
+        (
+            "ADS",
+            (
+                "إعلان",
+                "اعلان",
+                "إعلانات",
+                "اعلانات",
+                "advertisement",
+                "ads",
+            ),
+        ),
+        (
+            "STATUS",
+            (
+                "حالة المنصة",
+                "وش يصير",
+                "ماذا يحدث",
+                "status",
+                "health",
+                "dashboard",
+            ),
+        ),
     )
-
-    CONTENT_WORDS = (
-        "فيديو",
-        "صورة",
-        "صور",
-        "فيلم",
-        "مسلسل",
-        "حلقة",
-        "قصة",
-        "بوستر",
-        "ملصق",
-        "thumbnail",
-        "صوت",
-        "تعليق صوتي",
-        "موسيقى",
-        "ترجمة",
-        "دبلجة",
-        "بث",
-        "بث مباشر",
-        "منشور",
-        "محتوى",
-        "سوشال",
-        "سوشيال",
-        "تيك توك",
-        "tiktok",
-        "سناب",
-        "snapchat",
-        "youtube",
-        "يوتيوب",
-        "twitter",
-        "تويتر",
-        "منصة x",
-        "social",
-        "content",
-        "media",
-        "shorts",
-        "reels",
-        "live stream",
-        "channel",
-    )
-
-    DIAGNOSTIC_WORDS = (
-        "افحص",
-        "فحص",
-        "راجع",
-        "اختبر",
-        "اختبار",
-        "مشاكل",
-        "مشكلة",
-        "أخطاء",
-        "اخطاء",
-        "خطأ",
-        "diagnose",
-        "check",
-        "test",
-        "validate",
-        "debug",
-        "inspect",
-    )
-
-    REPAIR_WORDS = (
-        "أصلح",
-        "اصلح",
-        "إصلاح",
-        "اصلاح",
-        "صحح",
-        "تصحيح",
-        "repair",
-        "fix",
-        "recover",
-        "self repair",
-    )
-
-    STATUS_WORDS = (
-        "الحالة",
-        "حالة المنصة",
-        "حالة النظام",
-        "status",
-        "health",
-    )
-
-    RUNTIME_WORDS = (
-        "شغل المنصة",
-        "شغل النظام",
-        "شغّل المنصة",
-        "شغّل النظام",
-        "التشغيل",
-        "runtime",
-        "deploy",
-        "deployment",
-        "تشغيل تلقائي",
-        "إدارة المنصة",
-        "ادارة المنصة",
-        "autonomous",
-    )
-
 
     def classify(
         self,
         command: str,
-        request: Dict[str, Any],
-    ) -> str:
-        explicit = str(
-            request.get(
-                "type"
-            )
-            or
-            ""
-        ).strip().upper()
-
-        aliases = {
-            "CREATE_GAME":
-                "CREATE_GAME",
-
-            "GAME":
-                "CREATE_GAME",
-
-            "CONTENT":
-                "CONTENT",
-
-            "MEDIA":
-                "CONTENT",
-
-            "SOCIAL":
-                "CONTENT",
-
-            "DIAGNOSE":
-                "DIAGNOSE",
-
-            "INSPECT":
-                "DIAGNOSE",
-
-            "REPAIR":
-                "REPAIR",
-
-            "STATUS":
-                "STATUS",
-
-            "RUNTIME":
-                "RUNTIME",
-
-            "PLATFORM":
-                "RUNTIME",
-
-            "AUTONOMOUS":
-                "RUNTIME",
-        }
-
-        if explicit in aliases:
-            return aliases[
-                explicit
-            ]
+    ) -> Dict[str, Any]:
 
         lowered = str(
-            command
-            or
-            ""
+            command or ""
         ).lower()
 
-        if any(
-            phrase in lowered
-            for phrase in self.GAME_WORDS
-        ):
-            return "CREATE_GAME"
+        scores: Dict[str, int] = {}
 
-        if any(
-            phrase in lowered
-            for phrase in self.CONTENT_WORDS
-        ):
-            return "CONTENT"
+        for command_type, phrases in self.RULES:
+            score = sum(
+                1
+                for phrase in phrases
+                if phrase.lower() in lowered
+            )
 
-        if any(
-            phrase in lowered
-            for phrase in self.REPAIR_WORDS
-        ):
-            return "REPAIR"
+            if score:
+                scores[command_type] = score
 
-        if any(
-            phrase in lowered
-            for phrase in self.DIAGNOSTIC_WORDS
-        ):
-            return "DIAGNOSE"
+        if scores:
+            selected = max(
+                scores,
+                key=scores.get,
+            )
+        else:
+            selected = (
+                "GENERAL_OWNER_COMMAND"
+            )
 
-        if any(
-            phrase in lowered
-            for phrase in self.STATUS_WORDS
-        ):
-            return "STATUS"
-
-        if any(
-            phrase in lowered
-            for phrase in self.RUNTIME_WORDS
-        ):
-            return "RUNTIME"
-
-        return "OWNER_COMMAND"
+        return {
+            "type": selected,
+            "scores": scores,
+        }
 
 
 # ============================================================
-# PLANNER
+# ROUTER
 # ============================================================
 
-class AutonomousPlanner:
+class CapabilityRouter:
 
-    def plan(
+    TYPE_TO_CAPABILITIES = {
+        "CREATE_GAME": [
+            "GAME",
+            "EXECUTION",
+        ],
+        "CONTENT": [
+            "CONTENT",
+            "MEDIA",
+        ],
+        "SOCIAL": [
+            "SOCIAL",
+            "CONTENT",
+        ],
+        "LIVE": [
+            "LIVE",
+            "MEDIA",
+        ],
+        "PAYMENTS": [
+            "PAYMENTS",
+        ],
+        "ADS": [
+            "ADS",
+        ],
+        "SECURITY": [
+            "SECURITY",
+        ],
+        "REPAIR": [
+            "REPAIR",
+            "DIAGNOSTICS",
+        ],
+        "INSPECT": [
+            "HEALTH",
+            "TESTING",
+            "VERIFICATION",
+        ],
+        "STATUS": [
+            "DASHBOARD",
+            "MONITORING",
+            "HEALTH",
+        ],
+    }
+
+    def __init__(
         self,
-        route: str,
-    ) -> List[
-        Dict[str, Any]
-    ]:
-        routes = {
-            "CREATE_GAME": (
-                "INSPECT",
-                "EXECUTE_03",
-                "VERIFY_ARTIFACT",
-                "PUBLISH_04",
-                "VERIFY_PUBLICATION",
-            ),
+        registry: CapabilityRegistry,
+    ):
+        self.registry = registry
 
-            "CONTENT": (
-                "INSPECT",
-                "EXECUTE_08",
-                "VERIFY_RESULT",
-            ),
+    def route(
+        self,
+        command_type: str,
+    ) -> Dict[str, Any]:
 
-            "DIAGNOSE": (
-                "INSPECT",
-                "DIAGNOSE",
-                "REPORT",
-            ),
+        desired = (
+            self.TYPE_TO_CAPABILITIES.get(
+                command_type,
+                [],
+            )
+        )
 
-            "REPAIR": (
-                "INSPECT",
-                "DIAGNOSE",
-                "REPAIR",
-                "RECHECK",
-            ),
+        candidates = []
 
-            "RUNTIME": (
-                "INSPECT",
-                "EXECUTE_06",
-                "VERIFY_RESULT",
-            ),
+        for capability in desired:
+            for provider in (
+                self.registry.providers(
+                    capability
+                )
+            ):
+                if (
+                    provider.get("importable")
+                    and provider.get(
+                        "entrypoints"
+                    )
+                ):
+                    candidates.append(
+                        {
+                            "capability":
+                                capability,
+                            **provider,
+                        }
+                    )
 
-            "STATUS": (
-                "INSPECT",
-                "REPORT",
-            ),
-
-            "OWNER_COMMAND": (
-                "OWNER_02",
-                "ORCHESTRATE_05",
-                "VERIFY_RESULT",
+        return {
+            "success": bool(candidates),
+            "desired_capabilities": desired,
+            "candidates": candidates,
+            "status": (
+                "ROUTE_FOUND"
+                if candidates
+                else "NO_CAPABILITY_ROUTE"
             ),
         }
 
-        return [
-            {
-                "stage":
-                    stage
-            }
-            for stage
-            in routes.get(
-                route,
-                routes[
-                    "OWNER_COMMAND"
-                ],
+
+# ============================================================
+# COMPONENT EXECUTOR
+# ============================================================
+
+class ComponentExecutor:
+
+    def execute_provider(
+        self,
+        provider: Dict[str, Any],
+        command: str,
+        request: Dict[str, Any],
+        job_id: str,
+    ) -> Dict[str, Any]:
+
+        path = Path(provider["path"])
+
+        try:
+            module = load_module(
+                path,
+                (
+                    "_majd_execute_"
+                    + uuid.uuid4().hex
+                ),
             )
-        ]
+
+        except Exception as error:
+            return {
+                "success": False,
+                "status": (
+                    "COMPONENT_LOAD_FAILED"
+                ),
+                "component": provider,
+                "error": (
+                    f"{type(error).__name__}: "
+                    f"{error}"
+                ),
+                "traceback":
+                    traceback.format_exc(),
+            }
+
+        entrypoints = (
+            provider.get("entrypoints")
+            or []
+        )
+
+        for name in entrypoints:
+
+            function = getattr(
+                module,
+                name,
+                None,
+            )
+
+            if not callable(function):
+                continue
+
+            try:
+                value = call_supported(
+                    function,
+                    {
+                        "command": command,
+                        "request": request,
+                        "payload": request,
+                        "job_id": job_id,
+                        "owner": DEFAULT_OWNER,
+                        "output_root":
+                            str(OUTPUT_DIR),
+                    },
+                )
+
+                result = normalize_result(
+                    value
+                )
+
+                result.setdefault(
+                    "component",
+                    provider["filename"],
+                )
+
+                result.setdefault(
+                    "entrypoint",
+                    name,
+                )
+
+                return result
+
+            except Exception as error:
+                return {
+                    "success": False,
+                    "status": (
+                        "COMPONENT_EXECUTION_FAILED"
+                    ),
+                    "component":
+                        provider["filename"],
+                    "entrypoint": name,
+                    "error": (
+                        f"{type(error).__name__}: "
+                        f"{error}"
+                    ),
+                    "traceback":
+                        traceback.format_exc(),
+                }
+
+        return {
+            "success": False,
+            "status": (
+                "COMPONENT_ENTRYPOINT_MISSING"
+            ),
+            "component":
+                provider["filename"],
+        }
+
+
+# ============================================================
+# OFFICIAL GAME PIPELINE
+# ============================================================
+
+class GamePipeline:
+
+    def __init__(
+        self,
+        registry: CapabilityRegistry,
+        executor: ComponentExecutor,
+    ):
+        self.registry = registry
+        self.executor = executor
+        self.verifier = ArtifactVerifier()
+
+    def _select_executor(
+        self,
+    ) -> Optional[Dict[str, Any]]:
+
+        providers = (
+            self.registry.providers("GAME")
+            + self.registry.providers(
+                "EXECUTION"
+            )
+        )
+
+        # Prefer official 03 if discovered.
+        providers.sort(
+            key=lambda item: (
+                0
+                if item.get("number") == "03"
+                else 1
+            )
+        )
+
+        for provider in providers:
+            if (
+                provider.get("importable")
+                and provider.get("entrypoints")
+            ):
+                return provider
+
+        return None
+
+    def _select_publisher(
+        self,
+    ) -> Optional[Dict[str, Any]]:
+
+        providers = (
+            self.registry.providers(
+                "PUBLISH"
+            )
+        )
+
+        providers.sort(
+            key=lambda item: (
+                0
+                if item.get("number") == "04"
+                else 1
+            )
+        )
+
+        for provider in providers:
+            if (
+                provider.get("importable")
+                and provider.get("entrypoints")
+            ):
+                return provider
+
+        return None
+
+    def run(
+        self,
+        command: str,
+        request: Dict[str, Any],
+        job_id: str,
+    ) -> Dict[str, Any]:
+
+        executor_provider = (
+            self._select_executor()
+        )
+
+        if executor_provider is None:
+            return {
+                "success": False,
+                "status": (
+                    "REAL_GAME_EXECUTOR_UNAVAILABLE"
+                ),
+            }
+
+        build = self.executor.execute_provider(
+            executor_provider,
+            command,
+            request,
+            job_id,
+        )
+
+        if not build.get("success"):
+            return {
+                "success": False,
+                "status": (
+                    "REAL_GAME_EXECUTION_FAILED"
+                ),
+                "executor": build,
+            }
+
+        artifact = self.verifier.verify(build)
+
+        if not artifact.get("success"):
+            return {
+                "success": False,
+                "status": (
+                    "ARTIFACT_VERIFICATION_FAILED"
+                ),
+                "executor": build,
+                "artifact_verification":
+                    artifact,
+            }
+
+        publisher = self._select_publisher()
+
+        if publisher is None:
+            return {
+                "success": False,
+                "status": (
+                    "OFFICIAL_PLATFORM_BRIDGE_UNAVAILABLE"
+                ),
+                "artifact":
+                    artifact,
+            }
+
+        publish_request = dict(request)
+
+        publish_request.update(
+            {
+                "artifact":
+                    artifact["artifact"],
+                "artifact_path":
+                    artifact["artifact"],
+                "game_dir":
+                    artifact["artifact"],
+                "build_path":
+                    artifact["artifact"],
+            }
+        )
+
+        published = (
+            self.executor.execute_provider(
+                publisher,
+                command,
+                publish_request,
+                job_id,
+            )
+        )
+
+        if not published.get("success"):
+            return {
+                "success": False,
+                "status": (
+                    "OFFICIAL_PLATFORM_PUBLISH_FAILED"
+                ),
+                "artifact":
+                    artifact,
+                "publisher":
+                    published,
+            }
+
+        # Publishing success must contain evidence.
+        evidence = any(
+            published.get(key)
+            for key in (
+                "public_url",
+                "published_directory",
+                "game_path",
+                "receipt",
+                "publication",
+            )
+        )
+
+        if not evidence:
+            return {
+                "success": False,
+                "status": (
+                    "PUBLICATION_NOT_VERIFIED"
+                ),
+                "artifact":
+                    artifact,
+                "publisher":
+                    published,
+            }
+
+        return {
+            "success": True,
+            "status": (
+                "GAME_BUILT_AND_PUBLISHED"
+            ),
+            "artifact": artifact,
+            "executor": build,
+            "publisher": published,
+        }
+
+
+# ============================================================
+# OWNER DASHBOARD
+# ============================================================
+
+class OwnerDashboard:
+
+    def __init__(
+        self,
+        security: SecurityCenter,
+    ):
+        self.security = security
+        self.path = (
+            DASHBOARD_DIR / "owner-status.json"
+        )
+
+    def update(
+        self,
+        **values: Any,
+    ) -> Dict[str, Any]:
+
+        current = read_json(
+            self.path,
+            {},
+        ) or {}
+
+        current.update(values)
+
+        current["updated_at"] = utc_now()
+
+        write_json(
+            self.path,
+            current,
+        )
+
+        return current
+
+    def snapshot(
+        self,
+    ) -> Dict[str, Any]:
+
+        data = read_json(
+            self.path,
+            {},
+        ) or {}
+
+        data["security_events"] = (
+            self.security.recent(50)
+        )
+
+        data["updated_at"] = utc_now()
+
+        return data
+
+
+# ============================================================
+# MASTER STATE
+# ============================================================
+
+@dataclass
+class MastermindState:
+    operation_id: str
+    owner: str
+    command: str
+    started_at: str
+    updated_at: str
+    status: str
+
+    success: bool = False
+    attempts: int = 0
+
+    command_type: str = (
+        "GENERAL_OWNER_COMMAND"
+    )
+
+    plan: List[
+        Dict[str, Any]
+    ] = field(
+        default_factory=list
+    )
+
+    events: List[
+        Dict[str, Any]
+    ] = field(
+        default_factory=list
+    )
+
+    result: Optional[
+        Dict[str, Any]
+    ] = None
+
+    error: Optional[str] = None
 
 
 # ============================================================
@@ -3285,126 +2993,108 @@ class Mastermind:
     def __init__(
         self,
         owner: str = DEFAULT_OWNER,
-        max_repair_attempts: int = MAX_REPAIR_ATTEMPTS,
+        max_repair_attempts: int = (
+            MAX_REPAIR_ATTEMPTS
+        ),
     ):
+
         self.owner = owner
 
         self.max_repair_attempts = max(
             1,
-            int(
-                max_repair_attempts
-            ),
+            int(max_repair_attempts),
         )
 
         self.operation_id = str(
             uuid.uuid4()
         )
 
-        self.logger = (
-            AuditLogger(
-                self.operation_id
-            )
+        self.logger = AuditLogger(
+            self.operation_id
         )
 
-        self.executor = (
-            ProcessExecutor()
+        self.process = ProcessExecutor()
+
+        self.python_checker = PythonChecker(
+            self.process
         )
 
-        self.inspector = (
-            ProjectInspector()
+        self.discovery = ComponentDiscovery()
+
+        self.registry = CapabilityRegistry(
+            self.discovery
         )
 
-        self.python_checker = (
-            PythonChecker(
-                self.executor
-            )
+        self.registry.build()
+
+        self.router = CapabilityRouter(
+            self.registry
         )
 
-        self.interface_checker = (
-            InterfaceChecker()
+        self.component_executor = (
+            ComponentExecutor()
         )
 
-        self.classifier = (
-            CommandClassifier()
+        self.game_pipeline = GamePipeline(
+            self.registry,
+            self.component_executor,
         )
 
-        self.planner = (
-            AutonomousPlanner()
-        )
+        self.classifier = CommandClassifier()
 
-        self.diagnostics = (
-            DiagnosticEngine()
-        )
+        self.diagnostics = DiagnosticEngine()
 
         self.repair_engine = (
             AutonomousRepairEngine(
                 self.operation_id,
                 self.logger,
+                self.python_checker,
             )
         )
 
-        self.owner_center = (
-            OwnerCommandCenterBridge()
+        self.ai = LocalAIAdapter(
+            self.logger
         )
 
-        self.orchestrator = (
-            OrchestratorBridge()
+        self.security = SecurityCenter(
+            self.logger
         )
 
-        self.runtime = (
-            FullRuntimeBridge()
+        self.legal = (
+            ElectronicLegalAssistant(
+                self.ai,
+                self.logger,
+            )
         )
 
-        self.content_factory = (
-            ContentMediaBridge()
+        self.content_policy = (
+            ContentSafetyPolicy()
         )
 
-        self.game_executor = (
-            GameExecutorBridge()
+        self.dashboard = OwnerDashboard(
+            self.security
         )
 
-        self.artifact_verifier = (
-            ArtifactVerifier()
-        )
-
-        self.platform = (
-            PlatformBridge()
-        )
-
-        self.publication_verifier = (
-            PublicationVerifier()
-        )
-
-
-    # ========================================================
+    # --------------------------------------------------------
     # STATE
-    # ========================================================
+    # --------------------------------------------------------
 
-    def _state_path(
-        self,
-    ) -> Path:
+    def _state_path(self) -> Path:
         return (
             MASTERMIND_STATE_DIR
-            /
-            f"{self.operation_id}.json"
+            / f"{self.operation_id}.json"
         )
-
 
     def _save_state(
         self,
         state: MastermindState,
     ) -> None:
-        state.updated_at = (
-            utc_now()
-        )
+        state.updated_at = utc_now()
 
         write_json(
             self._state_path(),
-            asdict(
-                state
-            ),
+            asdict(state),
         )
-
 
     def _event(
         self,
@@ -3412,34 +3102,124 @@ class Mastermind:
         event_type: str,
         data: Dict[str, Any],
     ) -> None:
+
         event = {
-            "time":
-                utc_now(),
-
-            "type":
-                event_type,
-
-            "data":
-                data,
+            "time": utc_now(),
+            "type": event_type,
+            "data": data,
         }
 
-        state.events.append(
-            event
-        )
-
-        self._save_state(
-            state
-        )
+        state.events.append(event)
 
         self.logger.log(
             event_type,
             data,
         )
 
+        self._save_state(state)
 
-    # ========================================================
-    # REQUEST
-    # ========================================================
+    # --------------------------------------------------------
+    # REGISTRY
+    # --------------------------------------------------------
+
+    def refresh_registry(
+        self,
+    ) -> Dict[str, Any]:
+
+        result = self.registry.build()
+
+        self.router = CapabilityRouter(
+            self.registry
+        )
+
+        self.game_pipeline = GamePipeline(
+            self.registry,
+            self.component_executor,
+        )
+
+        return result
+
+    # --------------------------------------------------------
+    # INSPECTION
+    # --------------------------------------------------------
+
+    def inspect_factory(
+        self,
+    ) -> Dict[str, Any]:
+
+        compile_report = (
+            self.python_checker
+            .compile_project()
+        )
+
+        component_report = (
+            self.discovery.discover(
+                runtime_import=True
+            )
+        )
+
+        registry_report = (
+            self.refresh_registry()
+        )
+
+        import_failures = []
+
+        for records in (
+            component_report[
+                "components"
+            ].values()
+        ):
+            for record in records:
+                if (
+                    record["number"] != "01"
+                    and not record.get(
+                        "importable"
+                    )
+                ):
+                    import_failures.append(
+                        {
+                            "file":
+                                record["filename"],
+                            "error":
+                                record.get("error"),
+                        }
+                    )
+
+        # 01 itself is mandatory.
+        has_01 = bool(
+            component_report[
+                "components"
+            ].get("01")
+        )
+
+        success = bool(
+            has_01
+            and compile_report.get("success")
+            and not import_failures
+        )
+
+        return {
+            "success": success,
+            "status": (
+                "FACTORY_VERIFIED"
+                if success
+                else "FACTORY_CHECK_FAILED"
+            ),
+            "python_compile":
+                compile_report,
+            "components":
+                component_report,
+            "capability_registry":
+                registry_report,
+            "import_failures":
+                import_failures,
+            "ai":
+                self.ai.status(),
+        }
+
+    # --------------------------------------------------------
+    # REQUEST NORMALIZATION
+    # --------------------------------------------------------
 
     def normalize_request(
         self,
@@ -3448,11 +3228,8 @@ class Mastermind:
             Dict[str, Any]
         ] = None,
     ) -> Dict[str, Any]:
-        data = dict(
-            request
-            or
-            {}
-        )
+
+        data = dict(request or {})
 
         data.setdefault(
             "request",
@@ -3464,9 +3241,15 @@ class Mastermind:
             command,
         )
 
+        classification = (
+            self.classifier.classify(
+                command
+            )
+        )
+
         data.setdefault(
-            "command",
-            command,
+            "type",
+            classification["type"],
         )
 
         data.setdefault(
@@ -3494,204 +3277,150 @@ class Mastermind:
             True,
         )
 
+        data["classification"] = (
+            classification
+        )
+
         return data
 
+    # --------------------------------------------------------
+    # PLAN
+    # --------------------------------------------------------
 
-    # ========================================================
-    # INSPECTION
-    # ========================================================
-
-    def inspect_factory(
+    def build_plan(
         self,
-    ) -> Dict[str, Any]:
-        core = (
-            self.inspector
-            .core_status()
-        )
+        request: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
 
-        compile_report = (
-            self.python_checker
-            .compile_project()
-        )
+        request_type = str(
+            request.get("type")
+            or "GENERAL_OWNER_COMMAND"
+        ).upper()
 
-        import_report = (
-            self.python_checker
-            .import_core()
-        )
-
-        interface_report = (
-            self.interface_checker
-            .check()
-        )
-
-        required = (
-            "01",
-            "02",
-            "03",
-            "04",
-            "05",
-            "06",
-            "08",
-            "agent",
-        )
-
-        missing = [
-            core[number][
-                "file"
-            ]
-            for number in required
-            if (
-                number not in core
-                or
-                not core[
-                    number
-                ].get(
-                    "exists"
-                )
-            )
+        common = [
+            "DISCOVER",
+            "VALIDATE",
+            "PLAN",
         ]
 
-        result = {
-            "system":
-                SYSTEM_NAME,
-
-            "mastermind":
-                MASTERMIND_NAME,
-
-            "version":
-                VERSION,
-
-            "core_files":
-                core,
-
-            "required_missing":
-                missing,
-
-            "stack":
-                self.inspector
-                .detect_stack(),
-
-            "file_count":
-                len(
-                    self.inspector
-                    .list_files()
-                ),
-
-            "python_compile":
-                compile_report,
-
-            "python_imports":
-                import_report,
-
-            "interfaces":
-                interface_report,
-        }
-
-        result[
-            "success"
-        ] = bool(
-            not missing
-            and
-            compile_report.get(
-                "success"
-            ) is True
-            and
-            import_report.get(
-                "success"
-            ) is True
-            and
-            interface_report.get(
-                "success"
-            ) is True
-        )
-
-        result[
-            "status"
-        ] = (
-            "FACTORY_VERIFIED"
-            if result[
-                "success"
+        if request_type == "CREATE_GAME":
+            stages = common + [
+                "BUILD",
+                "VERIFY_ARTIFACT",
+                "PUBLISH",
+                "VERIFY_PUBLICATION",
             ]
-            else
-            "FACTORY_CHECK_FAILED"
-        )
 
-        return result
+        elif request_type in {
+            "REPAIR",
+            "INSPECT",
+        }:
+            stages = common + [
+                "DIAGNOSE",
+                "BACKUP",
+                "REPAIR",
+                "TEST",
+                "VERIFY",
+                "RETRY_IF_REQUIRED",
+            ]
 
+        else:
+            stages = common + [
+                "ROUTE",
+                "EXECUTE",
+                "VERIFY",
+                "REPAIR_IF_REQUIRED",
+                "FINAL_VERIFY",
+            ]
 
-    # ========================================================
-    # DIAGNOSIS
-    # ========================================================
-
-    def diagnose_inspection(
-        self,
-        inspection: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        if inspection.get(
-            "success"
-        ) is True:
-            return {
-                "success":
-                    True,
-
-                "status":
-                    "NO_ENFORCED_FAILURE_DETECTED",
-
-                "inspection":
-                    inspection,
+        return [
+            {
+                "stage": stage,
+                "status": "PENDING",
             }
+            for stage in stages
+        ]
 
-        failure = {
-            "stage":
-                "FACTORY_INSPECTION",
+    # --------------------------------------------------------
+    # REPAIR
+    # --------------------------------------------------------
 
-            "inspection":
-                inspection,
-        }
+    def repair_failure(
+        self,
+        failure: Dict[str, Any],
+        state: MastermindState,
+    ) -> Dict[str, Any]:
 
         diagnosis = (
-            self.diagnostics
-            .diagnose(
+            self.diagnostics.diagnose(
                 failure
             )
         )
 
-        return {
-            "success":
-                False,
+        self._event(
+            state,
+            "DIAGNOSIS",
+            diagnosis,
+        )
 
-            "status":
-                "FAILURE_DETECTED",
+        if not diagnosis.get(
+            "repairable"
+        ):
+            return {
+                "success": False,
+                "status": (
+                    "FAILURE_NOT_AUTOMATICALLY_"
+                    "REPAIRABLE"
+                ),
+                "diagnosis": diagnosis,
+            }
 
-            "failure":
-                failure,
+        self.dashboard.update(
+            status="REPAIRING",
+            operation_id=self.operation_id,
+            diagnosis=diagnosis,
+        )
 
-            "diagnosis":
+        repair = (
+            self.repair_engine.repair(
                 diagnosis,
-        }
+                failure,
+            )
+        )
 
+        self._event(
+            state,
+            "REPAIR_RESULT",
+            repair,
+        )
 
-    # ========================================================
-    # REPAIR
-    # ========================================================
+        return repair
 
-    def repair_factory(
+    # --------------------------------------------------------
+    # INSPECT / REPAIR COMMAND
+    # --------------------------------------------------------
+
+    def run_repair_cycle(
         self,
         state: MastermindState,
     ) -> Dict[str, Any]:
+
         attempts = []
 
         for attempt in range(
             1,
             self.max_repair_attempts + 1,
         ):
-            state.attempts = attempt
-            state.status = (
-                "AUTONOMOUS_REPAIR"
-            )
 
-            self._save_state(
-                state
+            state.attempts = attempt
+            state.status = "DIAGNOSING"
+
+            self._save_state(state)
+
+            self.dashboard.update(
+                status="DIAGNOSING",
+                operation_id=self.operation_id,
+                attempt=attempt,
             )
 
             inspection = (
@@ -3700,621 +3429,288 @@ class Mastermind:
 
             self._event(
                 state,
-                "REPAIR_INSPECTION",
+                "FACTORY_INSPECTION",
                 inspection,
             )
 
-            if inspection.get(
-                "success"
-            ) is True:
+            if inspection.get("success"):
                 return {
-                    "success":
-                        True,
-
-                    "status":
-                        "FACTORY_REPAIR_VERIFIED",
-
-                    "attempt":
-                        attempt,
-
-                    "attempts":
-                        attempts,
-
-                    "factory":
-                        inspection,
+                    "success": True,
+                    "status": (
+                        "FACTORY_VERIFIED"
+                    ),
+                    "attempt": attempt,
+                    "inspection": inspection,
+                    "attempts": attempts,
                 }
 
-            diagnosis_result = (
-                self.diagnose_inspection(
-                    inspection
-                )
-            )
-
-            diagnosis = (
-                diagnosis_result.get(
-                    "diagnosis"
-                )
-                or
-                {
-                    "type":
-                        "UNKNOWN",
-
-                    "repairable":
-                        False,
-                }
-            )
-
-            failure = (
-                diagnosis_result.get(
-                    "failure"
-                )
-                or
-                {
-                    "inspection":
-                        inspection
-                }
-            )
-
-            repair = (
-                self.repair_engine
-                .repair(
-                    diagnosis,
-                    failure,
-                )
-            )
-
-            record = {
-                "attempt":
-                    attempt,
-
-                "diagnosis":
-                    diagnosis,
-
-                "repair":
-                    repair,
+            failure = {
+                "stage": "FACTORY_INSPECTION",
+                "result": inspection,
             }
 
+            repair = self.repair_failure(
+                failure,
+                state,
+            )
+
             attempts.append(
-                record
+                {
+                    "attempt": attempt,
+                    "failure": failure,
+                    "repair": repair,
+                }
+            )
+
+            self.dashboard.update(
+                status="TESTING",
+                operation_id=self.operation_id,
+                attempt=attempt,
+            )
+
+            recheck = self.inspect_factory()
+
+            self._event(
+                state,
+                "REPAIR_RECHECK",
+                recheck,
+            )
+
+            if recheck.get("success"):
+                return {
+                    "success": True,
+                    "status": (
+                        "REPAIR_VERIFIED"
+                    ),
+                    "attempt": attempt,
+                    "repair": repair,
+                    "inspection": recheck,
+                    "attempts": attempts,
+                }
+
+            if not repair.get("success"):
+                return {
+                    "success": False,
+                    "status": repair.get(
+                        "status",
+                        "AUTONOMOUS_REPAIR_FAILED",
+                    ),
+                    "repair": repair,
+                    "inspection": recheck,
+                    "attempts": attempts,
+                }
+
+        return {
+            "success": False,
+            "status": (
+                "MAX_AUTONOMOUS_REPAIR_"
+                "ATTEMPTS_REACHED"
+            ),
+            "attempts": attempts,
+            "inspection":
+                self.inspect_factory(),
+        }
+
+    # --------------------------------------------------------
+    # GENERIC CAPABILITY
+    # --------------------------------------------------------
+
+    def execute_routed(
+        self,
+        command: str,
+        request: Dict[str, Any],
+        state: MastermindState,
+    ) -> Dict[str, Any]:
+
+        command_type = str(
+            request.get("type")
+            or "GENERAL_OWNER_COMMAND"
+        ).upper()
+
+        route = self.router.route(
+            command_type
+        )
+
+        self._event(
+            state,
+            "CAPABILITY_ROUTE",
+            route,
+        )
+
+        if not route.get("success"):
+            return {
+                "success": False,
+                "status": (
+                    "CAPABILITY_NOT_CONNECTED"
+                ),
+                "command_type": command_type,
+                "route": route,
+            }
+
+        failures = []
+
+        for provider in route["candidates"]:
+
+            result = (
+                self.component_executor
+                .execute_provider(
+                    provider,
+                    command,
+                    request,
+                    self.operation_id,
+                )
             )
 
             self._event(
                 state,
-                "AUTONOMOUS_REPAIR_ATTEMPT",
-                record,
+                "COMPONENT_RESULT",
+                result,
             )
 
-            if repair.get(
-                "success"
-            ) is not True:
+            if result.get("success"):
                 return {
-                    "success":
-                        False,
-
-                    "status":
-                        repair.get(
-                            "status",
-                            "AUTONOMOUS_REPAIR_FAILED",
-                        ),
-
-                    "attempt":
-                        attempt,
-
-                    "attempts":
-                        attempts,
-
-                    "diagnosis":
-                        diagnosis,
-
-                    "repair":
-                        repair,
-
-                    "factory":
-                        inspection,
+                    "success": True,
+                    "status": (
+                        "COMMAND_EXECUTED_AND_VERIFIED"
+                    ),
+                    "provider": provider,
+                    "result": result,
                 }
 
-        final_inspection = (
-            self.inspect_factory()
-        )
+            failures.append(
+                {
+                    "provider": provider,
+                    "result": result,
+                }
+            )
 
         return {
-            "success":
-                final_inspection.get(
-                    "success"
-                ) is True,
-
-            "status":
-                (
-                    "FACTORY_REPAIR_VERIFIED"
-                    if final_inspection.get(
-                        "success"
-                    ) is True
-                    else
-                    "MAX_AUTONOMOUS_REPAIR_ATTEMPTS_REACHED"
-                ),
-
-            "attempts":
-                attempts,
-
-            "factory":
-                final_inspection,
+            "success": False,
+            "status": (
+                "ALL_CAPABILITY_PROVIDERS_FAILED"
+            ),
+            "failures": failures,
         }
 
+    # --------------------------------------------------------
+    # GENERAL OWNER COMMAND
+    # --------------------------------------------------------
 
-    # ========================================================
-    # GAME
-    # ========================================================
-
-    def _run_create_game(
+    def execute_general_owner_command(
         self,
+        command: str,
         request: Dict[str, Any],
         state: MastermindState,
     ) -> Dict[str, Any]:
-        inspection = (
-            self.inspect_factory()
+
+        # General commands are not rejected merely
+        # because no static keyword exists.
+        #
+        # First ask orchestration-capable discovered
+        # components. If none exist, return a truthful
+        # OWNER_ACTION_REQUIRED / capability state.
+
+        providers = (
+            self.registry.providers(
+                "ORCHESTRATION"
+            )
+            + self.registry.providers(
+                "OWNER_COMMAND"
+            )
+            + self.registry.providers(
+                "RUNTIME"
+            )
         )
 
-        self._event(
-            state,
-            "GAME_PRE_INSPECTION",
-            inspection,
-        )
+        unique = []
+        seen = set()
 
-        if inspection.get(
-            "success"
-        ) is not True:
-            repair = (
-                self.repair_factory(
-                    state
+        for provider in providers:
+            key = (
+                provider["path"],
+                tuple(
+                    provider.get(
+                        "entrypoints",
+                        []
+                    )
+                ),
+            )
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+
+            if (
+                provider.get("importable")
+                and provider.get("entrypoints")
+            ):
+                unique.append(provider)
+
+        if not unique:
+            return {
+                "success": False,
+                "status": (
+                    "OWNER_ACTION_REQUIRED"
+                ),
+                "message": (
+                    "No real discovered orchestration "
+                    "provider can execute this command."
+                ),
+                "available_capabilities":
+                    sorted(
+                        self.registry.registry.keys()
+                    ),
+            }
+
+        failures = []
+
+        for provider in unique:
+
+            result = (
+                self.component_executor
+                .execute_provider(
+                    provider,
+                    command,
+                    request,
+                    self.operation_id,
                 )
             )
 
-            if repair.get(
-                "success"
-            ) is not True:
+            self._event(
+                state,
+                "GENERAL_COMMAND_PROVIDER",
+                result,
+            )
+
+            if result.get("success"):
                 return {
-                    "success":
-                        False,
-
-                    "status":
-                        "FACTORY_NOT_READY",
-
-                    "inspection":
-                        inspection,
-
-                    "repair":
-                        repair,
+                    "success": True,
+                    "status": (
+                        "GENERAL_COMMAND_COMPLETED"
+                    ),
+                    "provider": provider,
+                    "result": result,
                 }
 
-        executor_result = (
-            self.game_executor
-            .execute(
-                request,
-                self.operation_id,
+            failures.append(
+                {
+                    "provider": provider,
+                    "result": result,
+                }
             )
-        )
-
-        self._event(
-            state,
-            "GAME_EXECUTOR_RESULT",
-            executor_result,
-        )
-
-        if executor_result.get(
-            "success"
-        ) is not True:
-            return {
-                "success":
-                    False,
-
-                "status":
-                    "REAL_GAME_EXECUTION_FAILED",
-
-                "executor":
-                    executor_result,
-            }
-
-        artifact_result = (
-            self.artifact_verifier
-            .verify(
-                executor_result
-            )
-        )
-
-        self._event(
-            state,
-            "ARTIFACT_VERIFICATION",
-            artifact_result,
-        )
-
-        if artifact_result.get(
-            "success"
-        ) is not True:
-            return {
-                "success":
-                    False,
-
-                "status":
-                    "ARTIFACT_VERIFICATION_FAILED",
-
-                "executor":
-                    executor_result,
-
-                "artifact_verification":
-                    artifact_result,
-            }
-
-        artifact = str(
-            artifact_result[
-                "artifact"
-            ]
-        )
-
-        platform_result = (
-            self.platform
-            .publish(
-                artifact,
-                request,
-                self.operation_id,
-            )
-        )
-
-        self._event(
-            state,
-            "PLATFORM_PUBLISH_RESULT",
-            platform_result,
-        )
-
-        if platform_result.get(
-            "success"
-        ) is not True:
-            return {
-                "success":
-                    False,
-
-                "status":
-                    "PLATFORM_PUBLISH_FAILED",
-
-                "artifact":
-                    artifact,
-
-                "platform":
-                    platform_result,
-            }
-
-        publication = (
-            self.publication_verifier
-            .verify(
-                platform_result
-            )
-        )
-
-        self._event(
-            state,
-            "PUBLICATION_VERIFICATION",
-            publication,
-        )
-
-        if publication.get(
-            "success"
-        ) is not True:
-            return {
-                "success":
-                    False,
-
-                "status":
-                    "FINAL_PUBLICATION_VALIDATION_FAILED",
-
-                "artifact":
-                    artifact,
-
-                "platform":
-                    platform_result,
-
-                "publication":
-                    publication,
-            }
 
         return {
-            "success":
-                True,
-
-            "status":
-                "GAME_BUILT_AND_PUBLISHED",
-
-            "operation_id":
-                self.operation_id,
-
-            "artifact":
-                artifact,
-
-            "executor":
-                executor_result,
-
-            "artifact_verification":
-                artifact_result,
-
-            "platform":
-                platform_result,
-
-            "publication":
-                publication,
-
-            "public_url":
-                publication.get(
-                    "public_url"
-                ),
-
-            "game_path":
-                publication.get(
-                    "game_path"
-                ),
+            "success": False,
+            "status": (
+                "GENERAL_COMMAND_EXECUTION_FAILED"
+            ),
+            "failures": failures,
         }
 
-
-    # ========================================================
-    # CONTENT / MEDIA / SOCIAL
-    # ========================================================
-
-    def _run_content(
-        self,
-        command: str,
-        request: Dict[str, Any],
-        state: MastermindState,
-    ) -> Dict[str, Any]:
-        values = {
-            "command":
-                command,
-
-            "request":
-                request,
-
-            "payload":
-                request,
-
-            "job_id":
-                self.operation_id,
-
-            "operation_id":
-                self.operation_id,
-
-            "owner":
-                self.owner,
-
-            "output_root":
-                str(
-                    OUTPUT_DIR
-                ),
-        }
-
-        result = (
-            self.content_factory
-            .execute(
-                values
-            )
-        )
-
-        self._event(
-            state,
-            "CONTENT_MEDIA_RESULT",
-            result,
-        )
-
-        if result.get(
-            "success"
-        ) is not True:
-            return {
-                "success":
-                    False,
-
-                "status":
-                    "CONTENT_MEDIA_EXECUTION_FAILED",
-
-                "component":
-                    result,
-            }
-
-        return {
-            "success":
-                True,
-
-            "status":
-                "CONTENT_MEDIA_COMPLETED",
-
-            "operation_id":
-                self.operation_id,
-
-            "result":
-                result,
-        }
-
-
-    # ========================================================
-    # RUNTIME
-    # ========================================================
-
-    def _run_runtime(
-        self,
-        command: str,
-        request: Dict[str, Any],
-        state: MastermindState,
-    ) -> Dict[str, Any]:
-        values = {
-            "command":
-                command,
-
-            "request":
-                request,
-
-            "payload":
-                request,
-
-            "job_id":
-                self.operation_id,
-
-            "operation_id":
-                self.operation_id,
-
-            "owner":
-                self.owner,
-        }
-
-        result = (
-            self.runtime
-            .execute(
-                values
-            )
-        )
-
-        self._event(
-            state,
-            "FULL_RUNTIME_RESULT",
-            result,
-        )
-
-        if result.get(
-            "success"
-        ) is not True:
-            return {
-                "success":
-                    False,
-
-                "status":
-                    "FULL_RUNTIME_EXECUTION_FAILED",
-
-                "runtime":
-                    result,
-            }
-
-        return {
-            "success":
-                True,
-
-            "status":
-                "FULL_RUNTIME_COMPLETED",
-
-            "operation_id":
-                self.operation_id,
-
-            "runtime":
-                result,
-        }
-
-
-    # ========================================================
-    # OWNER COMMAND
-    # ========================================================
-
-    def _run_owner_command(
-        self,
-        command: str,
-        request: Dict[str, Any],
-        state: MastermindState,
-    ) -> Dict[str, Any]:
-        values = {
-            "command":
-                command,
-
-            "request":
-                request,
-
-            "payload":
-                request,
-
-            "job_id":
-                self.operation_id,
-
-            "operation_id":
-                self.operation_id,
-
-            "owner":
-                self.owner,
-        }
-
-        owner_result = (
-            self.owner_center
-            .execute(
-                values
-            )
-        )
-
-        self._event(
-            state,
-            "OWNER_COMMAND_CENTER_RESULT",
-            owner_result,
-        )
-
-        if owner_result.get(
-            "success"
-        ) is True:
-            return {
-                "success":
-                    True,
-
-                "status":
-                    "OWNER_COMMAND_COMPLETED",
-
-                "operation_id":
-                    self.operation_id,
-
-                "owner_center":
-                    owner_result,
-            }
-
-        orchestrator_result = (
-            self.orchestrator
-            .execute(
-                values
-            )
-        )
-
-        self._event(
-            state,
-            "ORCHESTRATOR_RESULT",
-            orchestrator_result,
-        )
-
-        if orchestrator_result.get(
-            "success"
-        ) is True:
-            return {
-                "success":
-                    True,
-
-                "status":
-                    "OWNER_COMMAND_ORCHESTRATED",
-
-                "operation_id":
-                    self.operation_id,
-
-                "owner_center":
-                    owner_result,
-
-                "orchestrator":
-                    orchestrator_result,
-            }
-
-        return {
-            "success":
-                False,
-
-            "status":
-                "OWNER_COMMAND_NOT_EXECUTED",
-
-            "operation_id":
-                self.operation_id,
-
-            "owner_center":
-                owner_result,
-
-            "orchestrator":
-                orchestrator_result,
-        }
-
-
-    # ========================================================
+    # --------------------------------------------------------
     # MAIN RUN
-    # ========================================================
+    # --------------------------------------------------------
 
     def run(
         self,
@@ -4330,70 +3726,66 @@ class Mastermind:
         output_root: Optional[str] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
+
         if owner:
-            self.owner = str(
-                owner
-            )
+            self.owner = owner
 
         if job_id:
-            self.operation_id = str(
-                job_id
+            self.operation_id = str(job_id)
+
+            self.logger = AuditLogger(
+                self.operation_id
             )
 
-            self.logger = (
-                AuditLogger(
-                    self.operation_id
+            self.ai = LocalAIAdapter(
+                self.logger
+            )
+
+            self.security = SecurityCenter(
+                self.logger
+            )
+
+            self.legal = (
+                ElectronicLegalAssistant(
+                    self.ai,
+                    self.logger,
                 )
+            )
+
+            self.dashboard = OwnerDashboard(
+                self.security
             )
 
             self.repair_engine = (
                 AutonomousRepairEngine(
                     self.operation_id,
                     self.logger,
+                    self.python_checker,
                 )
             )
 
         supplied_request = (
             request
-            or
-            payload
-            or
-            {}
+            or payload
+            or {}
         )
 
         if not command:
             command = str(
-                supplied_request.get(
-                    "command"
-                )
-                or
-                supplied_request.get(
+                supplied_request.get("command")
+                or supplied_request.get(
                     "request"
                 )
-                or
-                supplied_request.get(
+                or supplied_request.get(
                     "description"
                 )
-                or
-                ""
+                or ""
             ).strip()
 
         if not command:
             return {
-                "success":
-                    False,
-
-                "status":
-                    "EMPTY_OWNER_COMMAND",
-
-                "system":
-                    SYSTEM_NAME,
-
-                "mastermind":
-                    MASTERMIND_NAME,
-
-                "version":
-                    VERSION,
+                "success": False,
+                "status": "EMPTY_COMMAND",
             }
 
         normalized = (
@@ -4403,224 +3795,295 @@ class Mastermind:
             )
         )
 
-        route = (
-            self.classifier
-            .classify(
-                command,
-                normalized,
-            )
-        )
-
-        normalized[
-            "type"
-        ] = route
+        request_type = str(
+            normalized.get("type")
+            or "GENERAL_OWNER_COMMAND"
+        ).upper()
 
         state = MastermindState(
-            operation_id=
-                self.operation_id,
-
-            owner=
-                self.owner,
-
-            command=
-                command,
-
-            started_at=
-                utc_now(),
-
-            updated_at=
-                utc_now(),
-
-            status=
-                "RECEIVED",
-
-            route=
-                route,
+            operation_id=self.operation_id,
+            owner=self.owner,
+            command=command,
+            started_at=utc_now(),
+            updated_at=utc_now(),
+            status="RECEIVED",
+            command_type=request_type,
         )
 
-        state.plan = (
-            self.planner
-            .plan(
-                route
-            )
+        state.plan = self.build_plan(
+            normalized
         )
 
-        self._save_state(
-            state
+        self._save_state(state)
+
+        self.dashboard.update(
+            system=SYSTEM_NAME,
+            mastermind=MASTERMIND_NAME,
+            version=VERSION,
+            status="RUNNING",
+            operation_id=self.operation_id,
+            command=command,
+            command_type=request_type,
+            started_at=state.started_at,
+            plan=state.plan,
         )
 
         self.logger.log(
             "OWNER_OBJECTIVE_RECEIVED",
             {
-                "command":
-                    command,
-
-                "route":
-                    route,
-
-                "request":
-                    normalized,
+                "command": command,
+                "request": normalized,
             },
         )
 
         try:
-            state.status = (
-                "EXECUTING"
-            )
 
-            self._save_state(
-                state
-            )
+            self.refresh_registry()
 
-            if route == "CREATE_GAME":
-                result = (
-                    self._run_create_game(
-                        normalized,
-                        state,
-                    )
+            # --------------------------------------------
+            # CONTENT SAFETY BEFORE PUBLIC CONTENT ACTIONS
+            # --------------------------------------------
+
+            if request_type in {
+                "CONTENT",
+                "SOCIAL",
+                "LIVE",
+                "ADS",
+            }:
+                safety = (
+                    self.content_policy
+                    .inspect_text(command)
                 )
 
-            elif route == "CONTENT":
-                result = (
-                    self._run_content(
-                        command,
-                        normalized,
-                        state,
-                    )
+                self._event(
+                    state,
+                    "CONTENT_SAFETY_CHECK",
+                    safety,
                 )
 
-            elif route == "STATUS":
+                if not safety.get("success"):
+                    result = {
+                        "success": False,
+                        "status": (
+                            "CONTENT_POLICY_BLOCKED"
+                        ),
+                        "policy": safety,
+                    }
+
+                    state.result = result
+                    state.status = (
+                        result["status"]
+                    )
+                    state.success = False
+
+                    self._save_state(state)
+
+                    self.dashboard.update(
+                        status="FAILED",
+                        operation_id=
+                            self.operation_id,
+                        result=result,
+                    )
+
+                    return result
+
+            # --------------------------------------------
+            # STATUS
+            # --------------------------------------------
+
+            if request_type == "STATUS":
+
+                result = {
+                    "success": True,
+                    "status": (
+                        "STATUS_RETRIEVED"
+                    ),
+                    "dashboard":
+                        self.dashboard.snapshot(),
+                    "factory":
+                        self.inspect_factory(),
+                }
+
+            # --------------------------------------------
+            # INSPECTION / REPAIR
+            # --------------------------------------------
+
+            elif request_type in {
+                "REPAIR",
+                "INSPECT",
+            }:
+                result = self.run_repair_cycle(
+                    state
+                )
+
+            # --------------------------------------------
+            # LEGAL
+            # --------------------------------------------
+
+            elif request_type == "LEGAL":
+                result = self.legal.execute(
+                    command,
+                    normalized,
+                )
+
+            # --------------------------------------------
+            # SECURITY
+            # --------------------------------------------
+
+            elif request_type == "SECURITY":
+
                 inspection = (
                     self.inspect_factory()
                 )
 
                 result = {
-                    "success":
-                        inspection.get(
-                            "success"
-                        ) is True,
-
-                    "status":
-                        (
-                            "FACTORY_HEALTHY"
-                            if inspection.get(
-                                "success"
-                            ) is True
-                            else
-                            "FACTORY_UNHEALTHY"
-                        ),
-
-                    "operation_id":
-                        self.operation_id,
-
-                    "factory":
-                        inspection,
+                    "success": True,
+                    "status": (
+                        "SECURITY_STATUS_RETRIEVED"
+                    ),
+                    "recent_events":
+                        self.security.recent(100),
+                    "factory": inspection,
                 }
 
-            elif route == "DIAGNOSE":
-                inspection = (
-                    self.inspect_factory()
-                )
+            # --------------------------------------------
+            # GAME
+            # --------------------------------------------
 
-                diagnosis = (
-                    self.diagnose_inspection(
-                        inspection
-                    )
-                )
+            elif request_type == "CREATE_GAME":
 
-                result = {
-                    "success":
-                        inspection.get(
-                            "success"
-                        ) is True,
-
-                    "status":
-                        (
-                            "DIAGNOSIS_CLEAN"
-                            if inspection.get(
-                                "success"
-                            ) is True
-                            else
-                            "DIAGNOSIS_FOUND_FAILURES"
-                        ),
-
-                    "operation_id":
+                self.dashboard.update(
+                    status="RUNNING",
+                    stage="BUILD",
+                    operation_id=
                         self.operation_id,
-
-                    "factory":
-                        inspection,
-
-                    "diagnosis":
-                        diagnosis,
-                }
-
-            elif route == "REPAIR":
-                result = (
-                    self.repair_factory(
-                        state
-                    )
                 )
 
-                result.setdefault(
-                    "operation_id",
-                    self.operation_id,
-                )
-
-            elif route == "RUNTIME":
                 result = (
-                    self._run_runtime(
+                    self.game_pipeline.run(
                         command,
                         normalized,
-                        state,
+                        self.operation_id,
                     )
                 )
+
+                if not result.get("success"):
+
+                    repair = (
+                        self.repair_failure(
+                            result,
+                            state,
+                        )
+                    )
+
+                    if repair.get("success"):
+
+                        self.refresh_registry()
+
+                        result = (
+                            self.game_pipeline.run(
+                                command,
+                                normalized,
+                                self.operation_id,
+                            )
+                        )
+
+            # --------------------------------------------
+            # KNOWN ROUTED CAPABILITIES
+            # --------------------------------------------
+
+            elif request_type in {
+                "CONTENT",
+                "SOCIAL",
+                "LIVE",
+                "PAYMENTS",
+                "ADS",
+            }:
+
+                result = self.execute_routed(
+                    command,
+                    normalized,
+                    state,
+                )
+
+                if not result.get("success"):
+
+                    repair = (
+                        self.repair_failure(
+                            result,
+                            state,
+                        )
+                    )
+
+                    if repair.get("success"):
+                        self.refresh_registry()
+
+                        result = (
+                            self.execute_routed(
+                                command,
+                                normalized,
+                                state,
+                            )
+                        )
+
+            # --------------------------------------------
+            # GENERAL OWNER OBJECTIVE
+            # --------------------------------------------
 
             else:
+
                 result = (
-                    self._run_owner_command(
+                    self.execute_general_owner_command(
                         command,
                         normalized,
                         state,
                     )
                 )
+
+            # --------------------------------------------
+            # FINAL STATE
+            # --------------------------------------------
 
             state.result = result
 
-            state.success = (
-                result.get(
-                    "success"
-                )
-                is True
+            state.success = bool(
+                result.get("success")
             )
 
             state.status = str(
-                result.get(
-                    "status"
-                )
-                or
-                (
-                    "COMPLETED"
+                result.get("status")
+                or (
+                    "VERIFIED"
                     if state.success
-                    else
-                    "FAILED"
+                    else "FAILED"
                 )
             )
 
             if not state.success:
                 state.error = str(
-                    result.get(
-                        "error"
-                    )
-                    or
-                    result.get(
-                        "status"
-                    )
-                    or
-                    "UNKNOWN_FAILURE"
+                    result.get("error")
+                    or result.get("status")
+                    or "UNKNOWN_FAILURE"
                 )
 
-            self._save_state(
-                state
+            self._save_state(state)
+
+            self.dashboard.update(
+                status=(
+                    "VERIFIED"
+                    if state.success
+                    else "FAILED"
+                ),
+                operation_id=
+                    self.operation_id,
+                command=command,
+                command_type=request_type,
+                result=result,
+                finished_at=utc_now(),
+                available_capabilities=
+                    sorted(
+                        self.registry.registry.keys()
+                    ),
             )
 
             self.logger.log(
@@ -4631,47 +4094,34 @@ class Mastermind:
             return result
 
         except Exception as error:
+
             result = {
-                "success":
-                    False,
-
-                "status":
-                    "MASTERMIND_EXCEPTION",
-
-                "system":
-                    SYSTEM_NAME,
-
-                "mastermind":
-                    MASTERMIND_NAME,
-
-                "version":
-                    VERSION,
-
+                "success": False,
+                "status": (
+                    "MASTERMIND_EXCEPTION"
+                ),
                 "operation_id":
                     self.operation_id,
-
-                "route":
-                    route,
-
-                "error":
-                    (
-                        f"{type(error).__name__}: "
-                        f"{error}"
-                    ),
-
+                "error": (
+                    f"{type(error).__name__}: "
+                    f"{error}"
+                ),
                 "traceback":
                     traceback.format_exc(),
             }
 
             state.success = False
             state.status = "FAILED"
-            state.error = result[
-                "error"
-            ]
+            state.error = result["error"]
             state.result = result
 
-            self._save_state(
-                state
+            self._save_state(state)
+
+            self.dashboard.update(
+                status="FAILED",
+                operation_id=
+                    self.operation_id,
+                result=result,
             )
 
             self.logger.log(
@@ -4680,6 +4130,76 @@ class Mastermind:
             )
 
             return result
+
+
+# ============================================================
+# CONTINUOUS MONITOR
+# ============================================================
+
+class ContinuousMonitor:
+
+    def __init__(
+        self,
+        owner: str = DEFAULT_OWNER,
+        interval: int = MONITOR_INTERVAL,
+    ):
+        self.owner = owner
+        self.interval = max(
+            30,
+            int(interval),
+        )
+
+        self.stop_event = (
+            threading.Event()
+        )
+
+    def stop(self) -> None:
+        self.stop_event.set()
+
+    def run_forever(self) -> None:
+
+        while not self.stop_event.is_set():
+
+            mastermind = Mastermind(
+                owner=self.owner
+            )
+
+            result = (
+                mastermind.inspect_factory()
+            )
+
+            write_json(
+                MONITOR_DIR / "latest.json",
+                {
+                    "time": utc_now(),
+                    "result": result,
+                },
+            )
+
+            if not result.get("success"):
+
+                repair_state = (
+                    MastermindState(
+                        operation_id=
+                            mastermind.operation_id,
+                        owner=self.owner,
+                        command=(
+                            "AUTONOMOUS_MONITOR_REPAIR"
+                        ),
+                        started_at=utc_now(),
+                        updated_at=utc_now(),
+                        status="DIAGNOSING",
+                        command_type="REPAIR",
+                    )
+                )
+
+                mastermind.run_repair_cycle(
+                    repair_state
+                )
+
+            self.stop_event.wait(
+                self.interval
+            )
 
 
 # ============================================================
@@ -4699,10 +4219,9 @@ def execute_request(
     output_root: Optional[str] = None,
     **kwargs: Any,
 ) -> Dict[str, Any]:
-    mastermind = (
-        Mastermind(
-            owner=owner
-        )
+
+    mastermind = Mastermind(
+        owner=owner
     )
 
     return mastermind.run(
@@ -4716,32 +4235,16 @@ def execute_request(
     )
 
 
-# ============================================================
-# COMPATIBILITY API
-# ============================================================
-
 def process_game_request(
     **kwargs: Any,
 ) -> Dict[str, Any]:
-    """
-    Compatibility with majd_ai_agent.py.
-
-    Important:
-    This function does NOT force CREATE_GAME unless
-    the supplied request is actually a game request.
-    """
-
-    return execute_request(
-        **kwargs
-    )
+    return execute_request(**kwargs)
 
 
 def process_request(
     **kwargs: Any,
 ) -> Dict[str, Any]:
-    return execute_request(
-        **kwargs
-    )
+    return execute_request(**kwargs)
 
 
 def execute_game_request(
@@ -4750,28 +4253,16 @@ def execute_game_request(
     owner: str = DEFAULT_OWNER,
     **kwargs: Any,
 ) -> Dict[str, Any]:
-    data = dict(
-        request
-    )
 
-    data[
-        "type"
-    ] = "CREATE_GAME"
+    data = dict(request)
+
+    data["type"] = "CREATE_GAME"
 
     command = str(
-        data.get(
-            "command"
-        )
-        or
-        data.get(
-            "request"
-        )
-        or
-        data.get(
-            "description"
-        )
-        or
-        "CREATE GAME"
+        data.get("command")
+        or data.get("request")
+        or data.get("description")
+        or ""
     )
 
     return execute_request(
@@ -4795,28 +4286,7 @@ def run(
     owner: str = DEFAULT_OWNER,
     **kwargs: Any,
 ) -> Dict[str, Any]:
-    return execute_request(
-        command=command,
-        request=request,
-        payload=payload,
-        job_id=job_id,
-        owner=owner,
-        **kwargs,
-    )
 
-
-def execute(
-    command: str = "",
-    request: Optional[
-        Dict[str, Any]
-    ] = None,
-    payload: Optional[
-        Dict[str, Any]
-    ] = None,
-    job_id: Optional[str] = None,
-    owner: str = DEFAULT_OWNER,
-    **kwargs: Any,
-) -> Dict[str, Any]:
     return execute_request(
         command=command,
         request=request,
@@ -4832,12 +4302,11 @@ def execute(
 # ============================================================
 
 def main() -> int:
-    import argparse
 
     parser = argparse.ArgumentParser(
         description=(
-            "MAJD SOVEREIGN "
-            "AUTONOMOUS MASTERMIND"
+            "MAJD SOVEREIGN AUTONOMOUS "
+            "MASTERMIND"
         )
     )
 
@@ -4862,35 +4331,38 @@ def main() -> int:
         action="store_true",
     )
 
+    parser.add_argument(
+        "--discover",
+        action="store_true",
+    )
+
+    parser.add_argument(
+        "--capabilities",
+        action="store_true",
+    )
+
+    parser.add_argument(
+        "--monitor",
+        action="store_true",
+    )
+
     args = parser.parse_args()
 
     if args.status:
+
+        mastermind = Mastermind(
+            owner=args.owner
+        )
+
         result = {
-            "success":
-                True,
-
-            "system":
-                SYSTEM_NAME,
-
-            "mastermind":
-                MASTERMIND_NAME,
-
-            "version":
-                VERSION,
-
-            "root":
-                str(
-                    ROOT_DIR
-                ),
-
-            "local_ai":
-                bool(
-                    LOCAL_AI_URL
-                ),
-
-            "core":
-                ProjectInspector()
-                .core_status(),
+            "success": True,
+            "system": SYSTEM_NAME,
+            "mastermind": MASTERMIND_NAME,
+            "version": VERSION,
+            "root": str(ROOT_DIR),
+            "ai": mastermind.ai.status(),
+            "dashboard":
+                mastermind.dashboard.snapshot(),
         }
 
         print(
@@ -4904,35 +4376,54 @@ def main() -> int:
 
         return 0
 
-    if args.inspect:
-        mastermind = (
-            Mastermind(
-                owner=args.owner
+    if args.discover:
+
+        result = (
+            ComponentDiscovery()
+            .discover(
+                runtime_import=True
             )
         )
 
-        try:
-            result = (
-                mastermind
-                .inspect_factory()
+        print(
+            json.dumps(
+                result,
+                ensure_ascii=False,
+                indent=2,
+                default=str,
             )
-        except Exception as error:
-            result = {
-                "success":
-                    False,
+        )
 
-                "status":
-                    "INSPECTION_EXCEPTION",
+        return 0
 
-                "error":
-                    (
-                        f"{type(error).__name__}: "
-                        f"{error}"
-                    ),
+    if args.capabilities:
 
-                "traceback":
-                    traceback.format_exc(),
-            }
+        registry = CapabilityRegistry(
+            ComponentDiscovery()
+        )
+
+        result = registry.build()
+
+        print(
+            json.dumps(
+                result,
+                ensure_ascii=False,
+                indent=2,
+                default=str,
+            )
+        )
+
+        return 0
+
+    if args.inspect:
+
+        mastermind = Mastermind(
+            owner=args.owner
+        )
+
+        result = (
+            mastermind.inspect_factory()
+        )
 
         print(
             json.dumps(
@@ -4945,12 +4436,38 @@ def main() -> int:
 
         return (
             0
-            if result.get(
-                "success"
-            ) is True
-            else
-            1
+            if result.get("success")
+            else 1
         )
+
+    if args.monitor:
+
+        monitor = ContinuousMonitor(
+            owner=args.owner
+        )
+
+        print(
+            json.dumps(
+                {
+                    "success": True,
+                    "status": (
+                        "CONTINUOUS_MONITOR_STARTED"
+                    ),
+                    "interval_seconds":
+                        monitor.interval,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+
+        try:
+            monitor.run_forever()
+
+        except KeyboardInterrupt:
+            monitor.stop()
+
+        return 0
 
     command = " ".join(
         args.command
@@ -4961,10 +4478,8 @@ def main() -> int:
             "👑 OWNER > "
         ).strip()
 
-    mastermind = (
-        Mastermind(
-            owner=args.owner
-        )
+    mastermind = Mastermind(
+        owner=args.owner
     )
 
     result = mastermind.run(
@@ -4983,11 +4498,8 @@ def main() -> int:
 
     return (
         0
-        if result.get(
-            "success"
-        ) is True
-        else
-        1
+        if result.get("success")
+        else 1
     )
 
 
